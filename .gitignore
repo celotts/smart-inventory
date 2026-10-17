@@ -1,0 +1,3 @@
+git rm -r --cached node_modules __pycache__ 2>/dev/null || true
+git add .
+git commit -m "chore: actualizar .gitignore para backend, frontend y Docker"

@@ -1,0 +1,11 @@
+{
+  "name": "smart-inventory-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host"
+  },
+  "dependencies": {
+    "vite": "^5.0.0"
+  }
+}
