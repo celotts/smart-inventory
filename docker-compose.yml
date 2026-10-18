@@ -32,7 +32,7 @@ services:
       dockerfile: Dockerfile
     container_name: smart_inventory_backend
     ports:
-      - '5001:5000'
+      - '5002:5000'
     # `required: false` y no un `env_file: .env` a secas: sin esto, alguien
     # que clone el repo y corra `make up` sin copiar `.env.example` recibe un
     # error de compose sobre un archivo que nunca se le pidio crear.
@@ -75,7 +75,7 @@ services:
       dockerfile: Dockerfile
     container_name: smart_inventory_frontend
     ports:
-      - '5173:5173'
+      - '5175:80'
     depends_on:
       backend:
         condition: service_healthy
