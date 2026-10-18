@@ -1,7 +1,7 @@
 -- Transferencias entre ubicaciones
 CREATE TABLE IF NOT EXISTS transfers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    device_id UUID REFERENCES devices(id),
+    device_id INTEGER REFERENCES devices(id),
     from_location VARCHAR(128) NOT NULL,
     to_location VARCHAR(128) NOT NULL,
     requested_by UUID REFERENCES users(id),
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS transfers (
 -- Mantenimiento preventivo
 CREATE TABLE IF NOT EXISTS maintenance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    device_id UUID REFERENCES devices(id),
+    device_id INTEGER REFERENCES devices(id),
     tipo VARCHAR(64) NOT NULL,
     descripcion TEXT,
     scheduled_for DATE NOT NULL,
