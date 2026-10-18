@@ -137,7 +137,7 @@
     document.getElementById("loginForm").onsubmit = async (e) => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target));
-      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
       const msg = document.getElementById("loginMsg");
       try {
         const r = await fetch(base + "/api/auth/login", {
@@ -158,7 +158,7 @@
     };
 
     async function callOps(path) {
-      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
       const token = document.getElementById("token").value.trim();
       const r = await fetch(base + path, { headers: { "Authorization": "Bearer " + token } });
       const j = await r.json();
@@ -173,7 +173,7 @@
       if (!q) return;
       const box = document.getElementById("chatBox");
       box.innerHTML += `<div class="mb-1"><b>Tú:</b> ${q}</div>`;
-      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
       const token = document.getElementById("token").value.trim();
       try {
         const r = await fetch(base + "/api/ai/preguntar", {
@@ -192,7 +192,7 @@
 
     document.getElementById("reportBtn").onclick = async () => {
       const box = document.getElementById("chatBox");
-      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
       const token = document.getElementById("token").value.trim();
       box.innerHTML += `<div class="mb-1"><b>Sistema:</b> Generando reporte...</div>`;
       try {
