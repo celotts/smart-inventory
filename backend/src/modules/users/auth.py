@@ -29,7 +29,7 @@ Por eso, cuando el email no existe, se verifica igual contra un hash DUMMY.
 Cuesta lo mismo y devuelve lo mismo. Ver `_verificar_contra_dummy`.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -303,7 +303,7 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
                 "las sesiones: iniciá sesión de nuevo."
             )
 
-        if fila["expires_at"] <= datetime.now(UTC):
+        if fila["expires_at"] <= datetime.now(timezone.utc):
             transaccion.rollback()
             raise SesionInvalida("La sesión expiró. Volvé a iniciar sesión.")
 

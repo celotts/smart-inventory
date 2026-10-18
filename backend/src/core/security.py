@@ -34,7 +34,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import bcrypt
@@ -215,7 +215,7 @@ def crear_access_token(
     base en cada permiso) y el id de sesión (para poder revocar).
     """
     config = get_settings()
-    ahora = datetime.now(UTC)
+    ahora = datetime.now(timezone.utc)
     expira = ahora + timedelta(minutes=config.access_token_expire_minutes)
 
     # `str(user_id)` NO es cosmetico: psycopg2 devuelve las columnas UUID como
@@ -261,7 +261,7 @@ def crear_access_token(
 def crear_refresh_token(user_id: str) -> "tuple":
     """Devuelve (token, expira_en). El token va hasheado a la tabla."""
     config = get_settings()
-    ahora = datetime.now(UTC)
+    ahora = datetime.now(timezone.utc)
     expira = ahora + timedelta(days=config.refresh_token_expire_days)
 
     # Payload con datos generados en el JWT: el refresh token se verifica
