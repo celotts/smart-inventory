@@ -161,21 +161,30 @@ function mostrarVista(nombre, opciones = {}) {
 
 function pintarLogin() {
   cabecera.hidden = true;
-  reemplazar(
-    contenido,
-    vistaLogin({
-      alEntrar: async (datos) => {
-        usuario = datos.usuario ?? { role_name: datos.role_name };
-        // Se leen los permisos reales del servidor, no los del rol del JWT:
-        // el backend decide, y una copia aca se desincroniza en el primer
-        // cambio de permisos.
-        await cargarUsuario();
-        cabecera.hidden = false;
-        mostrarVista('escanear');
-        avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
-      },
-    }),
-  );
+  vistaActual?.destruir?.();
+  vistaActual = null;
+
+  // Se desenvuelve `elemento` igual que en `mostrarVista`: el login usa el
+  // mismo contrato `{ elemento, destruir? }` que las demas vistas.
+  //
+  // Sin el `?? login`, se insertaba el objeto entero y el cuerpo de la pagina
+  // quedaba con un literal "[object Object]" en vez del formulario. No lo
+  // detecta ningun test de unidad: solo se ve corriendo la app.
+  const login = vistaLogin({
+    alEntrar: async (datos) => {
+      usuario = datos.usuario ?? { role_name: datos.role_name };
+      // Se leen los permisos reales del servidor, no los del rol del JWT: el
+      // backend decide, y una copia aca se desincroniza en el primer cambio de
+      // permisos.
+      await cargarUsuario();
+      cabecera.hidden = false;
+      mostrarVista('escanear');
+      avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
+    },
+  });
+
+  vistaActual = login;
+  reemplazar(contenido, login.elemento ?? login);
 }
 
 async function cargarUsuario() {
