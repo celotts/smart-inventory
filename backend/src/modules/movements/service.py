@@ -1,0 +1,510 @@
+"""
+Registro de movimientos por escaneo.
+
+QUE ES UN ESCANEO, EN LA VIDA REAL
+----------------------------------
+Un operador escanea una etiqueta con el telefono, sin mirar la pantalla, y sigue
+caminando. En ese momento ocurren tres cosas que el sistema tiene que resolver:
+
+  1. IDEMPOTENCIA. La peticion sale dos veces: una vez porque la senal del
+     deposito es mala y el cliente reintenta, otra porque el operador aprieta el
+     boton de nuevo sin ver la respuesta. Sin proteccion quedan dos movimientos
+     y el conteo del dia da el doble.
+
+  2. GEO-VALIDACION. Dice donde esta el componente ahora. El GPS del telefono
+     lo dice el cliente, o sea que es un dato que puede estar equivocado por un
+     tunel, por la deriva de un sensor viejo o porque alguien lo manipulo a
+     proposito. Por eso se RECALCULA en el servidor contra las coordenadas de la
+     sede: no se confía en el numero que manda el telefono.
+
+  3. ESTADO. El escaneo mueve el componente de deposito a instalado, o de
+     instalado a deposito, o lo manda al taller. El estado del componente y el
+     registro del movimiento tienen que cambiar JUNTOS o ninguno de los dos: si
+     el movimiento se escribe y el estado no, el historial dice una cosa y la
+     pantalla dice otra.
+
+LAS TRES EN UNA TRANSACCION
+--------------------------
+Por eso todo va en `engine.begin()`: si el estado no se puede mover (el trigger
+de la maquina de estados lo rechaza), el movimiento tampoco se escribe. Un
+movimiento que existe sin cambio de estado es un componente que "esta en el
+taller" con la ultima visita registrada en el deposito.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
+from src.core.geo import CoordenadaInvalida, dentro_del_radio, normalizar_coordenada
+from src.modules.ai.executor import get_ai_engine
+from src.modules.devices import service as devices_service
+
+logger = logging.getLogger(__name__)
+
+# Que tipo de escaneo produce que estado. Es la MAQUINA DE ESTADOS, escrita
+# del lado del negocio.
+#
+# Por que esta tabla y no derivarla: el trigger de Postgres valida que la
+# transicion sea legal, pero no sabe que tipo de movimiento la origina. Si
+# "instalar" y "mandar al taller" dieran el mismo estado, la base no podria
+# distinguirlos. Acá queda escrito cual es cual, y el trigger es la segunda
+# linea de defensa.
+ESTADO_POR_MOVIMIENTO: dict[str, str] = {
+    "WAREHOUSE_ENTRY": "IN_WAREHOUSE",
+    "WAREHOUSE_REENTRY": "IN_WAREHOUSE",
+    "DISPOSAL": "PERMANENTLY_DISPOSED",
+    "OUT_TO_CLIENT": "IN_TRANSIT",
+    "INSTALLATION": "INSTALLED",
+    "REPLACEMENT": "IN_TRANSIT",
+    "WITHDRAWAL_TO_WORKSHOP": "IN_REPAIR",
+}
+
+# Los movimientos que exigen saber que equipo se reemplazo y por que. Es el
+# CHECK `ck_movement_replacement` del esquema, declarado aca para poder dar el
+# error antes de que lo de Postgres.
+REQUIERE_REEMPLAZO = {"REPLACEMENT"}
+
+
+class ErrorDeEscaneo(ValueError):
+    """La peticion de escaneo no es valida. 400."""
+
+
+class DispositivoNoEncontrado(LookupError):
+    """El codigo no resuelve a ningun componente. 404."""
+
+
+def _validar_uuid(valor: str, nombre: str) -> str:
+    """Valida un UUID de cliente antes de mandarlo a Postgres."""
+    try:
+        return str(uuid.UUID(str(valor)))
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise ErrorDeEscaneo(f"El {nombre} no es un UUID valido.") from exc
+
+
+def escanear(
+    *,
+    codigo: str,
+    tipo_movimiento: str,
+    client_scan_id: str,
+    user_id: str,
+    ubicacion_id: int | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    replaced_device_id: int | None = None,
+    replacement_reason: str | None = None,
+    observations: str | None = None,
+) -> dict[str, Any]:
+    """
+    Registra un escaneo. Idempotente por `client_scan_id`.
+
+    Devuelve siempre el mismo formato. `replay=True` indica que el `client_scan_id`
+    ya se habia procesado y que lo que se devuelve es el movimiento original: el
+    cliente puede mostrar "ya registrado" sin tener que distinguir el caso.
+    """
+    client_scan_id = _validar_uuid(client_scan_id, "client_scan_id")
+    user_id = _validar_uuid(user_id, "user_id")
+
+    if tipo_movimiento not in ESTADO_POR_MOVIMIENTO:
+        raise ErrorDeEscaneo(
+            f"Tipo de movimiento desconocido: {tipo_movimiento!r}. "
+            f"Validos: {', '.join(sorted(ESTADO_POR_MOVIMIENTO))}."
+        )
+
+    if tipo_movimiento in REQUIERE_REEMPLAZO and not replaced_device_id:
+        raise ErrorDeEscaneo(
+            "Un movimiento de reemplazo tiene que decir QUE componente se "
+            "reemplaza (replaced_device_id) y POR QUE (replacement_reason)."
+        )
+    if tipo_movimiento not in REQUIERE_REEMPLAZO and (replaced_device_id or replacement_reason):
+        raise ErrorDeEscaneo(
+            f"Un movimiento de tipo {tipo_movimiento} no lleva equipo reemplazado "
+            "ni motivo: solo REPLACEMENT los lleva."
+        )
+
+    # --- 0. Las coordenadas se validan ANTES de ir a la base -------------
+    #
+    # Solo la parte SINTACTICA (que sean numeros, que esten en rango). La
+    # comparacion contra la sede necesita leer `locations`, y esa va mas abajo.
+    #
+    # Va primero por una razon concreta: una latitud de 400 tiene que
+    # rechazarse antes de gastar una consulta en resolver el codigo. Si el
+    # chequeo va al final, el cliente recibe "no existe el componente" —o un
+    # 404 de una etiqueta que si existe— cuando lo que esta mal es el GPS. Es
+    # el error que manda al operador a revisar la etiqueta en vez del celular.
+    if latitude is not None or longitude is not None:
+        if latitude is None or longitude is None:
+            raise ErrorDeEscaneo(
+                "Falta una de las dos coordenadas. Si mandas la ubicacion del "
+                "escaneo, tiene que ir latitud Y longitud."
+            )
+        # `normalizar_coordenada` es la que rechaza NaN, infinito y los rangos.
+        normalizar_coordenada(latitude, longitude)
+
+    # --- 1. Resolucion del codigo ---------------------------------------
+    resolucion = devices_service.resolver_codigo(codigo)
+    if not resolucion["encontrado"]:
+        raise DispositivoNoEncontrado(
+            resolucion["motivo"] or "El codigo no corresponde a ningun componente."
+        )
+    dispositivo = resolucion["dispositivo"]
+    device_id = dispositivo["id"]
+
+    # --- 2. Idempotencia: si ya se proceso, se devuelve lo anterior --------
+    # Va ANTES de toda validacion geografica a proposito. Un reintento tiene que
+    # devolver SIEMPRE el mismo resultado, incluso si en el medio la senal
+    # empeoro: si el reintento calculara una distancia distinta y rejectara, el
+    # cliente veria un error en algo que ya se guardo.
+    engine = get_ai_engine()
+    with engine.connect() as conexion:
+        previo = conexion.execute(
+            text(
+                """
+                SELECT sr.movement_id, mh.movement_type, mh.movement_date
+                FROM scan_receipts sr
+                JOIN movement_history mh ON mh.id = sr.movement_id
+                WHERE sr.client_scan_id = :cid
+                """
+            ),
+            {"cid": client_scan_id},
+        ).mappings().first()
+
+    if previo:
+        return {
+            "replay": True,
+            "movement_id": previo["movement_id"],
+            "tipo_movimiento": previo["movement_type"],
+            "movimiento_date": previo["movement_date"],
+            "dispositivo": dispositivo,
+            "geo": {"dentro_del_radio": None, "distancia_metros": None},
+            "mensaje": "Este escaneo ya se habia registrado.",
+        }
+
+    # --- 3. Geo-validacion ------------------------------------------------
+    geo = _validar_geo(ubicacion_id, latitude, longitude)
+
+    # --- 4. Escritura: movimiento + estado, en UNA transaccion ------------
+    estado_destino = ESTADO_POR_MOVIMIENTO[tipo_movimiento]
+    es_deposito = estado_destino == "IN_WAREHOUSE"
+    origen = dispositivo["ubicacion_id"]
+
+    try:
+        with engine.begin() as conexion:
+            movimiento_id = conexion.execute(
+                text(
+                    """
+                    INSERT INTO movement_history (
+                        device_id, movement_type,
+                        origin_location_id, destination_location_id,
+                        replaced_device_id, replacement_reason,
+                        user_id, scan_latitude, scan_longitude,
+                        is_valid_location, observations
+                    )
+                    VALUES (
+                        :device_id, :tipo,
+                        :origen, :destino,
+                        :reemplazado, :motivo,
+                        :user_id, :lat, :lng,
+                        :dentro, :observaciones
+                    )
+                    RETURNING id
+                    """
+                ),
+                {
+                    "device_id": device_id,
+                    "tipo": tipo_movimiento,
+                    "origen": origen,
+                    "destino": ubicacion_id,
+                    "reemplazado": replaced_device_id,
+                    "motivo": replacement_reason,
+                    "user_id": user_id,
+                    "lat": latitude,
+                    "lng": longitude,
+                    "dentro": geo["dentro_del_radio"],
+                    "observaciones": observations,
+                },
+            ).scalar_one()
+
+            # El estado del componente cambia en la MISMA transaccion que el
+            # movimiento. Si el trigger de la maquina de estados lo rechaza, el
+            # INSERT de arriba tambien se deshace.
+            #
+            # `current_location_id` solo se toca si el movimiento dice adonde va.
+            # Un escaneo sin destino (una correccion, una revision) no debe
+            # borrar la ubicacion conocida del componente.
+            conexion.execute(
+                text(
+                    """
+                    UPDATE devices
+                    SET current_status = :estado,
+                        is_warehouse = :es_deposito,
+                        current_location_id = COALESCE(:destino, current_location_id)
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "estado": estado_destino,
+                    "es_deposito": es_deposito,
+                    "destino": ubicacion_id,
+                    "id": device_id,
+                },
+            )
+
+            # El recibo de idempotencia va ultimo: es lo que hace que el
+            # reintento funcione, y va en la misma transaccion para que no
+            # exista el caso "movimiento escrito, recibo no" — que deja el
+            # cliente sin forma de reconocer el reintento.
+            conexion.execute(
+                text(
+                    """
+                    INSERT INTO scan_receipts (client_scan_id, device_id, movement_id, user_id)
+                    VALUES (:cid, :device_id, :movement_id, :user_id)
+                    """
+                ),
+                {
+                    "cid": client_scan_id,
+                    "device_id": device_id,
+                    "movement_id": movimiento_id,
+                    "user_id": user_id,
+                },
+            )
+
+    except IntegrityError as exc:
+        # Dos reintentos que llegan SIMULTANEOS: los dos pasan el SELECT de
+        # idempotencia (ninguno lo escribio todavia) y los dos intentan
+        # insertar. El UNIQUE de `client_scan_id` resuelve: uno gana, el otro
+        # recibe el error. Se traduce a un replay en vez de un 500.
+        #
+        # Sin este manejo, un doble toque en el boton de escanear produce un
+        # 500 y el operador, que no sabe que ya se guardo, aprieta otra vez.
+        if "scan_receipts" in str(getattr(exc, "orig", exc)):
+            logger.info("Escaneo concurrente con el mismo client_scan_id: replay")
+            return {
+                "replay": True,
+                "movement_id": None,
+                "tipo_movimiento": tipo_movimiento,
+                "movimiento_date": None,
+                "dispositivo": dispositivo,
+                "geo": geo,
+                "mensaje": "Este escaneo ya se estaba registrando.",
+            }
+        raise
+
+    return {
+        "replay": False,
+        "movement_id": movimiento_id,
+        "tipo_movimiento": tipo_movimiento,
+        "movimiento_date": datetime.now(timezone.utc),
+        "dispositivo": dispositivo,
+        "geo": geo,
+        "mensaje": _mensaje_geo(geo),
+    }
+
+
+def _validar_geo(
+    ubicacion_id: int | None, latitude: float | None, longitude: float | None
+) -> dict[str, Any]:
+    """
+    Calcula si el escaneo ocurrio dentro del radio de la sede.
+
+    POR QUE SE RECALCULA Y NO SE CONFIA EN EL CLIENTE
+    ------------------------------------------------
+    Las coordenadas llegan del GPS del telefono, que es un dato del cliente: un
+    tunel, un sensor con deriva o alguien que quiere registrar un escaneo desde
+    la casa. La distancia se recalcula contra `locations.latitude/longitude`, y
+    lo que se guarda (`is_valid_location`) es el veredicto del servidor.
+
+    LO QUE SE HACE CUANDO NO HAY COORDENADAS
+    -----------------------------------------
+    `dentro_del_radio=None` y NO `False`. La diferencia es la que separa "no
+    estabas ahi" de "no se puede saber": un `False` sin coordenadas convierte
+    cada escaneo de un movil sin GPS (o con permiso denegado) en una
+    inspeccion, y el operador deja de mirar esa columna porque siempre dice lo
+    mismo.
+    """
+    if latitude is None and longitude is None:
+        return {"dentro_del_radio": None, "distancia_metros": None, "radio_metros": None}
+
+    if latitude is None or longitude is None:
+        raise ErrorDeEscaneo(
+            "Falta una de las dos coordenadas. Si mandas la ubicacion del "
+            "escaneo, tiene que ir latitud Y longitud."
+        )
+
+    # Se normaliza aca para que un NaN o una latitud de 400 salten con el error
+    # de geo, no con uno de Postgres tres capas mas abajo.
+    lat, lng = normalizar_coordenada(latitude, longitude)
+
+    if ubicacion_id is None:
+        return {"dentro_del_radio": None, "distancia_metros": None, "radio_metros": None}
+
+    engine = get_ai_engine()
+    with engine.connect() as conexion:
+        sede = conexion.execute(
+            text(
+                """
+                SELECT latitude, longitude, tolerance_radius_meters, store_name
+                FROM locations
+                WHERE id = :id AND is_active AND deleted_at IS NULL
+                """
+            ),
+            {"id": ubicacion_id},
+        ).mappings().first()
+
+    if sede is None:
+        raise ErrorDeEscaneo(
+            f"La ubicacion {ubicacion_id} no existe o esta dada de baja."
+        )
+
+    if sede["latitude"] is None or sede["longitude"] is None:
+        # La sede no tiene coordenadas cargadas. No se puede verificar nada, y
+        # decir "dentro" seria afirmar algo que no se sabe.
+        return {
+            "dentro_del_radio": None,
+            "distancia_metros": None,
+            "radio_metros": sede["tolerance_radius_meters"],
+            "sede_sin_coordenadas": sede["store_name"],
+        }
+
+    dentro, metros = dentro_del_radio(
+        lat, lng, sede["latitude"], sede["longitude"], sede["tolerance_radius_meters"]
+    )
+
+    return {
+        "dentro_del_radio": dentro,
+        "distancia_metros": metros,
+        "radio_metros": sede["tolerance_radius_meters"],
+        "sede": sede["store_name"],
+    }
+
+
+def _mensaje_geo(geo: dict[str, Any]) -> str:
+    """El texto que ve el operador, distinto segun que se haya podido saber."""
+    if geo.get("dentro_del_radio") is None:
+        if geo.get("sede_sin_coordenadas"):
+            return (
+                f"La sede '{geo['sede_sin_coordenadas']}' no tiene coordenadas "
+                "cargadas, asi que no se pudo validar donde estas. Cargalas en la sede."
+            )
+        return "Escaneo registrado. Sin coordenadas no se pudo validar la ubicacion."
+
+    if geo["dentro_del_radio"]:
+        return f"Escaneo registrado en sede ({geo['distancia_metros']} m del centro)."
+
+    return (
+        f"ATENCION: escaneo registrado a {geo['distancia_metros']} m de la sede, "
+        f"fuera del radio de {geo['radio_metros']} m. Queda marcado para revisar."
+    )
+
+
+def historial_dispositivo(device_id: int, limite: int = 50) -> list[dict[str, Any]]:
+    """
+    Movimientos de un componente, del mas nuevo al mas viejo.
+
+    ES EL "DONDE ESTUVE". Es la respuesta a la pregunta que el inventario no
+    puede dejar de dar: si un equipo desaparece, hay que poder decir por donde
+    paso.
+    """
+    with get_ai_engine().connect() as conexion:
+        filas = conexion.execute(
+            text(
+                """
+                SELECT
+                    mh.id,
+                    mh.movement_type,
+                    mh.movement_date,
+                    mh.scan_latitude,
+                    mh.scan_longitude,
+                    mh.is_valid_location,
+                    mh.observations,
+                    mh.replacement_reason,
+                    lo.store_name AS origen,
+                    ld.store_name AS destino,
+                    u.full_name    AS registrado_por,
+                    d.serial_number AS equipo_reemplazado
+                FROM movement_history mh
+                LEFT JOIN locations lo ON lo.id = mh.origin_location_id
+                LEFT JOIN locations ld ON ld.id = mh.destination_location_id
+                LEFT JOIN users u      ON u.id = mh.user_id
+                LEFT JOIN devices d    ON d.id = mh.replaced_device_id
+                WHERE mh.device_id = :id
+                ORDER BY mh.movement_date DESC, mh.id DESC
+                LIMIT :limite
+                """
+            ),
+            {"id": device_id, "limite": limite},
+        ).mappings().all()
+
+    return [dict(f) for f in filas]
+
+
+def listar_movimientos(
+    *,
+    device_id: int | None = None,
+    usuario_id: str | None = None,
+    desde: datetime | None = None,
+    limite: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Listado paginado de movimientos, para la pantalla de actividad."""
+    condiciones: list[str] = ["1=1"]
+    parametros: dict[str, Any] = {"limite": limite, "offset": offset}
+
+    if device_id:
+        condiciones.append("mh.device_id = :device_id")
+        parametros["device_id"] = device_id
+    if usuario_id:
+        condiciones.append("mh.user_id = :usuario_id")
+        parametros["usuario_id"] = usuario_id
+    if desde:
+        condiciones.append("mh.movement_date >= :desde")
+        parametros["desde"] = desde
+
+    where = " AND ".join(condiciones)
+
+    with get_ai_engine().connect() as conexion:
+        filas = conexion.execute(
+            text(
+                f"""
+                SELECT
+                    mh.id, mh.movement_type, mh.movement_date,
+                    mh.is_valid_location,
+                    d.serial_number, d.qr_code,
+                    lo.store_name AS origen, ld.store_name AS destino,
+                    u.full_name AS registrado_por
+                FROM movement_history mh
+                JOIN devices d ON d.id = mh.device_id
+                LEFT JOIN locations lo ON lo.id = mh.origin_location_id
+                LEFT JOIN locations ld ON ld.id = mh.destination_location_id
+                LEFT JOIN users u ON u.id = mh.user_id
+                WHERE {where}
+                ORDER BY mh.movement_date DESC, mh.id DESC
+                LIMIT :limite OFFSET :offset
+                """
+            ),
+            parametros,
+        ).mappings().all()
+
+        total = conexion.execute(
+            text(
+                f"""
+                SELECT COUNT(*) AS n
+                FROM movement_history mh
+                JOIN devices d ON d.id = mh.device_id
+                WHERE {where}
+                """
+            ),
+            parametros,
+        ).scalar_one()
+
+    return {
+        "items": [dict(f) for f in filas],
+        "total": int(total or 0),
+        "limit": limite,
+        "offset": offset,
+    }

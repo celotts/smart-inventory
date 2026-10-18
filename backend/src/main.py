@@ -57,6 +57,8 @@ engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=2, pool_pre_ping=
 from src.core.exceptions import register_exception_handlers
 from src.core.security import verificar_configuracion_de_secreto
 from src.modules.ai.router import router as ai_router
+from src.modules.devices.router import router as devices_router
+from src.modules.movements.router import router as movements_router
 from src.modules.users.router import router as auth_router
 from src.modules.users.router import usuarios_router
 from src.modules.operations.router import router as ops_router
@@ -67,6 +69,7 @@ verificar_configuracion_de_secreto()
 register_exception_handlers(app)
 
 from src.core.middleware import (
+    LoginRateLimitMiddleware,
     RateLimitMiddleware,
     RequestIdMiddleware,
     SecurityHeadersMiddleware,
@@ -76,12 +79,20 @@ from src.core.middleware import (
 configurar_cors(app)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIdMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=120, burst=30)
+# El orden importa. `add_middleware` los mete al PRINCIPIO de la pila, asi que
+# el ultimo agregado es el mas externo: el rate limit ve la request antes que
+# el parser de cuerpo y antes de que se abra la sesion. Un limite que se
+# verifica despues de validar el JWT no frena un ataque de fuerza bruta, que es
+# justo el caso para el que existe.
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(LoginRateLimitMiddleware)
 
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(usuarios_router)
 app.include_router(ops_router)
+app.include_router(devices_router)
+app.include_router(movements_router)
 
 
 @app.get("/health", tags=["operacion"])

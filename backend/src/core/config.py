@@ -122,6 +122,81 @@ class Settings(BaseSettings):
     # "SELECT ... FROM movement_history" sin filtro no debe tumbar la API.
     ai_query_timeout_seconds: float = 10.0
 
+    # --- CORS ------------------------------------------------------------
+    # Orígenes permitidos, separados por coma.
+    #
+    # ESTO ESTABA HARDCODEADO y era un agujero: en produccion el unico origen
+    # permitido era `https://smart-inventory.local`, un dominio que no existe.
+    # Con esa lista, un frontend desplegado en el dominio real no podia llamar
+    # a la API. Y el arreglo "mientras tanto, allow_origins=['*']" es
+    # justamente el agujero que hace que cualquiera pueda leer la respuesta de
+    # una API autenticada desde cualquier pagina.
+    #
+    # La lista correcta depende del despliegue, asi que no se adivina: se
+    # declara. Vacio significa "solo same-origin", que es lo correcto cuando el
+    # nginx sirve el front y la API desde el mismo dominio.
+    cors_origins: str = ""
+
+    # Redes de confianza para el rate limit y los logs.
+    #
+    # `X-Forwarded-For` lo pone cualquiera. Si el rate limit lo leyera sin mas,
+    # un atacante cambia el header con un IP inventado por request y el limite
+    # por IP no limita nada: queda como si no existiera.
+    #
+    # Solo se acepta el header si el peer es una IP de estas redes, que son las
+    # del reverse proxy propio. Vacio = no se acepta nunca, que es el default
+    # seguro para una API expuesta directo.
+    trusted_proxies: str = ""
+
+    # --- Rate limit ------------------------------------------------------
+    # Requests por minuto y por IP, para el trafico general.
+    rate_limit_rpm: int = 120
+    rate_limit_burst: int = 30
+
+    # El login tiene su propio limite, mas bajo, y es por IP.
+    #
+    # Por que aparte: el limite general es 120/min, y un ataque de fuerza bruta
+    # hace 120 intentos por minuto contra CADA una de las 10.000 cuentas de una
+    # base real. El limite general no lo frena porque cada intento individual
+    # es una request perfectamente normal.
+    #
+    # 10/min es el punto: un humano que se equivoca la clave tres veces no nota
+    # nada, y un atacante que quiere probar 100 passwords por cuenta necesita
+    # 10 minutos por cuenta.
+    login_attempts_per_minute: int = 10
+
+    # --- Escaneo ---------------------------------------------------------
+    # Longitud maxima de un codigo leido por el lector.
+    #
+    # El limite existe porque el codigo va a una consulta de base. Sin tope, un
+    # "codigo" de 4 MB (que se puede mandar sin drama en un JSON) se convierte
+    # en 4 MB de comparacion por indice. 128 caracteres cubre de sobra un QR
+    # (alfanumericos, ~40 en la version de mayor densidad), un EAN-13 y un
+    # Code 39.
+    scan_code_max_length: int = 128
+
+    # Cuantos codigos acepta un escaneo por lote (conteo ciclico de deposito).
+    # Con 500 se cubre una rack completo sin que un cliente pueda pedir 100.000
+    # filas en un POST.
+    scan_batch_max: int = 500
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """
+        Origenes parseados, sin vacios.
+
+        La lista vacia es una decision, no un olvido: es lo que hace que
+        CORSMiddleware no agregue el header `Access-Control-Allow-Origin`, y con
+        el, que el navegador bloquee la respuesta. Es lo que corresponde a un
+        front servido en el mismo origen que la API.
+        """
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def trusted_proxies_list(self) -> list[str]:
+        """Redes (no IPs) desde las que se acepta `X-Forwarded-For`."""
+        return [r.strip() for r in self.trusted_proxies.split(",") if r.strip()]
+
     @field_validator("llm_provider")
     @classmethod
     def _provider_valido(cls, valor: str) -> str:

@@ -1,0 +1,225 @@
+"""
+Router de movimientos. Montado en /api/movements.
+
+LA REGLA QUE GOBIERNA ESTE ARCHIVO
+----------------------------------
+Un escaneo cambia el ESTADO de un componente y escribe su HISTORIAL. Las dos
+cosas o pasan juntas o no pasan.
+
+No es una preferencia de diseño: es la diferencia entre un inventario del que se
+puede decir "el equipo 47 esta instalado en Acme desde marzo" y uno donde el
+historial dice una cosa, la pantalla dice otra y ninguno de los dos sabe cual
+miente. Toda la logica de transicion esta en `service.escanear()`, y el
+`IntegrityError` de la base es la ultima linea de defensa.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from src.core.deps import exigir
+from src.core.geo import CoordenadaInvalida
+from src.core.permissions import Permiso
+from src.modules.movements import service
+from src.modules.movements.schemas import (
+    EscanearLoteRequest,
+    EscanearRequest,
+    EscanearResponse,
+    HistorialMovimiento,
+    ListaMovimientosResponse,
+)
+from src.modules.users.models import UsuarioActual
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/movements", tags=["movimientos"])
+
+
+def _errores_de_escaneo(exc: Exception) -> HTTPException:
+    """
+    Traduce las excepciones del service a HTTP.
+
+    Que sea una funcion y no un bloque `try/except` repetido en cada endpoint no
+    es estilo: es que el mapeo de "que tipo de HTTP" tiene que ser el mismo en
+    todos. Un endpoint que responde 500 donde otro responde 400 hace que el
+    frontend tenga que manejar dos caminos para el mismo error.
+    """
+    if isinstance(exc, service.DispositivoNoEncontrado):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, (service.ErrorDeEscaneo, CoordenadaInvalida)):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="No se pudo registrar el escaneo.",
+    )
+
+
+@router.post(
+    "/escanear",
+    response_model=EscanearResponse,
+    summary="Registrar un escaneo (QR o serial)",
+)
+def escanear(
+    pedido: EscanearRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
+) -> EscanearResponse:
+    """
+    El endpoint del lector de codigos.
+
+    IDEMPOTENTE: si se repite el `client_scan_id`, no inserta nada y devuelve el
+    movimiento original con `replay: true`. El cliente genera ese UUID antes de
+    enviar y lo reutiliza en los reintentos.
+
+    QUE PERMISO PIDE Y POR QUE NO ES `IA_*`
+    --------------------------------------
+    `MOVIMIENTOS_CREAR`, que es el del Operador. Registrar un escaneo es la
+    operacion principal de un operador en un deposito; si pidiera un permiso
+    distinto, la app del celular no serviria para el rol que mas la usa.
+    """
+    try:
+        pedido.check_reemplazo()
+        return service.escanear(
+            codigo=pedido.codigo,
+            tipo_movimiento=pedido.tipo_movimiento,
+            client_scan_id=str(pedido.client_scan_id),
+            user_id=str(usuario.id),
+            ubicacion_id=pedido.ubicacion_id,
+            latitude=pedido.latitude,
+            longitude=pedido.longitude,
+            replaced_device_id=pedido.replaced_device_id,
+            replacement_reason=pedido.replacement_reason,
+            observations=pedido.observations,
+        )
+    except (service.ErrorDeEscaneo, service.DispositivoNoEncontrado, CoordenadaInvalida) as exc:
+        raise _errores_de_escaneo(exc) from exc
+
+
+@router.post(
+    "/escanear-lote",
+    response_model=dict,
+    summary="Registrar varios escaneos en una request (conteo ciclico)",
+)
+def escanear_lote(
+    pedido: EscanearLoteRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
+) -> dict:
+    """
+    Conteo de deposito: N codigos, una request.
+
+    POR QUE UN `client_scan_id` POR CODIGO Y NO UNO PARA EL LOTE
+    -----------------------------------------------------------
+    Porque si el lote se manda dos veces, la idempotencia tiene que funcionar
+    igual. Con un unico id para todo el lote, el segundo envio se descarta
+    completo y los codigos queTodavia no estaban no se registran: el operador
+    pierde un conteo sin enterarse.
+
+    El `client_scan_id` de cada elemento se deriva del del lote con el indice:
+    `uuid5(lote_id, str(indice))`. Es deterministico, asi que el mismo lote con
+    el mismo id genera los mismos ids y el reintento es un replay real.
+
+    Un elemento que falla NO frena el lote: un conteo de 200 equipos en el que
+    uno tiene la etiqueta sucia tiene que registrar los otros 199. Por eso cada
+    resultado lleva su propio `error`.
+    """
+    lote_id = uuid.uuid4()
+    resultados: list[dict] = []
+    registrados = 0
+
+    for indice, codigo in enumerate(pedido.codigos):
+        # `uuid5` con el namespace del lote: deterministico, y distinto para
+        # cada indice. Es la clave con la que un reintento se reconoce a si
+        # mismo.
+        client_scan_id = str(uuid.uuid5(lote_id, str(indice)))
+
+        try:
+            resultado = service.escanear(
+                codigo=codigo,
+                tipo_movimiento=pedido.tipo_movimiento,
+                client_scan_id=client_scan_id,
+                user_id=str(usuario.id),
+                ubicacion_id=pedido.ubicacion_id,
+                latitude=pedido.latitude,
+                longitude=pedido.longitude,
+            )
+            resultados.append({"codigo": codigo, **resultado})
+            if not resultado.get("replay"):
+                registrados += 1
+        except (
+            service.ErrorDeEscaneo,
+            service.DispositivoNoEncontrado,
+            CoordenadaInvalida,
+        ) as exc:
+            resultados.append({"codigo": codigo, "error": str(exc), "registrado": False})
+
+    fallidos = sum(1 for r in resultados if r.get("error") or not r.get("movement_id"))
+
+    return {
+        "total": len(pedido.codigos),
+        "registrados": registrados,
+        "fallidos": fallidos,
+        # El `lote_id` se devuelve para que el cliente pueda reenviar EL MISMO
+        # lote y obtener el replay de cada elemento en vez de duplicarlos.
+        "lote_id": str(lote_id),
+        "resultados": resultados,
+    }
+
+
+@router.get(
+    "",
+    response_model=ListaMovimientosResponse,
+    summary="Listar movimientos",
+)
+def listar(
+    device_id: int | None = Query(None, gt=0),
+    desde: str | None = Query(
+        None,
+        description="Fecha en ISO. Ej: 2026-01-01T00:00:00Z",
+        max_length=40,
+    ),
+    limite: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
+) -> ListaMovimientosResponse:
+    """Actividad reciente. Requiere `movements:read`."""
+    fecha_desde = None
+    if desde:
+        from datetime import datetime
+
+        try:
+            fecha_desde = datetime.fromisoformat(desde.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="La fecha no es valido. Usa ISO 8601: 2026-01-01T00:00:00Z",
+            ) from exc
+
+    return service.listar_movimientos(
+        device_id=device_id,
+        desde=fecha_desde,
+        limite=limite,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/dispositivo/{device_id}",
+    response_model=list[HistorialMovimiento],
+    summary="Donde estuvo un componente",
+)
+def historial(
+    device_id: int,
+    limite: int = Query(50, ge=1, le=200),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
+) -> list[HistorialMovimiento]:
+    """
+    El recorrido de un componente, del mas reciente al mas antiguo.
+
+    Es el endpoint que contesta "donde estuvo este equipo", que es la pregunta
+    que se hace cuando algo no aparece. Por eso trae el nombre de la persona
+    que registro cada movimiento y las coordenadas del escaneo: no alcanza con
+    saber que el equipo se movio, hay que saber quien lo movio y desde donde.
+    """
+    return service.historial_dispositivo(device_id, limite=limite)
