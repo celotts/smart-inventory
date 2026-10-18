@@ -93,6 +93,12 @@
   </main>
 
   <script>
+    // Auto-abrir login si no hay token
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!document.getElementById("token").value.trim()) {
+        document.getElementById("loginModal").classList.remove("hidden");
+      }
+    });
     const reader = new Html5Qrcode("reader");
     const resultEl = document.getElementById("scanResult");
     const historyEl = document.getElementById("history");
