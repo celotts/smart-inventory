@@ -116,11 +116,12 @@
         await reader.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText) => {
+          async (decodedText) => {
             resultEl.textContent = "Código: " + decodedText;
             addHistory(decodedText);
-            // autocompletar serial
             document.querySelector('input[name="serial"]').value = decodedText;
+            try { await reader.stop(); } catch (e) {}
+            document.getElementById("scanResult").textContent = "Escaneado: " + decodedText + " (escáner detenido)";
           }
         );
       } catch (e) {
