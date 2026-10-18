@@ -1,13 +1,178 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Inventory B2B</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <!-- Si usas React, asegúrate de apuntar a tu archivo main o App -->
-    <script type="module" src="/src/main.js"></script> 
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Inventory — Escáner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    #reader { width: 100%; max-width: 480px; margin: 0 auto; }
+    .card { transition: transform .15s ease; }
+    .card:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <header class="bg-indigo-600 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-bold">📦 Smart Inventory</h1>
+      <button id="loginBtn" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm">Login</button>
+    </div>
+  </header>
+
+  <!-- Modal login -->
+  <div id="loginModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+      <h2 class="text-lg font-semibold mb-3">Iniciar sesión</h2>
+      <form id="loginForm" class="space-y-3">
+        <input name="email" type="email" placeholder="Email" class="w-full border rounded-lg px-3 py-2" required />
+        <input name="password" type="password" placeholder="Contraseña" class="w-full border rounded-lg px-3 py-2" required />
+        <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium">Entrar</button>
+      </form>
+      <p id="loginMsg" class="mt-3 text-sm"></p>
+      <button id="closeLogin" class="mt-2 text-slate-500 text-sm">Cerrar</button>
+    </div>
+  </div>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 grid gap-6 md:grid-cols-2">
+    <!-- Escáner -->
+    <section class="bg-white rounded-2xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-3">Escanear código</h2>
+      <div id="reader" class="rounded-lg overflow-hidden border"></div>
+      <div class="mt-3 flex gap-2">
+        <button id="startBtn" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700">Iniciar</button>
+        <button id="stopBtn" class="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-300">Detener</button>
+      </div>
+      <p id="scanResult" class="mt-3 text-sm text-slate-600 break-all"></p>
+      <div class="mt-3 space-y-2">
+        <input id="apiBase" value="http://localhost:5000" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="API base URL" />
+        <input id="token" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Bearer token (JWT)" />
+      </div>
+    </section>
+
+    <!-- Formulario manual -->
+    <section class="bg-white rounded-2xl shadow p-4">
+      <h2 class="text-lg font-semibold mb-3">Registro manual</h2>
+      <form id="manualForm" class="space-y-3">
+        <input name="serial" placeholder="Serial / código" class="w-full border rounded-lg px-3 py-2" required />
+        <input name="nombre" placeholder="Nombre del dispositivo" class="w-full border rounded-lg px-3 py-2" required />
+        <input name="ubicacion" placeholder="Ubicación" class="w-full border rounded-lg px-3 py-2" />
+        <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Guardar</button>
+      </form>
+      <div id="manualMsg" class="mt-3 text-sm"></div>
+    </section>
+
+    <!-- Historial -->
+    <section class="bg-white rounded-2xl shadow p-4 md:col-span-2">
+      <h2 class="text-lg font-semibold mb-3">Últimos escaneos</h2>
+      <ul id="history" class="divide-y"></ul>
+    </section>
+
+    <!-- Operaciones -->
+    <section class="bg-white rounded-2xl shadow p-4 md:col-span-2">
+      <h2 class="text-lg font-semibold mb-3">Operaciones</h2>
+      <div class="flex gap-2 mb-3">
+        <button id="btnTransfers" class="px-3 py-1 bg-indigo-100 rounded-lg text-sm">Transferencias</button>
+        <button id="btnMaint" class="px-3 py-1 bg-indigo-100 rounded-lg text-sm">Mantenimiento</button>
+        <button id="btnAlerts" class="px-3 py-1 bg-indigo-100 rounded-lg text-sm">Alertas</button>
+      </div>
+      <pre id="opsResult" class="text-xs bg-slate-100 p-3 rounded-lg overflow-auto max-h-60"></pre>
+    </section>
+  </main>
+
+  <script>
+    const reader = new Html5Qrcode("reader");
+    const resultEl = document.getElementById("scanResult");
+    const historyEl = document.getElementById("history");
+
+    function addHistory(code) {
+      const li = document.createElement("li");
+      li.className = "py-2 flex justify-between text-sm";
+      li.innerHTML = `<span class="font-mono">${code}</span><span class="text-slate-400">${new Date().toLocaleTimeString()}</span>`;
+      historyEl.prepend(li);
+      if (historyEl.children.length > 20) historyEl.removeChild(historyEl.lastChild);
+    }
+
+    document.getElementById("startBtn").onclick = async () => {
+      try {
+        await reader.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            resultEl.textContent = "Código: " + decodedText;
+            addHistory(decodedText);
+            // autocompletar serial
+            document.querySelector('input[name="serial"]').value = decodedText;
+          }
+        );
+      } catch (e) {
+        resultEl.textContent = "Error al iniciar cámara: " + e;
+      }
+    };
+
+    document.getElementById("stopBtn").onclick = async () => {
+      try { await reader.stop(); } catch (e) {}
+    };
+
+    document.getElementById("loginBtn").onclick = () => document.getElementById("loginModal").classList.remove("hidden");
+    document.getElementById("closeLogin").onclick = () => document.getElementById("loginModal").classList.add("hidden");
+    document.getElementById("loginForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const msg = document.getElementById("loginMsg");
+      try {
+        const r = await fetch(base + "/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || r.statusText);
+        document.getElementById("token").value = j.access_token;
+        msg.textContent = "Login OK";
+        msg.className = "mt-3 text-sm text-emerald-600";
+        document.getElementById("loginModal").classList.add("hidden");
+      } catch (err) {
+        msg.textContent = "Error: " + err.message;
+        msg.className = "mt-3 text-sm text-red-600";
+      }
+    };
+
+    async function callOps(path) {
+      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      const r = await fetch(base + path, { headers: { "Authorization": "Bearer " + token } });
+      const j = await r.json();
+      document.getElementById("opsResult").textContent = JSON.stringify(j, null, 2);
+    }
+    document.getElementById("btnTransfers").onclick = () => callOps("/api/ops/transferencias");
+    document.getElementById("btnMaint").onclick = () => callOps("/api/ops/mantenimiento");
+    document.getElementById("btnAlerts").onclick = () => callOps("/api/ops/alertas");
+
+    document.getElementById("manualForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      const msg = document.getElementById("manualMsg");
+      const base = document.getElementById("apiBase").value.replace(/\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      try {
+        const r = await fetch(base + "/api/devices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify(data),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.detail || r.statusText);
+        msg.textContent = "Guardado en backend: " + (j.id || "OK");
+        msg.className = "mt-3 text-sm text-emerald-600";
+        e.target.reset();
+      } catch (err) {
+        msg.textContent = "Error: " + err.message;
+        msg.className = "mt-3 text-sm text-red-600";
+      }
+    };
+  </script>
+</body>
 </html>

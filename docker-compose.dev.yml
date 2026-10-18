@@ -1,0 +1,64 @@
+# Overlay de DESARROLLO. Se suma al docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml ...
+# que es exactamente lo que hace `make up ENV=dev`.
+#
+# Solo monta codigo y expone debug. NO cambia credenciales ni imagenes: una
+# base de dev con otro password que el de prod hace que "no me conecta" se
+# convierta en un bug de diez minutos.
+services:
+  backend:
+    environment:
+      - DATABASE_URL=postgresql://postgres:secretpassword@db:5432/smart_inventory
+      - APP_ENV=dev
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      # ----------------------------------------------------------
+      # POR QUE APUNTA A host.docker.internal Y NO A localhost
+      # ----------------------------------------------------------
+      # `localhost` DENTRO de un contenedor es el propio contenedor backend. Si
+      # se pone OLLAMA_BASE_URL=http://localhost:11434 aca, el backend se
+      # busca a si mismo, no encuentra nada y /api/ai/health dice que el
+      # proveedor esta caido — cuando el de la maquina esta andando perfecto.
+      #
+      # `host.docker.internal` es el nombre que Docker le da al host desde
+      # adentro de un contenedor. Es el equivalente al `127.0.0.1` de la
+      # laptop.
+      #
+      # Ojo en Linux: `host.docker.internal` requiere
+      # `extra_hosts: ["host.docker.internal:host-gateway"]` en el servicio.
+      # En Docker Desktop (Mac y Windows) funciona solo, que es el caso de este
+      # proyecto.
+      #
+      # ESTA es la unica linea que hay que cambiar entre desarrollo y
+      # produccion. En produccion se apunta a `http://ollama:11434`, que es el
+      # servicio del `docker-compose.ollama.yml`.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - OLLAMA_FALLBACK_MODEL=${OLLAMA_FALLBACK_MODEL:-llama3.2:3b}
+    volumes:
+      # El codigo se monta sobre la imagen. Editar un .py en el host se
+      # refleja sin rebuild, PERO no recarga uvicorn: eso es lo que hace el
+      # target `reload` de este Makefile, con su watcher.
+      - ./backend/src:/app/src
+    command:
+      - uvicorn
+      - src.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - '5000'
+      # --reload lee los archivos del CONTEINEDOR, que es donde los monta el
+      # volumen de arriba. Sin el volumen, esto solo miraria el codigo viejo
+      # que copio el build.
+      - --reload
+
+  frontend:
+    environment:
+      - VITE_APP_ENV=dev
+    volumes:
+      # /app/node_modules se anombra con un volumen anonimo: sin esto, el
+      # node_modules del host (o su ausencia) tapa el del build y vite deja de
+      # encontrar sus propias dependencias. Es el error clasico de este montaje.
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - /app/node_modules

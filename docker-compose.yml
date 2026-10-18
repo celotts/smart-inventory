@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -12,12 +10,21 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # OJO con el nombre: este archivo se llama `init.sql`. Estaba como
+      # `inti.sql` y el compose montaba `./database/init.sql`, que no existe.
+      # Docker no avisa: crea un DIRECTORIO vacio con ese nombre, el entrypoint
+      # no encuentra ningun .sql que correr y la base queda sin una sola tabla,
+      # con el healthcheck en verde todo el tiempo.
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
+      # `pg_isready` dice "aceptando conexiones" cuando el postmaster levanta el
+      # socket, que es ANTES de que corran los scripts de init. Green aqui no
+      # significa "la base sirve", significa "hay algo escuchando".
       test: ['CMD-SHELL', 'pg_isready -U postgres -d smart_inventory']
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   backend:
     build:
@@ -26,11 +33,41 @@ services:
     container_name: smart_inventory_backend
     ports:
       - '5001:5000'
+    # `required: false` y no un `env_file: .env` a secas: sin esto, alguien
+    # que clone el repo y corra `make up` sin copiar `.env.example` recibe un
+    # error de compose sobre un archivo que nunca se le pidio crear.
+    #
+    # Las variables de abajo son el DEFAULT explicito. El .env las pisa.
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - DATABASE_URL=postgresql://postgres:secretpassword@db:5432/smart_inventory
+      DATABASE_URL: postgresql://postgres:secretpassword@db:5432/smart_inventory
+      # El proveedor de IA NO se decide aca: sale de LLM_PROVIDER en el .env.
+      # Fijarlo en el compose seria quitarle al despliegue la posibilidad de
+      # cambiar de proveedor sin tocar el repo.
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-false}
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # urllib y no curl: la imagen es python:3.9-slim y no trae curl.
+      # Instalarlo solo por el healthcheck agrega un apt-get a cada build.
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import sys, urllib.request;
+          sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health',
+          timeout=3).status == 200 else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Margen antes de empezar a contar fallos: uvicorn tarda en importar y en
+      # levantar. Sin esto, un arranque lento se registra como unhealthy.
+      start_period: 20s
 
   frontend:
     build:
@@ -40,7 +77,17 @@ services:
     ports:
       - '5173:5173'
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # wget es busybox, ya esta en node:18-alpine. Se consulta la raiz y no un
+      # asset de /src: el dev server transforma el modulo al vuelo y un 404 ahi
+      # seria un error de verdad, no una condicion de arranque.
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5173/ > /dev/null || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
 volumes:
   postgres_data:

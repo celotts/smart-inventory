@@ -1,0 +1,20 @@
+# Overlay de QA. Se suma al docker-compose.yml (ver `make up ENV=qa`).
+#
+# Que se cambia respecto a prod, y por que
+# ----------------------------------------
+#   LOG_LEVEL=INFO  y no DEBUG: QA logea como prod para que un bug que no se
+#                     reproduce con INFO tambien falle en QA. Un nivel de log
+#                     mas verboso cambia el timing y esconde la causa.
+#   Sin --reload    ni montaje de codigo: QA tiene que probar el ARTEFACTO,
+#                     no tu working tree.
+#   DEBUG=false     por la misma razon.
+#
+# Lo que NO se cambia: credenciales, puertos e imagenes. El objetivo es que QA
+# se parezca a prod; si diverge, QA no dice nada del comportamiento de prod.
+services:
+  backend:
+    environment:
+      - DATABASE_URL=postgresql://postgres:secretpassword@db:5432/smart_inventory
+      - APP_ENV=qa
+      - DEBUG=false
+      - LOG_LEVEL=INFO

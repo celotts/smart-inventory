@@ -1,0 +1,24 @@
+# Contexto de build del frontend.
+#
+# node_modules es EL motivo de que este archivo exista. Sin esto, el
+# node_modules del host (o su ausencia) entra en el build y tapa el que
+# instalo `npm install`: vite deja de encontrar sus propias dependencias y el
+# error que sale no menciona node_modules en ningun lado.
+node_modules
+dist
+build
+.vite
+
+# Un node_modules del host suele tener binarios para otra plataforma (darwin
+# arm64) que no corren dentro de un linux. Es la causa clasica del
+# "Cannot find module" que no tiene nada que ver con el codigo.
+.npm
+npm-debug.log*
+
+.git
+.gitignore
+Dockerfile
+.dockerignore
+.env
+.env.*
+!.env.example

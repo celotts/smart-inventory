@@ -1,3 +1,67 @@
-git rm -r --cached node_modules __pycache__ 2>/dev/null || true
-git add .
-git commit -m "chore: actualizar .gitignore para backend, frontend y Docker"
+# ===========================================================================
+# .gitignore de Smart Inventory B2B
+# ===========================================================================
+#
+# POR QUE EXISTE ESTE ARCHIVO Y NO SOLO EL GLOBAL
+# -------------------------------------------------
+# El .gitignore global de esta maquina tiene `*.sql`, pensado para no versionar
+# dumps de base de datos. Eso tambien agarra `database/init.sql` y todas las
+# migraciones, y el resultado fue que el esquema NUNCA estuvo en el repo.
+#
+# No es un detalle teorico: sin init.sql versionado, nadie mas puede levantar el
+# proyecto. Y fue exactamente lo que paso — el compose montaba
+# `./database/init.sql` mientras el archivo en disco se llamaba `inti.sql`, que
+# tampoco estaba commiteado porque `*.sql` lo filtraba igual. Dos archivos con
+# nombres distintos y ninguno en git.
+#
+# Por eso el `!database/` de mas abajo: es una NEGACION explicita, porque las
+# reglas del .gitignore global se aplican antes que las de este archivo.
+
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Node -----------------------------------------------------------------
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Base de datos: el ESQUEMA SI se versiona, los datos NO ---------------
+#
+# `*.sql` esta en el global. Se revierte SOLO para database/: el DDL y las
+# migraciones son codigo y tienen que estar en el repo.
+!database/
+!database/**/*.sql
+
+# El volumen de Postgres vive adentro de Docker, nunca en el repo. Esta linea
+# es por si alguien exporta un dump con pg_dump a la raiz.
+*.dump
+*.sqlite
+*.sqlite3
+
+# --- Secretos -------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- Sistema --------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/

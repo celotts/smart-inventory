@@ -1,0 +1,31 @@
+# Contexto de build del backend.
+#
+# Por que importa: sin esto, los __pycache__ del HOST entran en la imagen y
+# pisan los del contenedor. Un .pyc compilado para otra version de Python
+# hace que uvicorn falle al importar con un error de deserializacion que no
+# tiene nada que ver con codigo.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# El .env va por docker-compose (env_file), no COPY. Ademas tiene la API key.
+.env
+.env.*
+!.env.example
+
+# `tests/` NO se excluye, a proposito, y es una decision consciente:
+# los tests corren DENTRO del contenedor (`docker compose exec backend python -m
+# pytest`), porque necesitan el mismo Python 3.9, las mismas versiones de
+# bcrypt y PyJWT y el mismo psycopg2 que la app. Correrlos en el host con otro
+# Python prueba otra combinacion y da falsos negativos.
+#
+# Cuando esto vaya a produccion, la division es: `requirements.txt` sin pytest
+# para la imagen final, y `requirements-dev.txt` para una etapa de test.
+
+.venv/
+venv/
+Dockerfile
+.dockerignore

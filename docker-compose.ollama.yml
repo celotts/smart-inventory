@@ -1,0 +1,102 @@
+# ===========================================================================
+# Overlay: Ollama DENTRO de Docker.
+# ===========================================================================
+#
+#   make up-ollama
+#
+# POR QUE EXISTE ESTE ARCHIVO Y NO UN SERVICIO EN EL COMPOSE BASE
+# ----------------------------------------------------------------
+# En desarrollo se usa el Ollama que ya esta instalado en la maquina
+# (docker-compose.dev.yml apunta a host.docker.internal). Meter un servicio
+# `ollama` al compose base haria que `make up` descargara 5 GB de imagenes y
+# arrancara un contenedor que no se va a usar, en cada `make up` de todos.
+#
+# Este overlay es para el caso contrario: produccion, CI, o una maquina donde
+# no hay Ollama instalado y se quiere el stack autocontenido.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d
+#
+# QUE HAY QUE DECIDIR ANTES DE USARLO EN PRODUCCION
+# -------------------------------------------------
+# Un `ollama run` por replica de la API multiplica la RAM por la cantidad de
+# replicas y recalcula el modelo en cada una. Si la API corre en 4 nodos, esto
+# son 4 copias del modelo en memoria.
+#
+# El patron correcto es UN Ollama centralizado con GPU y N clientes:
+#
+#     backend(1) ─┐
+#     backend(2) ─┼──> ollama:11434   (una sola carga en memoria)
+#     backend(3) ─┘
+#
+# Para eso este compose se usa como punto de partida, no como destino. En un
+# despliegue real, `ollama` va como servicio propio (un StatefulSet, un nodo con
+# GPU, o un servicio gestionado) y la API solo necesita la variable de entorno.
+#
+# ---------------------------------------------------------------------------
+# GPU
+# ---------------------------------------------------------------------------
+# El bloque de abajo pide la GPU. Si no hay, Docker NO falla: simplemente no
+# cumple el requisito y Ollama corre en CPU, mas lento pero functional.
+#
+# Para CPU (util en CI):  quitar el bloque `deploy.resources` o correr
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml --profile cpu up -d
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: smart_inventory_ollama
+    # `ollama serve` es el proceso por defecto de la imagen; se pone explicito
+    # para que quede claro de donde sale.
+    command: ["serve"]
+    ports:
+      # El puerto se publica para poder hacer `ollama pull` y `ollama run` desde
+      # la maquina sin entrar al contenedor.
+      - '11434:11434'
+    volumes:
+      # Los modelos pesan GB. Sin volumen, cada `docker compose down` los
+      # borra y el proximo `up` los vuelve a descargar.
+      - ollama_models:/root/.ollama
+    environment:
+      # Keeps the model in memory for 5 minutes after the last request. Default
+      # is 5m; se deja explicito porque es el parametro que mas se nota cuando
+      # el modelo se descarga entre dos consultas y la segunda tarda 30 s.
+      OLLAMA_KEEP_ALIVE: '5m'
+    healthcheck:
+      # `ollama list` en vez de un puerto: el puerto abre antes de que el
+      # servidor acepte una peticion real, y eso hace que `--wait` diga que
+      # todo esta bien mientras el primer request real falla.
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      # La primera vez que arranca tiene que cargar el binario y el runner.
+      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  backend:
+    environment:
+      # Acá SÍ se apunta al servicio del compose, no al host. Es la misma
+      # variable de entorno con otro valor: el backend no sabe la diferencia.
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        # service_started y NO service_healthy a proposito.
+        #
+        # El modelo se descarga la primera vez que se usa (`make ai-pull`), y
+        # ese pull puede tardar minutos. Si backend esperara a que ollama este
+        # healthy, el arranque del stack entero bloquearia por un servicio que
+        # puede arrancar bien y no tener el modelo todavia.
+        #
+        # Si el modelo no esta, /api/ai/health lo dice con respondio=false y el
+        # inventario sigue funcionando.
+        condition: service_started
+
+volumes:
+  ollama_models:

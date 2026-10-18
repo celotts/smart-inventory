@@ -1,0 +1,47 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
+pydantic==2.10.4
+
+# `EmailStr` de pydantic NO valida emails sola: necesita esta lib. Sin ella,
+# pydantic avisa por warning y el campo se queda como `str` sin validar.
+email-validator==2.2.0
+pydantic-settings==2.7.0
+
+# Cliente HTTP del proveedor de LLM.
+#
+# `httpx` y no el paquete `ollama` a proposito: el cliente oficial arrastra
+# dependencias (pydantic v1, tenacity) y solo cubre Ollama. Hablando por HTTP
+# contra /api/chat se apoya la misma clase base para Ollama y OpenAI sin
+# instalar dos SDKs distintos. Ademas httpx ya viene con uvicorn[standard], asi
+# que no suma nada a la imagen.
+httpx==0.28.1
+# --- Autenticacion --------------------------------------------------------
+#
+# `bcrypt` y no `argon2`: los hashes que YA estan en la base los genero
+# pgcrypto con `crypt(..., gen_salt('bf', 10))`, que produce `$2a$`. La lib de
+# bcrypt verifica `$2a$` igual que `$2b$`, asi que el admin sembrado por
+# init.sql sigue funcionando. Con argon2 habria que rehashear todo.
+bcrypt==4.2.1
+
+# JWT. PyJWT y no python-jose:el segundo tiene mas superficie y mas CVEs reportadas
+# de las que uno quiere en la pieza que decide quien es admin.
+PyJWT==2.10.1
+
+# Verificacion criptografica de la firma del JWT. Sin esto, PyJWT acepta
+# HS256 sin cekquearlo y un token forjado pasa.
+cryptography==44.0.0
+
+# --- Tests ----------------------------------------------------------------
+#
+# En requirements.txt y no en un requirements-dev.txt separado porque los tests
+# corren dentro del contenedor y necesitan las MISMAS versiones de bcrypt,
+# PyJWT y psycopg2 que la app: probarlos con otra combinacion de versiones
+# prueba otro sistema.
+#
+# Cuando esto vaya a produccion: sacá pytest de acá, creá requirements-dev.txt
+# con esto + una etapa de test en el Dockerfile, y la imagen final queda sin
+# dependencias de test.
+pytest==8.3.4
