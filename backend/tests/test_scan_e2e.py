@@ -337,6 +337,57 @@ class TestEstadoYTransiciones:
 
         assert "IN_REPAIR" in str(exc.value)
 
+    def test_la_regla_llega_como_error_de_regla_y_no_de_fallo(self, base, escenario):
+        """
+        ESTE TEST IMPORTA MAS DE LO QUE PARECE.
+
+        El trigger levanta una excepcion de Postgres. Sin traduzirla, el
+        handler global la convierte en un 500 "Error interno", y el operador ve
+        un fallo del sistema donde en realidad le estan diciendo que esta
+        intentando algo imposible. Un 500 tambien hace que el orquestador lo
+        cuente como incidente.
+
+        Se verifica el TIPO de la excepcion (409 = conflicto de estado, no 500)
+        y que el mensaje conserve el texto del trigger, que es el que explica
+        que hacer.
+        """
+        from src.modules.devices import service as devices
+
+        # Se lleva el componente a INSTALLED primero, para despues intentar un
+        # salto que la maquina de estados prohibe.
+        device_id = _crear_dispositivo(escenario)
+        serial = devices.obtener_dispositivo(device_id)["serial_number"]
+
+        movimientos.escanear(
+            codigo=serial,
+            tipo_movimiento="OUT_TO_CLIENT",
+            client_scan_id=str(uuid.uuid4()),
+            user_id=str(escenario["admin"]),
+            ubicacion_id=escenario["ubicacion"],
+        )
+        movimientos.escanear(
+            codigo=serial,
+            tipo_movimiento="INSTALLATION",
+            client_scan_id=str(uuid.uuid4()),
+            user_id=str(escenario["admin"]),
+            ubicacion_id=escenario["ubicacion"],
+        )
+
+        # De INSTALLED no se pasa directo a deposito: hay que pasar por transito.
+        with pytest.raises(movimientos.TransicionInvalida) as exc:
+            movimientos.escanear(
+                codigo=serial,
+                tipo_movimiento="WAREHOUSE_REENTRY",
+                client_scan_id=str(uuid.uuid4()),
+                user_id=str(escenario["admin"]),
+                ubicacion_id=escenario["ubicacion"],
+            )
+
+        # El mensaje tiene que explicar QUE pasar, no solo que fallo.
+        mensaje = str(exc.value).lower()
+        assert "invalida" in mensaje
+        assert "transicion" in mensaje or "instalado" in mensaje
+
 
 # ---------------------------------------------------------------------------
 # Geo-validacion

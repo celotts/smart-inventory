@@ -49,6 +49,11 @@ def _errores_de_escaneo(exc: Exception) -> HTTPException:
     """
     if isinstance(exc, service.DispositivoNoEncontrado):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, service.TransicionInvalida):
+        # 409, no 400 ni 500: el pedido esta BIEN formado, el conflicto es con
+        # el estado actual del componente. 409 es exactamente eso, y lo que
+        # recibe el operador es el motivo del trigger, no un "algo salio mal".
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     if isinstance(exc, (service.ErrorDeEscaneo, CoordenadaInvalida)):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return HTTPException(
@@ -93,7 +98,12 @@ def escanear(
             replacement_reason=pedido.replacement_reason,
             observations=pedido.observations,
         )
-    except (service.ErrorDeEscaneo, service.DispositivoNoEncontrado, CoordenadaInvalida) as exc:
+    except (
+        service.ErrorDeEscaneo,
+        service.DispositivoNoEncontrado,
+        service.TransicionInvalida,
+        CoordenadaInvalida,
+    ) as exc:
         raise _errores_de_escaneo(exc) from exc
 
 
@@ -150,6 +160,7 @@ def escanear_lote(
         except (
             service.ErrorDeEscaneo,
             service.DispositivoNoEncontrado,
+            service.TransicionInvalida,
             CoordenadaInvalida,
         ) as exc:
             resultados.append({"codigo": codigo, "error": str(exc), "registrado": False})

@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from src.core.geo import CoordenadaInvalida, dentro_del_radio, normalizar_coordenada
 from src.modules.ai.executor import get_ai_engine
@@ -73,6 +73,24 @@ REQUIERE_REEMPLAZO = {"REPLACEMENT"}
 
 class ErrorDeEscaneo(ValueError):
     """La peticion de escaneo no es valida. 400."""
+
+
+class TransicionInvalida(ValueError):
+    """
+    El escaneo pide un cambio de estado que el inventario no permite. 409.
+
+    POR QUE ES UNA EXCEPCION PROPIA Y NO UN 500
+    ------------------------------------------
+    La maquina de estados vive en un trigger de Postgres, y cuando rechaza un
+    escaneo levanta una excepcion de la base. Sin capturarla, esa excepcion
+    llegaba al handler global y salia un 500 con "Error interno": el operador ve
+    un fallo del sistema donde en realidad le estan diciendo que esta intentando
+    algo imposible.
+
+    El mensaje del trigger ya esta escrito para un humano ("no se puede pasar de
+    instalado a deposito sin pasar por transito"), asi que se conserva tal cual:
+    traducirlo de nuevo seria una segunda version que puede quedar vieja.
+    """
 
 
 class DispositivoNoEncontrado(LookupError):
@@ -293,6 +311,24 @@ def escanear(
                 "geo": geo,
                 "mensaje": "Este escaneo ya se estaba registrando.",
             }
+
+        # `IntegrityError` es subclase de `DBAPIError`, asi que el chequeo del
+        # trigger tiene que estar ACA y no solo en el `except DBAPIError` de
+        # abajo: si no, esta rama hace `raise` y el mensaje del trigger —que
+        # explica que hacer— se pierde en un 500.
+        original = getattr(exc, "orig", exc)
+        if getattr(original, "pgcode", None) == "23514" or "23514" in str(original):
+            raise TransicionInvalida(_mensaje_de_regla(original)) from exc
+        raise
+    except DBAPIError as exc:
+        # El trigger de la maquina de estados rechaza el cambio. Es una REGLA
+        # de negocio, no un fallo: sale 409 con el motivo, nunca un 500.
+        #
+        # 23514 es `check_violation`, que es el SQLSTATE que usan los CHECK y
+        # los `RAISE ... USING ERRCODE = 'check_violation'` del trigger.
+        original = getattr(exc, "orig", exc)
+        if getattr(original, "pgcode", None) == "23514" or "23514" in str(original):
+            raise TransicionInvalida(_mensaje_de_regla(original)) from exc
         raise
 
     return {
@@ -304,6 +340,19 @@ def escanear(
         "geo": geo,
         "mensaje": _mensaje_geo(geo),
     }
+
+
+def _mensaje_de_regla(original: Exception) -> str:
+    """
+    Saca el mensaje del trigger de la excepcion de Postgres.
+
+    `psycopg2` pone el texto de `RAISE EXCEPTION` en `diag.message_primary`, que
+    es donde queda el mensaje que escribio el trigger, ya en castellano y ya
+    explicado. Si no esta (una excepcion de otro tipo), se cae al `str`, que
+    trae el SQLSTATEsquema completo y el mensaje concatenado.
+    """
+    mensaje = getattr(getattr(original, "diag", None), "message_primary", None)
+    return mensaje or str(original)
 
 
 def _validar_geo(

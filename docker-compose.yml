@@ -74,8 +74,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: smart_inventory_frontend
+    # `5175:5173` y NO `5175:80`.
+    #
+    # El Dockerfile del frontend reescribe el `listen` de nginx a 5173, asi que
+    # ese es el puerto DENTRO del contenedor. Con `5175:80` el puerto publicado
+    # no llegaba a nada, y el sintoma es `ERR_CONNECTION_REFUSED` en el
+    # navegador con el contenedor en verde: el healthcheck consulta
+    # `127.0.0.1:5173`, que sí responde, mientras el host pide el 80, donde no
+    # hay nadie escuchando.
     ports:
-      - '5175:80'
+      - '5175:5173'
     depends_on:
       backend:
         condition: service_healthy

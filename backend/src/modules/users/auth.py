@@ -184,7 +184,7 @@ def _abrir_sesion(usuario: dict[str, Any], ip=None, user_agent=None) -> dict[str
         session_id=session_id,
     )
 
-    _limitar_sesiones(usuario["id"])
+    _limitar_sesiones(usuario["id"], conservar=session_id)
 
     return {
         "access_token": access_token,
@@ -196,25 +196,47 @@ def _abrir_sesion(usuario: dict[str, Any], ip=None, user_agent=None) -> dict[str
     }
 
 
-def _limitar_sesiones(user_id: str) -> None:
+def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
     """
     Deja solo `max_sessions_per_user` sesiones vivas; corta la más vieja.
 
     Sin este tope, un login en bucle (un script, o alguien probando)
     acumula cientos de filas y cada refresh las recorre.
+
+    `conservar` ES LA SESION QUE SE ESTA ABRIENDO, y no es una formalidad.
+    --------------------------------------------------------------
+    Sin esto pasaba esto: un usuario con 5 sesiones abiertas entra con una sexta
+    desde el celular, `_limitar_sesiones` revoca la más vieja —que era la del
+    navegador de escritorio, con la que estaba trabajando— y a los 15 minutos
+    ese navegador recibe un 401 sin motivo apparent. El sintoma es "la app me
+    cerro la sesion sola", que es la clase de fallo que hace que un usuario
+    deje de confiar en el sistema.
+
+    Pasa mas de lo que parece porque `/auth/refresh` rota la sesion: cada
+    renovacion crea una fila nueva y revoca la anterior, asi que un mismo
+    dispositivo va dejando filas a su paso. Con dos pestanas abiertas y cinco
+    sesiones, el corte cae donde caiga.
+
+    EL DESEMPATE TIENE QUE SER DETERMINISTA
+    ----------------------------------------
+    `ORDER BY created_at DESC` solo no alcanza: si dos sesiones se crean en el
+    mismo microsegundo —y pasando por `/auth/refresh` es lo normal— Postgres no
+    garantiza un orden entre ellas, y la sesion recien creada puede caer fuera
+    del corte. `id DESC` desempata de forma estable y siempre deja lo mas
+    reciente arriba.
     """
     config = get_settings()
 
-    # El SELECT va FUERA de la transacción: con el `begin()` de abajo, el orden
+    # El SELECT va FUERA de la transaccion: con el `begin()` de abajo, el orden
     # importa. Este bug estaba LATENTE — `begin()` solo se alcanzaba cuando
-    # había más de `max_sessions_per_user` sesiones, o sea en el sexto login.
+    # habia mas de `max_sessions_per_user` sesiones, o sea en el sexto login.
     with get_db().connect() as conexion:
         filas = (
             conexion.execute(
                 text("""
                 SELECT id FROM sessions
                 WHERE user_id = :user_id AND revoked_at IS NULL AND expires_at > NOW()
-                ORDER BY created_at DESC
+                ORDER BY created_at DESC, id DESC
             """),
                 {"user_id": user_id},
             )
@@ -222,7 +244,11 @@ def _limitar_sesiones(user_id: str) -> None:
             .all()
         )
 
-    excedente = [f["id"] for f in filas[config.max_sessions_per_user :]]
+    # La sesion nueva se aparta antes de contar. El `None` esta para el caso de
+    # que `conservar` no venga informado (limpieza manual, tests).
+    candidatas = [f["id"] for f in filas if conservar is None or f["id"] != conservar]
+
+    excedente = candidatas[max(0, config.max_sessions_per_user - 1) :]
 
     if excedente:
         with get_db().connect() as conexion:

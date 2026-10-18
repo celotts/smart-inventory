@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Smart Inventory">
+  <rect width="512" height="512" rx="96" fill="#4f46e5"/>
+  <g fill="none" stroke="#ffffff" stroke-width="28" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M136 176l120-52 120 52v132l-120 52-120-52z"/>
+    <path d="M136 176l120 52 120-52M256 228v132"/>
+  </g>
+  <g fill="#ffffff">
+    <rect x="196" y="248" width="26" height="26" rx="6"/>
+    <rect x="244" y="248" width="26" height="26" rx="6"/>
+    <rect x="292" y="248" width="26" height="26" rx="6"/>
+  </g>
+</svg>

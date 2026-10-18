@@ -1,0 +1,719 @@
+/*
+ * Smart Inventory — estilos.
+ *
+ * POR QUE CSS PROPIO Y NO TAILWIND POR CDN
+ * ---------------------------------------
+ * El index.html anterior cargaba `https://cdn.tailwindcss.com`. Eso tiene tres
+ * problemas, y el primero solo con respecto al segundo:
+ *
+ *   1. Es un CDN de TERCEROS: si ese dominio esta comprometido, el atacante
+ *      inyecta JavaScript en la pagina de todos los que la abren. No hace falta
+ *      tocar la aplicacion.
+ *   2. Tailwind por CDN NO es Tailwind compilado: es un motor que lee el DOM y
+ *      genera CSS con JavaScript. O sea que obliga a `unsafe-inline` y a
+ *      `unsafe-eval` en la CSP. Sin eso, `script-src` no la deja funcionar, y
+ *      con `unsafe-inline` la CSP deja de proteger contra XSS — que es
+ *      justamente el ataque del que estamos hablando.
+ *   3. La propia documentacion de Tailwind dice que el CDN no es para
+ *      produccion.
+ *
+ * Este archivo es CSS real: compila sin JavaScript, no necesita CDN, y la CSP
+ * puede ser estricta sin ceder nada.
+ *
+ * RESPONSIVE
+ * ----------
+ * El escaner se usa con una sola mano y a veces con guantes, asi que el objetivo
+ * de contacto es de 44px (la guia de Apple) y en pantallas de telefono las
+ * secciones se compactan para que la barra entre sin scroll.
+ */
+
+/* ---------------------------------------------------------------------------
+   Tokens
+   ---------------------------------------------------------------------------
+   Todo sale de estas variables. Cambiar el tema es cambiar este bloque, y los
+   `prefers-color-scheme` de abajo hacen el modo oscuro sin duplicar reglas.
+   --------------------------------------------------------------------------- */
+:root {
+  --fondo: #f1f5f9;
+  --superficie: #ffffff;
+  --superficie-2: #f8fafc;
+  --borde: #e2e8f0;
+  --borde-fuerte: #cbd5e1;
+  --texto: #0f172a;
+  --texto-suave: #64748b;
+  --texto-tenue: #94a3b8;
+
+  --primario: #4f46e5;
+  --primario-fuerte: #4338ca;
+  --primario-suave: #eef2ff;
+
+  --exito: #059669;
+  --exito-suave: #ecfdf5;
+  --alerta: #d97706;
+  --alerta-suave: #fffbeb;
+  --error: #dc2626;
+  --error-suave: #fef2f2;
+  --info: #0891b2;
+  --info-suave: #ecfeff;
+
+  --radio: 12px;
+  --radio-sm: 8px;
+  --radio-full: 999px;
+  --sombra: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
+  --sombra-alta: 0 10px 25px rgb(15 23 42 / 0.12);
+
+  /* Area segura: en un iPhone con notch, sin esto el boton inferior queda
+     debajo del gesto de inicio y no se puede apretar. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --toque: 44px; /* minimo comodo con una mano */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0f172a;
+    --superficie: #1e293b;
+    --superficie-2: #172033;
+    --borde: #334155;
+    --borde-fuerte: #475569;
+    --texto: #f1f5f9;
+    --texto-suave: #94a3b8;
+    --texto-tenue: #64748b;
+
+    --primario: #818cf8;
+    --primario-fuerte: #6366f1;
+    --primario-suave: #1e1b4b;
+
+    --exito: #34d399;
+    --exito-suave: #022c22;
+    --alerta: #fbbf24;
+    --alerta-suave: #451a03;
+    --error: #f87171;
+    --error-suave: #450a0a;
+    --info: #22d3ee;
+    --info-suave: #083344;
+
+    --sombra: 0 1px 3px rgb(0 0 0 / 0.4);
+    --sombra-alta: 0 10px 25px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reset
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%; /* sin esto, iOS agranda el texto en rotate */
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  line-height: 1.5;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* En un celular, highlightazul en cada toque se ve como un bug. */
+button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+/* Los numeros tabulares evitan que una tabla "baille" al actualizarse: en el
+   escaner, los valores cambian en vivo y sin esto tiembla todo. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+.saltar-al-contenido {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--primario);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  z-index: 100;
+  border-radius: 0 0 var(--radio-sm) 0;
+}
+.saltar-al-contenido:focus { left: 0; }
+
+/* Foco visible: sin esto, navegar con teclado es imposible. Se usa
+   :focus-visible para no mostrar el anillo al hacer clic con el mouse. */
+:focus-visible {
+  outline: 2px solid var(--primario);
+  outline-offset: 2px;
+  border-radius: var(--radio-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Cabecera
+   --------------------------------------------------------------------------- */
+.cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: calc(0.75rem + var(--safe-top)) 1rem 0.75rem;
+  background: color-mix(in srgb, var(--superficie) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--borde);
+}
+
+.cabecera__marca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.cabecera__logo { display: grid; place-items: center; color: var(--primario); }
+
+.cabecera__nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-inline: auto;
+}
+
+.cabecera__salir {
+  display: grid;
+  place-items: center;
+  width: var(--toque);
+  height: var(--toque);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  color: var(--texto-suave);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.cabecera__salir:hover { color: var(--error); border-color: var(--error); }
+
+.pestana {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--toque);
+  padding: 0 0.9rem;
+  border: none;
+  border-radius: var(--radio-full);
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pestana:hover { background: var(--superficie-2); color: var(--texto); }
+.pestana[aria-current="page"] {
+  background: var(--primario-suave);
+  color: var(--primario-fuerte);
+}
+.pestana__icono { display: grid; place-items: center; }
+
+/* En celular el texto de la pestana no entra: solo el icono, con el nombre
+   como etiqueta accesible. */
+@media (max-width: 560px) {
+  .pestana__texto { display: none; }
+  .pestana { padding: 0 0.7rem; }
+  .cabecera { padding-inline: 0.75rem; gap: 0.5rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   Contenido
+   --------------------------------------------------------------------------- */
+.contenido {
+  max-width: 900px;
+  margin-inline: auto;
+  padding: 1.25rem 1rem calc(6rem + var(--safe-bottom));
+}
+
+@media (max-width: 560px) {
+  .contenido { padding-inline: 0.75rem; }
+}
+
+.cargando {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 4rem 1rem;
+  color: var(--texto-suave);
+}
+.cargando__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--borde);
+  border-top-color: var(--primario);
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* Un celular en movimiento con la camara encendida no puede esperar un segundo
+   por una animacion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tarjetas
+   --------------------------------------------------------------------------- */
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1.15rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--sombra);
+}
+
+.tarjeta__titulo {
+  margin: 0 0 0.15rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.tarjeta__subtitulo {
+  margin: 0 0 1rem;
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Botones
+   --------------------------------------------------------------------------- */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--toque);
+  padding: 0 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radio-sm);
+  background: var(--primario);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  /* Los 150ms evitan que un doble toque registre dos pulsaciones. */
+  transition: background 0.15s, transform 0.08s;
+}
+.boton:hover:not(:disabled) { background: var(--primario-fuerte); }
+.boton:active:not(:disabled) { transform: scale(0.98); }
+.boton:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.boton--bloque { width: 100%; }
+.boton--suave { background: var(--superficie-2); color: var(--texto); border-color: var(--borde); }
+.boton--suave:hover:not(:disabled) { background: var(--borde); }
+.boton--peligro { background: var(--error); }
+.boton--peligro:hover:not(:disabled) { filter: brightness(0.92); }
+.boton--exito { background: var(--exito); }
+.boton--exito:hover:not(:disabled) { filter: brightness(0.92); }
+
+.fila-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.fila-botones > * { flex: 1 1 auto; }
+
+/* ---------------------------------------------------------------------------
+   Formularios
+   --------------------------------------------------------------------------- */
+.campo { display: block; margin-bottom: 0.9rem; }
+
+.campo__etiqueta {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.campo__control {
+  width: 100%;
+  min-height: var(--toque);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  /* 16px minimo: por debajo, iOS hace zoom automatico al enfocar y la pagina
+     se descuadra al campo. Es el problema clasico de mobile web. */
+  font-size: 16px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.campo__control:focus {
+  outline: none;
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 18%, transparent);
+}
+.campo__control:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.campo__ayuda {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+}
+.campo__error {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--error);
+  font-weight: 550;
+}
+
+/* ---------------------------------------------------------------------------
+   Escáner
+   --------------------------------------------------------------------------- */
+.escaner-marco {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 420px;
+  margin-inline: auto;
+  border-radius: var(--radio);
+  overflow: hidden;
+  background: #0f172a;
+  border: 1px solid var(--borde);
+}
+
+.escaner-marco video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* El video es un elemento reemplazado: sin display:block deja 4px de hueco. */
+  display: block;
+}
+
+/**
+ * La mira: dice donde apuntar SIN tapar el codigo.
+ *
+ * Es un recuadro de esquinas, no un borde completo. Con el borde completo, el
+ * marco tiene que ser grueso para verse, y el grosor tapa justamente los
+ * bordes del QR, que es donde esta el dato. Las esquinas dejan libre todo el
+ * centro.
+ *
+ * Sin animacion y sin overlay oscuro: la version anterior usaba un
+ * `border-top-color` girando mas un `box-shadow` gigante, y en pantalla
+ * renderizaba como una raya diagonal suelta en vez de una mira. Un elemento que
+ * se supone que ayuda a apuntar no puede romper la lectura del codigo.
+ */
+.escaner-mira {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 64%;
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+/**
+ * Las cuatro esquinas, con cuatro gradientes solidos posicionados.
+ *
+ * Se usa `background` con cuatro capas en vez de bordes o `box-shadow` porque
+ * los bordes tendrian que ser gruesos para verse —y el grosor tapa los bordes
+ * del QR, que es donde esta el dato—, y las sombras proyectadas para dibujar
+ * esquinas opuestas hay que calcularlas a mano y se rompen al cambiar el
+ * tamaño. Cuatro gradientes de 34x34 en las cuatro esquinas no dependen de
+ * nada y se ven igual en cualquier pantalla.
+ */
+.escaner-mira::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  --esquina: rgb(255 255 255 / 0.92);
+  --largo: 36px;
+  --grosor: 3px;
+  background:
+    /* superior izquierda */
+    linear-gradient(var(--esquina), var(--esquina)) top left / calc(var(--largo) + var(--grosor)) var(--grosor) no-repeat,
+    linear-gradient(var(--esquina), var(--esquina)) top left / var(--grosor) calc(var(--largo) + var(--grosor)) no-repeat,
+    /* superior derecha */
+    linear-gradient(var(--esquina), var(--esquina)) top right / calc(var(--largo) + var(--grosor)) var(--grosor) no-repeat,
+    linear-gradient(var(--esquina), var(--esquina)) top right / var(--grosor) calc(var(--largo) + var(--grosor)) no-repeat,
+    /* inferior izquierda */
+    linear-gradient(var(--esquina), var(--esquina)) bottom left / calc(var(--largo) + var(--grosor)) var(--grosor) no-repeat,
+    linear-gradient(var(--esquina), var(--esquina)) bottom left / var(--grosor) calc(var(--largo) + var(--grosor)) no-repeat,
+    /* inferior derecha */
+    linear-gradient(var(--esquina), var(--esquina)) bottom right / calc(var(--largo) + var(--grosor)) var(--grosor) no-repeat,
+    linear-gradient(var(--esquina), var(--esquina)) bottom right / var(--grosor) calc(var(--largo) + var(--grosor)) no-repeat;
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.5));
+}
+
+/* El resto del marco se atenua hacia adentro, sin tapar el centro del codigo. */
+.escaner-mira::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      rgb(15 23 42 / 0.5) 0%,
+      rgb(15 23 42 / 0.12) 14%,
+      transparent 26%,
+      transparent 74%,
+      rgb(15 23 42 / 0.12) 86%,
+      rgb(15 23 42 / 0.5) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgb(15 23 42 / 0.5) 0%,
+      rgb(15 23 42 / 0.12) 14%,
+      transparent 26%,
+      transparent 74%,
+      rgb(15 23 42 / 0.12) 86%,
+      rgb(15 23 42 / 0.5) 100%
+    );
+}
+
+.escaner-vacio {
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #cbd5e1;
+  height: 100%;
+}
+.escaner-vacio p { margin: 0; font-size: 0.9rem; }
+
+/* ---------------------------------------------------------------------------
+   Resultado del escaneo
+   --------------------------------------------------------------------------- */
+.resultado {
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--texto-tenue);
+  border-radius: var(--radio-sm);
+  padding: 0.9rem 1rem;
+  background: var(--superficie-2);
+  animation: entrar 0.2s ease-out;
+}
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.resultado--ok { border-left-color: var(--exito); background: var(--exito-suave); }
+.resultado--alerta { border-left-color: var(--alerta); background: var(--alerta-suave); }
+.resultado--error { border-left-color: var(--error); background: var(--error-suave); }
+.resultado--info { border-left-color: var(--info); background: var(--info-suave); }
+
+.resultado__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 650;
+  margin-bottom: 0.35rem;
+}
+.resultado__mensaje { margin: 0 0 0.6rem; font-size: 0.9rem; }
+.resultado__mensaje:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------------------
+   Definiciones (serial, modelo, sede…)
+   --------------------------------------------------------------------------- */
+.def {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 0.35rem 0.9rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.def dt { color: var(--texto-suave); }
+.def dd { margin: 0; font-weight: 550; word-break: break-word; }
+
+/* El codigo escaneado se muestra como texto monoespaciado y COMO TEXTO, no
+   como una imagen ni como HTML: es el contenido que vino de una etiqueta
+   desconocida, y es el vector clasico de XSS en un inventario. */
+.mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  user-select: all;
+}
+
+/* ---------------------------------------------------------------------------
+   Insignias
+   --------------------------------------------------------------------------- */
+.insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radio-full);
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.insignia--deposito { background: var(--info-suave); color: var(--info); }
+.insignia--transito { background: var(--alerta-suave); color: var(--alerta); }
+.insignia--instalado { background: var(--exito-suave); color: var(--exito); }
+.insignia--taller { background: var(--primario-suave); color: var(--primario-fuerte); }
+.insignia--baja { background: var(--superficie-2); color: var(--texto-suave); }
+.insignia--peligro { background: var(--error-suave); color: var(--error); }
+
+/* ---------------------------------------------------------------------------
+   Listas
+   --------------------------------------------------------------------------- */
+.lista { list-style: none; margin: 0; padding: 0; }
+
+.lista__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: var(--toque);
+  padding: 0.7rem 0.5rem;
+  border: none;
+  border-bottom: 1px solid var(--borde);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.lista__item:last-child { border-bottom: none; }
+.lista__item:hover { background: var(--superficie-2); }
+
+.lista__cuerpo { flex: 1; min-width: 0; }
+.lista__titulo {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lista__meta {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------------------
+   Avisos flotantes
+   --------------------------------------------------------------------------- */
+.avisos {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(1rem + var(--safe-bottom));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(92vw, 420px);
+  pointer-events: none;
+}
+
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--primario);
+  box-shadow: var(--sombra-alta);
+  font-size: 0.875rem;
+  animation: entrar 0.2s ease-out;
+  pointer-events: auto;
+}
+.aviso--exito { border-left-color: var(--exito); }
+.aviso--error { border-left-color: var(--error); }
+.aviso--alerta { border-left-color: var(--alerta); }
+
+/* El aviso de cola sin enviar es distinto: es persistente, no parpadea. */
+.aviso-offline {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(0.75rem + var(--safe-top));
+  z-index: 70;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radio-full);
+  background: var(--alerta);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: var(--sombra-alta);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 92vw;
+}
+
+/* ---------------------------------------------------------------------------
+   Login
+   --------------------------------------------------------------------------- */
+.login {
+  max-width: 400px;
+  margin: clamp(2rem, 12vh, 6rem) auto;
+}
+.login__marca {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.75rem;
+  text-align: center;
+}
+.login__logo {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radio);
+  background: var(--primario-suave);
+  color: var(--primario);
+}
+
+/* ---------------------------------------------------------------------------
+   Utilidades
+   --------------------------------------------------------------------------- */
+.oculto { display: none !important; }
+
+/**
+ * `hidden` gana contra cualquier `display`.
+ *
+ * El atributo `hidden` funciona por el estilo por defecto del navegador
+ * (`display: none`), y CUALQUIER `display` de autor gana contra eso. Con
+ * `.cabecera { display: flex }`, el header se mostraba en la pantalla de login
+ * aunque tuviera `hidden` — que es justo lo que el atributo queria decir.
+ *
+ * No es una comodidad: es la que hace que `hidden` sea de fiar en todo el
+ * codigo. Sin ella, cada `hidden` se reemplaza por una clase y es facil
+ * olvidar uno.
+ */
+[hidden] { display: none !important; }
+
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.centrado { text-align: center; }
+.tenue { color: var(--texto-suave); }
+.pequeno { font-size: 0.82rem; }
+.apilado { display: grid; gap: 0.75rem; }
+.flex-entre { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
