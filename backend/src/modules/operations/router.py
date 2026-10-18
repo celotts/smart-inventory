@@ -63,3 +63,26 @@ def listar_mantenimiento():
 @router.get("/alertas", summary="Alertas de stock")
 def listar_alertas():
     return {"items": repo.fetch_all("SELECT * FROM stock_alerts WHERE resuelto = FALSE ORDER BY created_at DESC")}
+
+
+@router.post("/dispositivos", summary="Crear dispositivo")
+def crear_dispositivo(payload: dict, usuario=Depends(get_current_user)):
+    from uuid import uuid4
+    # obtener primer modelo y ubicacion
+    m = repo.fetch_one("SELECT id FROM models LIMIT 1")
+    l = repo.fetch_one("SELECT id FROM locations LIMIT 1")
+    if not m or not l:
+        raise HTTPException(status_code=400, detail="Faltan modelos/ubicaciones seed")
+    repo.execute(
+        """
+        INSERT INTO devices (model_id, serial_number, qr_code, current_location_id, current_status, is_warehouse)
+        VALUES (:m, :serial, :qr, :loc, 'IN_WAREHOUSE', true)
+        """,
+        {
+            "m": m["id"],
+            "serial": payload.get("serial"),
+            "qr": payload.get("serial"),
+            "loc": l["id"],
+        },
+    )
+    return {"mensaje": "Dispositivo creado.", "serial": payload.get("serial")}

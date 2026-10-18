@@ -216,7 +216,7 @@
       const base = document.getElementById("apiBase").value.replace(/\/$/, "");
       const token = document.getElementById("token").value.trim();
       try {
-        const r = await fetch(base + "/api/devices", {
+        const r = await fetch(base + "/api/ops/dispositivos", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
           body: JSON.stringify(data),
