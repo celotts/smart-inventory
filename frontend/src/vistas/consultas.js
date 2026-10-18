@@ -242,7 +242,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
     );
   }
 
-  return raiz;
+  return { elemento: raiz };
 }
 
 async function pintarEstadoIA(tarjeta) {

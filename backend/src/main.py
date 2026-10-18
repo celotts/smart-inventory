@@ -37,10 +37,30 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:secretpassword@db:5432/smart_inventory",
 )
 
+_ES_PRODUCCION = os.getenv("APP_ENV", "production").lower() in ("production", "prod")
+
 app = FastAPI(
     title="Smart Inventory B2B API",
     version="0.3.0",
     description="Gestion de inventario de dispositivos para empresas, con IA.",
+    # POR QUE /docs SE DESACTIVA EN PRODUCCION
+    # --------------------------------------
+    # Swagger UI no es un endpoint de negocio: es una pagina que lista TODA la
+    # superficie de la API con ejemplos ejecutables, y arrastra el CDN de
+    # fastapi.tiangolo.com para el CSS y el JS.
+    #
+    # Lo que abre de verdad:
+    #   - El mapa completo de endpoints a cualquiera que llegue a la API, que
+    #     sirve para elegir a que atacar.
+    #   - Un tercero del que la pagina depende. Si ese dominio esta
+    #     comprometido, inyecta JS en el navegador de quien abra /docs.
+    #   - El esquema OpenAPI, que ademas alimenta a Postman y a los generadores
+    #     de cliente.
+    #
+    # En desarrollo queda disponible, que es donde sirve.
+    docs_url=None if _ES_PRODUCCION else "/docs",
+    redoc_url=None if _ES_PRODUCCION else "/redoc",
+    openapi_url=None if _ES_PRODUCCION else "/openapi.json",
 )
 
 # El pool es chico a proposito: el contenedor corre una sola instancia de

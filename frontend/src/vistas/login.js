@@ -131,5 +131,8 @@ export function vistaLogin({ alEntrar }) {
     error.hidden = false;
   }
 
-  return contenedor;
+  // Sin limpieza: no hay timers, streams ni listeners fuera del propio DOM,
+  // que el garbage collector se lleva solo. Se devuelve igual con el mismo
+  // contrato que las otras vistas.
+  return { elemento: contenedor };
 }

@@ -222,7 +222,7 @@ export function vistaInventario({ alAbrirDispositivo }) {
   });
 
   cargar();
-  return raiz;
+  return { elemento: raiz };
 }
 
 /**
@@ -407,7 +407,7 @@ export function vistaDispositivo(deviceId, { alVolver } = {}) {
     return tarjeta;
   }
 
-  return raiz;
+  return { elemento: raiz };
 }
 
 /**

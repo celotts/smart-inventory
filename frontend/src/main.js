@@ -112,9 +112,18 @@ function permisosDe(usuarioActual) {
 }
 
 function mostrarVista(nombre, opciones = {}) {
-  // Si se cambia de vista, se apaga la camara de la anterior. Sin esto, pasar
-  // de "escanear" a "inventario" deja la camara encendida en background.
-  if (vistaActual?.destruir) vistaActual.destruir();
+  // Si se cambia de vista, la anterior se destruye. Una vista puede tener
+  // recursos que no se limpian solos: la camara del escaner, por ejemplo, que
+  // sigue encendida si no se apaga explicitamente.
+  if (vistaActual?.destruir) {
+    try {
+      vistaActual.destruir();
+    } catch (error) {
+      // Que un fallo al limpiar no impida mostrar la vista siguiente: el
+      // operador necesita trabajar aunque la camara no se haya podido apagar.
+      console.error('No se pudo limpiar la vista anterior:', error);
+    }
+  }
 
   vistaActualNombre = nombre;
 
@@ -131,7 +140,12 @@ function mostrarVista(nombre, opciones = {}) {
     });
   }
 
-  reemplazar(contenido, vistaActual);
+  // Toda vista devuelve `{ elemento, destruir? }`. Aceptar tambien un elemento
+  // suelto evita que una vista nueva rompa por no conocer el contrato, pero el
+  // contrato nuevo es el que se escribe.
+  const elemento = vistaActual?.elemento ?? vistaActual;
+
+  reemplazar(contenido, elemento);
 
   // `aria-current` en la pestana activa, y el estado del historial del
   // navegador para que el boton "atras" del celular funcione.

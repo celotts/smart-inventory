@@ -421,5 +421,16 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     });
   }
 
-  return raiz;
+  // SE APAGA AL CAMBIAR DE VISTA.
+  //
+  // `visibilitychange` apagaba la camara al cambiar de PESTANA, pero no al
+  // cambiar de VISTA dentro de la app: ir de "Escanear" a "Inventario" dejaba
+  // la camara encendida, que es justo lo que hace que un operador cierre la
+  // pestaña para "cortar la camara" y razonable en un celular.
+  function destruir() {
+    lector.detener();
+    document.removeEventListener('visibilitychange', alOcultar);
+  }
+
+  return { elemento: raiz, destruir };
 }
