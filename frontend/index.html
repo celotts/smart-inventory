@@ -69,6 +69,17 @@
       <ul id="history" class="divide-y"></ul>
     </section>
 
+    <!-- Chat IA -->
+    <section class="bg-white rounded-2xl shadow p-4 md:col-span-2">
+      <h2 class="text-lg font-semibold mb-3">🤖 Asistente IA</h2>
+      <div id="chatBox" class="h-48 overflow-auto bg-slate-50 rounded-lg p-3 text-sm mb-2"></div>
+      <div class="flex gap-2">
+        <input id="chatInput" class="flex-1 border rounded-lg px-3 py-2" placeholder="Preguntá sobre el inventario..." />
+        <button id="chatSend" class="bg-indigo-600 text-white px-4 rounded-lg">Enviar</button>
+        <button id="reportBtn" class="bg-emerald-600 text-white px-4 rounded-lg">Reporte IA</button>
+      </div>
+    </section>
+
     <!-- Operaciones -->
     <section class="bg-white rounded-2xl shadow p-4 md:col-span-2">
       <h2 class="text-lg font-semibold mb-3">Operaciones</h2>
@@ -150,6 +161,47 @@
     document.getElementById("btnTransfers").onclick = () => callOps("/api/ops/transferencias");
     document.getElementById("btnMaint").onclick = () => callOps("/api/ops/mantenimiento");
     document.getElementById("btnAlerts").onclick = () => callOps("/api/ops/alertas");
+
+    document.getElementById("chatSend").onclick = async () => {
+      const q = document.getElementById("chatInput").value.trim();
+      if (!q) return;
+      const box = document.getElementById("chatBox");
+      box.innerHTML += `<div class="mb-1"><b>Tú:</b> ${q}</div>`;
+      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      try {
+        const r = await fetch(base + "/api/ai/preguntar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({ pregunta: q }),
+        });
+        const j = await r.json();
+        box.innerHTML += `<div class="mb-2 text-indigo-700"><b>IA:</b> ${j.respuesta || j.detail || "Sin respuesta"}</div>`;
+      } catch (e) {
+        box.innerHTML += `<div class="mb-2 text-red-600">Error: ${e.message}</div>`;
+      }
+      document.getElementById("chatInput").value = "";
+      box.scrollTop = box.scrollHeight;
+    };
+
+    document.getElementById("reportBtn").onclick = async () => {
+      const box = document.getElementById("chatBox");
+      const base = document.getElementById("apiBase").value.replace(/\\/$/, "");
+      const token = document.getElementById("token").value.trim();
+      box.innerHTML += `<div class="mb-1"><b>Sistema:</b> Generando reporte...</div>`;
+      try {
+        const r = await fetch(base + "/api/ai/reporte", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({}),
+        });
+        const j = await r.json();
+        box.innerHTML += `<div class="mb-2 text-emerald-700"><b>Reporte:</b> ${j.reporte || j.detail || JSON.stringify(j)}</div>`;
+      } catch (e) {
+        box.innerHTML += `<div class="mb-2 text-red-600">Error: ${e.message}</div>`;
+      }
+      box.scrollTop = box.scrollHeight;
+    };
 
     document.getElementById("manualForm").onsubmit = async (e) => {
       e.preventDefault();
