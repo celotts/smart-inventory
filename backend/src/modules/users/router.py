@@ -146,6 +146,19 @@ def login(datos: LoginRequest, request: Request):
         raise HTTPException(status_code=500, detail="Error interno.") from exc
 
 
+@router.get(
+    "/api/auth/password-strength",
+    summary="Verificar fortaleza de contraseña",
+)
+def verificar_fortaleza_password(password: str):
+    """
+    Verifica la fortaleza de una contraseña sin guardarla.
+    Útil para medidores de fortaleza en tiempo real en el frontend.
+    """
+    from src.core.security import obtener_info_fortaleza_password
+    return obtener_info_fortaleza_password(password)
+
+
 @router.post(
     "/api/auth/refresh",
     response_model=TokenResponse,

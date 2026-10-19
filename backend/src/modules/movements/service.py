@@ -331,15 +331,161 @@ def escanear(
             raise TransicionInvalida(_mensaje_de_regla(original)) from exc
         raise
 
+    # Obtener historial rico del dispositivo
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Calling _obtener_historial_rico for device_id={device_id}")
+    try:
+        historial_rico = _obtener_historial_rico(device_id)
+        logger.info(f"_obtener_historial_rico returned keys: {list(historial_rico.keys()) if historial_rico else 'None'}")
+    except Exception as e:
+        logger.exception(f"Error in _obtener_historial_rico: {e}")
+        historial_rico = {
+            "timeline": [],
+            "periodos_instalacion": [],
+            "reparaciones": [],
+            "dias_por_ubicacion": {},
+            "dias_instalado_actual": None,
+            "total_movimientos": 0,
+            "total_reparaciones": 0,
+        }
+
     return {
         "replay": False,
         "movement_id": movimiento_id,
         "tipo_movimiento": tipo_movimiento,
         "movimiento_date": datetime.now(timezone.utc),
         "dispositivo": dispositivo,
+        "historial": historial_rico,
         "geo": geo,
         "mensaje": _mensaje_geo(geo),
     }
+
+
+def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
+    """
+    Obtiene el historial completo y enriquecido de un dispositivo:
+    - Timeline de movimientos (últimos 20)
+    - Periodos de instalación por sede (con días acumulados)
+    - Historial de reparaciones
+    - Resumen de estado actual
+    """
+    engine = get_ai_engine()
+    with engine.connect() as conexion:
+        # 1. Timeline de movimientos (últimos 20)
+        movimientos = conexion.execute(
+            text(
+                """
+                SELECT
+                    mh.id,
+                    mh.movement_type,
+                    mh.movement_date,
+                    mh.is_valid_location,
+                    lo.store_name AS origen,
+                    ld.store_name AS destino,
+                    u.full_name AS registrado_por,
+                    mh.observations
+                FROM movement_history mh
+                LEFT JOIN locations lo ON lo.id = mh.origin_location_id
+                LEFT JOIN locations ld ON ld.id = mh.destination_location_id
+                LEFT JOIN users u ON u.id = mh.user_id
+                WHERE mh.device_id = :device_id
+                ORDER BY mh.movement_date DESC, mh.id DESC
+                LIMIT 20
+                """
+            ),
+            {"device_id": device_id},
+        ).mappings().all()
+
+        # 2. Periodos de instalación (días por sede)
+        periodos = conexion.execute(
+            text(
+                """
+                SELECT
+                    ip.id,
+                    ip.started_at,
+                    ip.ended_at,
+                    ip.days_installed,
+                    l.store_name AS ubicacion_nombre,
+                    l.id AS ubicacion_id
+                FROM installation_periods ip
+                JOIN locations l ON l.id = ip.location_id
+                WHERE ip.device_id = :device_id
+                ORDER BY ip.started_at DESC
+                """
+            ),
+            {"device_id": device_id},
+        ).mappings().all()
+
+        # 3. Historial de reparaciones
+        reparaciones = conexion.execute(
+            text(
+                """
+                SELECT
+                    r.id,
+                    r.status,
+                    r.entry_date,
+                    r.exit_date,
+                    r.initial_diagnosis,
+                    r.work_performed,
+                    r.estimated_cost,
+                    u.full_name AS tecnico_nombre
+                FROM repairs r
+                LEFT JOIN users u ON u.id = r.technician_id
+                WHERE r.device_id = :device_id
+                ORDER BY r.entry_date DESC
+                """
+            ),
+            {"device_id": device_id},
+        ).mappings().all()
+
+        # 4. Calcular días instalados actual si está instalado
+        dispositivo_actual = None
+        with get_ai_engine().connect() as conn2:
+            disp = conn2.execute(
+                text(
+                    """
+                    SELECT current_status, installation_date, current_location_id
+                    FROM devices WHERE id = :id
+                    """
+                ),
+                {"id": device_id},
+            ).mappings().first()
+            if disp:
+                dispositivo_actual = dict(disp)
+
+        # Calcular días instalados actual si aplica
+        dias_instalado_actual = None
+        if dispositivo_actual and dispositivo_actual["current_status"] == "INSTALLED" and dispositivo_actual["installation_date"]:
+            from datetime import datetime, timezone
+            instalacion = dispositivo_actual["installation_date"]
+            if instalacion.tzinfo is None:
+                instalacion = instalacion.replace(tzinfo=timezone.utc)
+            dias_instalado_actual = (datetime.now(timezone.utc) - instalacion).days
+
+        # Calcular totales de días por ubicación
+        dias_por_ubicacion = {}
+        for p in periodos:
+            loc = p["ubicacion_nombre"]
+            dias = p["days_installed"] or 0
+            if p["ended_at"] is None and p["started_at"]:
+                # Periodo abierto - calcular días hasta hoy
+                from datetime import datetime, timezone
+                inicio = p["started_at"]
+                if inicio.tzinfo is None:
+                    inicio = inicio.replace(tzinfo=timezone.utc)
+                dias += (datetime.now(timezone.utc) - inicio).days
+            dias_por_ubicacion[loc] = dias_por_ubicacion.get(loc, 0) + dias
+
+        return {
+            "timeline": [dict(m) for m in movimientos],
+            "periodos_instalacion": [dict(p) for p in periodos],
+            "reparaciones": [dict(r) for r in reparaciones],
+            "dias_por_ubicacion": dias_por_ubicacion,
+            "dias_instalado_actual": dias_instalado_actual,
+            "total_movimientos": len(movimientos),
+            "total_reparaciones": len(reparaciones),
+        }
 
 
 def _mensaje_de_regla(original: Exception) -> str:

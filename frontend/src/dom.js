@@ -36,15 +36,32 @@
  * @param {string} etiqueta     Ej: 'div', 'button', 'span'
  * @param {object} [opciones]
  * @param {string} [opciones.clase]
+ * @param {string} [opciones.id]
  * @param {string} [opciones.texto]     Va por textContent. Seguro con cualquier dato.
  * @param {object} [opciones.atributos] atributos="valor"
  * @param {Array}  [opciones.hijos]     Elementos ya construidos.
+ *
+ * LO QUE SE DESCARTA EN SILENCIO
+ * ------------------------------
+ * Cualquier clave que no sea `clase`, `id`, `texto`, `atributos` o `hijos` se
+ * ignora. No hay error, no hay aviso: el elemento sale sin eso y el bug aparece
+ * mas tarde y en otro lado.
+ *
+ * Ya paso tres veces en este repo, todas con la misma forma:
+ *
+ *   crear('div', { clase: 'x' }, [hijo])  → el hijo nunca se agrega
+ *   crear('p',  { id: 'y' })              → el `id` no existe
+ *   crear('div', { role: 'dialog' })      → no es un dialogo para el lector
+ *
+ * La regla: lo que sea atributo va en `atributos`. `id` es la unica excepcion,
+ * porque se usa en todas partes y casi siempre es un error olvidarlo.
  */
 export function crear(etiqueta, opciones = {}) {
-  const { clase, texto, atributos, hijos } = opciones;
+  const { clase, id, texto, atributos, hijos } = opciones;
   const el = document.createElement(etiqueta);
 
   if (clase) el.className = clase;
+  if (id) el.id = id;
 
   // `textContent` y no `innerText`: `innerText` depende del layout y es mas
   // lento, y ademas interpreta entidades. No es lo que se quiere.

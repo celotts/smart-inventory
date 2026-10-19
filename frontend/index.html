@@ -60,6 +60,19 @@
       <span>Smart Inventory</span>
     </div>
 
+    <div class="cabecera__usuario" id="cabecera-usuario" hidden>
+      <div class="cabecera__usuario-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="8" r="4" stroke-linecap="round"/>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="cabecera__usuario-info">
+        <span class="cabecera__usuario-nombre" id="cabecera-usuario-nombre"></span>
+        <span class="cabecera__usuario-rol" id="cabecera-usuario-rol"></span>
+      </div>
+    </div>
+
     <nav class="cabecera__nav" aria-label="Secciones">
       <button class="pestana" data-vista="escanear" aria-current="page">
         <span class="pestana__icono" aria-hidden="true">
@@ -90,6 +103,17 @@
       </button>
     </nav>
 
+    <!-- Botón modo exterior / alto contraste -->
+    <button class="cabecera__exterior" id="btn-exterior" 
+            aria-pressed="false" 
+            aria-label="Alternar modo exterior (alto contraste)"
+            title="Modo exterior / alto contraste (para sol directo)">
+      <svg class="cabecera__exterior-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="5" stroke-linecap="round"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
     <button class="cabecera__salir" id="btn-salir" title="Cerrar sesion" aria-label="Cerrar sesion">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round"/>
@@ -113,6 +137,29 @@
   <div id="aviso-offline" class="aviso-offline" role="status" aria-live="polite" hidden></div>
 
   <div id="avisos" class="avisos" role="status" aria-live="polite"></div>
+
+  <!-- Footer con info legal, versión y estado técnico -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <strong>FC Quality</strong>
+        <span class="footer__year">2026</span>
+      </div>
+      <div class="footer__meta">
+        <span class="footer__version" id="footer-version">v0.3.0</span>
+        <span class="footer__env" id="footer-env" data-env="development">DEV</span>
+      </div>
+      <nav class="footer__legal" aria-label="Enlaces legales">
+        <a href="/terminos">Términos</a>
+        <a href="/privacidad">Privacidad</a>
+        <a href="mailto:soporte@fcquality.com">Soporte</a>
+      </nav>
+      <div class="footer__tech" aria-label="Info técnica">
+        <span>Build: <code id="build-hash">—</code></span>
+        <span id="ai-status">IA: verificando…</span>
+      </div>
+    </div>
+  </footer>
 
   <script type="module" src="/src/main.js"></script>
   <noscript>

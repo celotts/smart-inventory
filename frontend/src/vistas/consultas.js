@@ -161,13 +161,17 @@ export function vistaConsultas({ permisos = [] } = {}) {
       // seguridad: el modelo escribe el SELECT, y verlo ayuda a entender de
       // donde sale el numero.
       if (respuesta.sql) {
-        const detalle = crear('details', { estilo: 'margin-top:0.5rem' });
-        const resumen = crear('summary', { clase: 'pequeno tenue', texto: 'Ver la consulta' });
+        const detalle = crear('details', { 
+          clase: 'sql-detalle',
+          estilo: 'margin-top:0.5rem' 
+        });
+        const resumen = crear('summary', { 
+          clase: 'pequeno tenue sql-summary', 
+          texto: 'Ver la consulta SQL' 
+        });
         const codigo = crear('pre', {
-          clase: 'mono pequeno',
-          estilo:
-            'overflow-x:auto;background:var(--superficie);padding:0.6rem;' +
-            'border-radius:var(--radio-sm);margin-top:0.5rem;',
+          clase: 'mono pequeno sql-code',
+          // Sin estilo inline - todo en CSS
         });
         // De nuevo: `textContent`. El SQL viene de un LLM.
         codigo.textContent = respuesta.sql;

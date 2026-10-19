@@ -197,7 +197,33 @@ NOTAS IMPORTANTES
   es historico y no lleva deleted_at.
 - `audit_logs.action` es un ENUM: 'INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'.
 - Los valores de los ENUM van con comillas simples y en MAYUSCULAS.
-- `specifications` es JSONB. Para leer un campo: specifications->>'campo'.
+- `specifications` es JSONB en la tabla `models` (NO en `devices`). 
+  Para leerlo: JOIN models m ON d.model_id = m.id, luego m.specifications->>'campo'.
+  ERROR COMUN: NO uses `d.specifications` directamente — NO EXISTE en devices.
+- `is_warehouse` en devices es BOOLEAN derivado de current_status = 'IN_WAREHOUSE'.
+  Usá `current_status = 'IN_WAREHOUSE'` en vez de is_warehouse para consistencia.
+
+EJEMPLOS DE JOINS CORRECTOS:
+-- Cuantos Latitude 5440 en deposito central:
+SELECT COUNT(*) 
+FROM devices d 
+JOIN models m ON m.id = d.model_id 
+JOIN locations l ON l.id = d.current_location_id 
+WHERE d.current_status = 'IN_WAREHOUSE' 
+  AND m.model ILIKE '%latitude%5440%' 
+  AND l.store_name ILIKE '%deposito central%';
+
+-- Stock de modelos Dell en depósito:
+SELECT m.model, COUNT(*) 
+FROM devices d 
+JOIN models m ON m.id = d.model_id 
+JOIN locations l ON l.id = d.current_location_id 
+WHERE d.current_status = 'IN_WAREHOUSE' 
+  AND m.brand = 'Dell'
+GROUP BY m.model;
+
+-- Coordenadas están en locations (latitude, longitude), NO en devices.
+-- Coordenadas del escaneo están en movement_history (scan_latitude, scan_longitude).
 """
 
 POCISOSOS = (

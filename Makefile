@@ -37,10 +37,10 @@ else
 $(error ENV invalido: '$(ENV)'. Usa prod, dev o qa. Ej: make up ENV=dev)
 endif
 
-# Puertos publicados en el host. El compose define 5001:5000 y 5173:5173;
+# Puertos publicados en el host. El compose define 5002:5000 y 5175:5173;
 # aqui solo se usan para imprimir URLs.
-API_PORT ?= 5001
-WEB_PORT ?= 5173
+API_PORT ?= 5002
+WEB_PORT ?= 5175
 
 # ===========================================================================
 # Ciclo de vida

@@ -202,3 +202,13 @@ class ResultadoLote(BaseModel):
     registrados: int
     fallidos: int
     resultados: list[EscanearResponse | dict[str, Any]]
+
+
+class MovimientoTipoResponse(BaseModel):
+    """Metadatos de un tipo de movimiento para UI."""
+    valor: str
+    texto: str
+    descripcion: str
+    icono: str
+    estado_destino: str
+    requiere_reemplazo: bool = False

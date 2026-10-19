@@ -16,7 +16,7 @@
  * Refresh token: `sessionStorage`, no `localStorage`. La diferencia es que
  * `sessionStorage` muere cuando se cierra la pestana, y `localStorage` no
  * sobrevive ni a cerrar el navegador. En una tablet compartida en un deposito,
- * eso es la diferencia entre "cerrar la app" y "la proxima persona entra con mi
+ * eso es la diferencia entre "cerrar la app" y "el turno siguiente entra con mi
  * sesion".
  *
  * `localStorage` tampoco sirve: es accesible desde cualquier script de la pagina
@@ -28,7 +28,15 @@
  * `refresh` una sola vez y se reintenta la peticion original. Si el refresh
  * falla, se cierra la sesion: seguir reintentando con un token muerto produce
  * un bucle de 401 que deja la app inutil.
+ *
+ * TIMEOUT Y REINTENTOS
+ * --------------------
+ * - Timeout por defecto: 5 minutos (300s) para peticiones largas (IA, reportes)
+ * - Timeout corto: 30s para peticiones normales
+ * - Reintentos con backoff exponencial en errores 5xx y timeout
  */
+
+
 
 /** Base de la API. */
 const BASE = new URL('/api', window.location.origin).toString();
@@ -40,14 +48,76 @@ let accessToken = null;
 let renovando = false;
 
 /**
+ * Operación pendiente guardada cuando expira el token durante una request.
+ * Permite reanudar tras login sin perder datos.
+ * @type {Object|null}
+ */
+let operacionPendiente = null;
+
+/**
  * Se llama cuando la sesion no se puede recuperar, para volver al login.
  * Lo inyecta `main.js` para que este modulo no sepa de vistas.
  */
 let alPerderSesion = () => {};
 
+/**
+ * Callback para mostrar modal de login (inyectado por main.js).
+ * @type {Function|null}
+ */
+let alRequerirLogin = null;
+
 /** Configuracion desde el modulo principal. */
-export function configurar({ alExpirar } = {}) {
+export function configurar({ alExpirar, alRequerirLogin: loginCallback } = {}) {
   if (typeof alExpirar === 'function') alPerderSesion = alExpirar;
+  if (typeof loginCallback === 'function') alRequerirLogin = loginCallback;
+}
+
+/**
+ * Guarda la operación actual para reanudar tras login.
+ *
+ * Se guarda EXACTAMENTE lo que `pedir` recibe: `{ ruta, ...opciones }`, con la
+ * ruta relativa. Guardar la ruta ya concatenada con `BASE` obligaba a quien
+ * reanuda a saber si tenía que quitarle el prefijo o no, y esa duda se
+ * resolvia siempre mal: `pedir` lo vuelve a agregar y la peticion terminaba en
+ * `/api/api/...`, un 404 que no dice nada de la causa real.
+ *
+ * @param {string} ruta       Relativa, como la recibe `pedir`. Ej: '/movements/escanear'
+ * @param {object} opciones   Las mismas opciones de `pedir`.
+ */
+function guardarOperacionPendiente(ruta, opciones) {
+  const op = { ruta, ...opciones };
+  operacionPendiente = op;
+  try {
+    sessionStorage.setItem('si.pendingOp', JSON.stringify(op));
+  } catch { /* ignore */ }
+}
+
+/**
+ * Recupera y limpia la operación pendiente.
+ * @returns {Object|null}
+ */
+export function consumirOperacionPendiente() {
+  if (operacionPendiente) {
+    const op = operacionPendiente;
+    operacionPendiente = null;
+    try { sessionStorage.removeItem('si.pendingOp'); } catch {}
+    return op;
+  }
+  try {
+    const raw = sessionStorage.getItem('si.pendingOp');
+    if (raw) {
+      sessionStorage.removeItem('si.pendingOp');
+      return JSON.parse(raw);
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Indica si hay una operación guardada esperando login.
+ */
+export function hayOperacionPendiente() {
+  return !!operacionPendiente || !!sessionStorage.getItem('si.pendingOp');
 }
 
 export function haySesion() {
@@ -83,10 +153,111 @@ export class ErrorDeApi extends Error {
   }
 }
 
+/**
+ * Fetch con timeout y reintentos automaticos.
+ */
+async function fetchConTimeout(url, opciones = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...opciones,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new ErrorDeApi('La petición excedió el tiempo límite.', 408, null);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Petición con reintentos exponenciales para errores 5xx y timeout.
+ */
+async function fetchConReintentos(url, opciones = {}, reintentos = 3, timeoutMs = 30000) {
+  let ultimoError;
+
+  for (let intento = 0; intento <= reintentos; intento++) {
+    try {
+      return await fetchConTimeout(url, opciones, timeoutMs);
+    } catch (error) {
+      ultimoError = error;
+
+      // No reintentar errores 4xx (error del cliente)
+      if (error instanceof ErrorDeApi && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+
+      // Último intento: lanzar error
+      if (intento === 3) break;
+
+      // Backoff exponencial: 1s, 2s, 4s...
+      const espera = 1000 * 2 ** intento;
+      await new Promise(r => setTimeout(r, espera));
+    }
+
+    throw ultimoError;
+  }
+}
+
 async function leerRefreshToken() {
   try {
     return sessionStorage.getItem('si.refresh');
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Recupera la sesión al abrir la app (F5, recarga, volver a la pestaña).
+ *
+ * POR QUE NO PASA POR `pedir`
+ * --------------------------
+ * `pedir` manda el `Authorization` que hay en memoria, que al recargar está
+ * vacío, y además su manejo de 401 dispara el modal de login y guarda la
+ * operación pendiente: para restaurar eso no serve, es lo contrario.
+ *
+ * Y POR QUE HACE FALTA UNA FUNCIÓN PROPIA
+ * ---------------------------------------
+ * Antes esto se hacía con `api.pedir('/auth/refresh')` desde `main.js`. El
+ * endpoint devolvía 200 con un token nuevo y, aun así, la app caía al login:
+ * `guardarSesion()` solo se llama dentro de `renovar()`, que es el camino del
+ * token vencido, no este. El access token nuevo se descartaba, `haySesion()`
+ * seguía dando false y recargar la página te echaba siempre —con la sesión
+ * activa y el refresh token intacto en `sessionStorage`.
+ *
+ * @returns {Promise<object|null>} Los datos del token, o null si no hay sesión
+ *                                  que recuperar.
+ */
+export async function restaurarSesion() {
+  const refresh = await leerRefreshToken();
+  if (!refresh) return null;
+
+  try {
+    const respuesta = await fetchConTimeout(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+    }, 10000);
+
+    if (!respuesta.ok) return null;
+
+    const datos = await respuesta.json();
+
+    // Sin esto, el token nuevo existe pero nadie lo guarda.
+    guardarSesion({
+      access_token: datos.access_token,
+      refresh_token: datos.refresh_token ?? refresh,
+    });
+
+    return datos;
+  } catch {
+    // Sin red o sin storage: es degradar, no romper. La app abre al login.
     return null;
   }
 }
@@ -99,11 +270,11 @@ async function renovar() {
 
   renovando = true;
   try {
-    const r = await fetch(`${BASE}/auth/refresh`, {
+    const r = await fetchConTimeout(`${BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refresh }),
-    });
+    }, 10000); // 10s timeout for refresh
 
     if (!r.ok) return false;
 
@@ -131,6 +302,8 @@ async function renovar() {
  * @param {object} [opciones.cuerpo]
  * @param {object} [opciones.params]  Query string.
  * @param {boolean} [opciones.reintentar=true]  Un 401 no se reintenta solo.
+ * @param {number} [opciones.timeoutMs] Timeout en ms (default 30s, 300s para IA/reportes)
+ * @param {boolean} [opciones.streaming] Si es true, usa fetch sin timeout para streaming
  */
 export async function pedir(ruta, opciones = {}) {
   const {
@@ -138,6 +311,7 @@ export async function pedir(ruta, opciones = {}) {
     cuerpo,
     params,
     reintentar = true,
+    streaming = false,
   } = opciones;
 
   const url = new URL(BASE + ruta, window.location.origin);
@@ -153,17 +327,25 @@ export async function pedir(ruta, opciones = {}) {
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
   if (accessToken) cabeceras.Authorization = `Bearer ${accessToken}`;
 
+  // Timeout largo para streaming (IA, reportes), normal para resto
+  const timeoutMs = opciones.timeoutMs
+    ?? (ruta.startsWith('/ai/') || ruta.startsWith('/api/ai/') || ruta.includes('/reporte') ? 300000 : 30000);
+
   let respuesta;
   try {
-    respuesta = await fetch(url, {
+    const opcionesFetch = {
       method: metodo,
       headers: cabeceras,
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
-      // `same-origin` y no `include`: no hace falta mandar cookies (la sesion
-      // va en el Authorization) y `include` abriria la puerta a que una
-      // peticion cruzara a otro origen con credenciales.
       credentials: 'same-origin',
-    });
+    };
+
+    if (!streaming) {
+      respuesta = await fetchConTimeout(url, opcionesFetch, timeoutMs);
+    } else {
+      // Para streaming (SSE), no aplicar timeout - dejar que fluya
+      respuesta = await fetch(url, opcionesFetch);
+    }
   } catch {
     throw new ErrorDeApi('No hay conexion con el servidor.', 0, null);
   }
@@ -174,9 +356,17 @@ export async function pedir(ruta, opciones = {}) {
   }
 
   if (respuesta.status === 401) {
+    // Guardar operación para reanudar tras login (modal, no full page)
+    if (reintentar) {
+      guardarOperacionPendiente(ruta, { ...opciones, reintentar: false });
+    }
     cerrarSesion();
-    alPerderSesion();
-    throw new ErrorDeApi('Tu sesion termino. Volve a iniciar sesion.', 401, null);
+    if (alRequerirLogin) {
+      alRequerirLogin(); // Mostrar modal login
+    } else {
+      alPerderSesion(); // Fallback: redirigir a login page
+    }
+    throw new ErrorDeApi('Tu sesion termino. Inicia sesion para continuar.', 401, null);
   }
 
   const texto = await respuesta.text();
@@ -246,7 +436,8 @@ function mensajeDeError(datos, status) {
  * y los reintentos internos, pero las vistas la necesitan para endpoints que
  * no tienen atajo. Cuando la exportacion como metodo faltaba, `api.pedir(...)`
  * era `undefined` y rompia con un TypeError que el `try/catch` del llamador se
- * comia en silencio: la app Follow funcionando pero sin perfil ni permisos.
+ * comia en silencio: la app Follow andando con el perfil sin cargar y sin que nadie
+ * se enterara.
  *
  * Un error de este tipo es invisible por construccion (un TypeError no se ve en
  * un log de red porque no hubo request), asi que la regla es: si una vista
@@ -280,15 +471,17 @@ export const api = {
 
   escanearLote: (datos) => pedir('/movements/escanear-lote', { metodo: 'POST', cuerpo: datos }),
 
+  obtenerTiposMovimiento: () => pedir('/movements/movement-types'),
+
   listarDispositivos: (params) => pedir('/devices', { params }),
 
   obtenerDispositivo: (id, params) => pedir(`/devices/${id}`, { params }),
 
   historial: (id, params) => pedir(`/movements/dispositivo/${id}`, { params }),
 
-  preguntar: (pregunta) => pedir('/ai/preguntar', { metodo: 'POST', cuerpo: { pregunta } }),
+  preguntar: (pregunta) => pedir('/ai/preguntar', { metodo: 'POST', cuerpo: { pregunta }, timeoutMs: 300000 }),
 
-  reporte: () => pedir('/ai/reporte', { metodo: 'POST', cuerpo: {} }),
+  reporte: () => pedir('/ai/reporte', { metodo: 'POST', cuerpo: {}, timeoutMs: 300000 }),
 
   estadoIA: () => pedir('/ai/health'),
 

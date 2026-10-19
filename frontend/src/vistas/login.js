@@ -7,6 +7,7 @@
 
 import { api } from '../api.js';
 import { crear, icono } from '../dom.js';
+import { PasswordStrengthMeter } from '../composables/usePasswordStrength.js';
 
 export function vistaLogin({ alEntrar }) {
   const contenedor = crear('div', { clase: 'login' });
@@ -62,6 +63,10 @@ export function vistaLogin({ alEntrar }) {
     },
   });
 
+  // Medidor de fortaleza de contraseña
+  const medidorClave = PasswordStrengthMeter({ mostrarRequisitos: true });
+  clave.addEventListener('input', () => medidorClave.actualizar(clave.value));
+
   const error = crear('p', { clase: 'campo__error', atributos: { role: 'alert' } });
   error.hidden = true;
 
@@ -82,7 +87,8 @@ export function vistaLogin({ alEntrar }) {
 
   formulario.append(
     envolver('Email', email),
-    envolver('Contrasena', clave),
+    envolver('Contraseña', clave),
+    medidorClave.elemento,  // Medidor de fortaleza
     error,
     boton,
   );
@@ -104,7 +110,7 @@ export function vistaLogin({ alEntrar }) {
     const palabra = clave.value;
 
     if (!correo || !palabra) {
-      mostrarError('Completa el email y la contrasena.');
+      mostrarError('Completa el email y la contraseña.');
       return;
     }
 
@@ -119,10 +125,10 @@ export function vistaLogin({ alEntrar }) {
       mostrarError(excepcion.message || 'No se pudo iniciar sesion.');
       boton.disabled = false;
       boton.textContent = 'Entrar';
-      // Vuelve a vaciar la clave: si fallo, casi siempre esta mal, y dejarla
-      // Full es el error tipico de login. El foco va a ella para corregir.
       clave.value = '';
       clave.focus();
+      // Resetear medidor
+      medidorClave.reiniciar();
     }
   }
 

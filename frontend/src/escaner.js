@@ -80,6 +80,20 @@ export class LectorQR {
     return this.#video;
   }
 
+  /**
+   * Los formatos que el navegador negoció con el detector.
+   *
+   * No es lo mismo lo que la app pide y lo que el navegador concede: Chrome en
+   * macOS no anuncia `upc_a`, por ejemplo. Cuando una etiqueta no se lee, esto
+   * es lo primero que hay que ver: dice si el formato de la etiqueta está entre
+   * los que el navegador puede decodificar en ESTE equipo.
+   *
+   * @returns {string[]}
+   */
+  get formatos() {
+    return [...this.#formats];
+  }
+
   /** Si el navegador puede decodificar codigos de forma nativa. */
   static haySoporteNativo() {
     return typeof window !== 'undefined' && 'BarcodeDetector' in window;
@@ -146,10 +160,28 @@ export class LectorQR {
       this.#stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          // Un codigo de barras se lee con nitidez; 1280 es suficiente y no
-          // fuerza al celular a codificar en 4K, que consume bateria y calor.
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          // RESOLUCION, Y POR QUE ES EL UNICO AJUSTE QUE IMPORTA PARA LAS
+          // BARRAS
+          //
+          // Medido en este repo con un Code 128 real: el detector deja de leerlo
+          // cuando el codigo ocupa menos de 240px de los 1280 del cuadro, y lo
+          // lee sin problema a 320, 400, 480... O sea, el limite no es el formato:
+          // es la cantidad de pixeles que caen sobre el codigo.
+          //
+          // Por eso se pide 1080p y no 720p. Duplicar la resolucion duplica los
+          // pixeles por barra, y con eso una etiqueta que antes habia que poner a
+          // 10cm del lente se lee a la distancia normal de trabajo. Es la misma
+          // diferencia entre "hay que acercar mucho" y "se lee como una QR".
+          //
+          // `ideal`, no `exact`: se pide 1080p pero el navegador puede entregar
+          // otra cosa segun el dispositivo. Forzar con `exact` hace fallar la
+          // camara entera en equipos que no pueden.
+          //
+          // El costo es real y es el que se esta pagando: mas pixeles significan
+          // mas decodificacion por frame, y en un celular eso es bateria y calor.
+          // 4K dejaria de lado por eso.
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       });
@@ -178,6 +210,8 @@ export class LectorQR {
    */
   #bucle(alLeer) {
     let leyendo = false;
+    let fallosSeguidor = 0;
+    let falloAvisado = false;
 
     const paso = async () => {
       if (!this.#loopActivo) return;
@@ -187,7 +221,16 @@ export class LectorQR {
       if (!leyendo && this.#video.readyState >= 2 && this.#video.videoWidth > 0) {
         leyendo = true;
         try {
-          const codigos = await this.#detector.detectar(this.#video);
+          // `detect`, no `detectar`: `BarcodeDetector` es una API del navegador
+          // con un unico metodo, en ingles. Llamar a `detectar` tira un TypeError
+          // ("is not a function") que caia en el `catch` de abajo y se
+          // confundia con "este frame no se pudo decodificar": el bucle seguia
+          // reintentando en silencio y el escaner no leia NINGUN codigo, con la
+          // camara encendida y el encuadre perfecto.
+          const codigos = await this.#detector.detect(this.#video);
+          fallosSeguidor = 0;
+          falloAvisado = false;
+
           if (codigos.length > 0 && this.#loopActivo) {
             // Se toma el primero. Un frame con dos codigos es raro y adivinar
             // cual es el correcto seria peor que mostrar el primero y dejar que
@@ -202,9 +245,19 @@ export class LectorQR {
               return;
             }
           }
-        } catch {
+        } catch (error) {
           // Un frame que falla al decodificar es normal (movimiento, foco).
           // Se ignora y se sigue con el siguiente.
+          //
+          // PERO no todos los errores son eso: un `TypeError` aca significa que
+          // el detector esta roto, y con el `catch` vacío eso se traduce en un
+          // escaner que jamas lee un codigo y no deja rastro. Al tercer frame
+          // seguido se avisa una vez por sesion, para que quede en la consola.
+          fallosSeguidor++;
+          if (fallosSeguidor === 3 && !falloAvisado) {
+            falloAvisado = true;
+            console.error('El detector de codigos esta fallando:', error);
+          }
         } finally {
           leyendo = false;
         }

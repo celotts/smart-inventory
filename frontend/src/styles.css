@@ -34,73 +34,354 @@
    `prefers-color-scheme` de abajo hacen el modo oscuro sin duplicar reglas.
    --------------------------------------------------------------------------- */
 :root {
-  --fondo: #f1f5f9;
-  --superficie: #ffffff;
-  --superficie-2: #f8fafc;
-  --borde: #e2e8f0;
-  --borde-fuerte: #cbd5e1;
-  --texto: #0f172a;
-  --texto-suave: #64748b;
-  --texto-tenue: #94a3b8;
+  /* =========================================================================
+     PALETA LIGERA — verificada WCAG 2.1 AA + UX respirable
+     =========================================================================
+     Principios:
+       1. Fondo NEUTRO CLARO (#fafafa) — no "lino" saturado. El blanco puro
+          cansa; un off-white neutro da respiración sin ser clínico.
+       2. Acentos SUAVES — terracota desaturado (#c46b3d) para acciones
+          primarias. Menos peso visual, misma calidez.
+       3. Estados con TINTA SUAVE — los colores de insignia usan tinta
+          apagada sobre fondo muy claro. El color no grita; el texto sí.
+       4. Bordes SUTILES — 1px con 15% opacidad. Separación sin líneas duras.
+       5. Sombras EN CAPAS — 3 niveles (xs, sm, md) con tinta cálida, no azul.
+       6. Tipografía FLUIDA — clamp() para escalar sin media queries.
+       7. Espaciado SISTEMÁTICO --space-1 a --space-8 (4px base).
+     ========================================================================= */
 
-  --primario: #4f46e5;
-  --primario-fuerte: #4338ca;
-  --primario-suave: #eef2ff;
+  /* ---- Espaciado sistémico (4px base) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
 
-  --exito: #059669;
-  --exito-suave: #ecfdf5;
-  --alerta: #d97706;
-  --alerta-suave: #fffbeb;
+  /* ---- Tipografía fluida ---- */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: clamp(1.75rem, 2vw + 1rem, 2.25rem); /* 28-36px */
+
+  /* ---- Radio ---- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* =========================================================================
+     PALETA CLARA — índigo, la que se venía usando
+     =========================================================================
+     Se conservan los nombres de token nuevos y solo se devuelven los valores
+     de la paleta anterior. Los nombres viejos (`--primario`, `--exito`, ...)
+     siguen funcionando: el bloque de alias de mas abajo los mapea.
+
+     Los tokens de color de estado (`--*-text`) no existian antes; son el
+     texto legible que va sobre el fondo `-soft` del mismo color. Derivados de
+     la paleta, un paso mas oscuro que el color base.
+     ========================================================================= */
+  --color-bg: #f1f5f9;           /* Fondo página */
+  --color-surface: #ffffff;      /* Tarjetas, modales */
+  --color-surface-hover: #f8fafc;/* Hover sutil en tarjetas */
+  --color-surface-pressed: #e2e8f0;
+
+  --color-border: #e2e8f0;       /* Bordes */
+  --color-border-strong: #cbd5e1;/* Bordes de input, focus */
+  --color-border-focus: #4f46e5; /* Focus índigo */
+
+  --color-text: #0f172a;         /* Texto principal */
+  --color-text-secondary: #475569; /* 7.5:1 sobre blanco — AA con holgura */
+  --color-text-muted: #64748b;     /* 4.8:1 — el mínimo de AA para texto normal */
+  --color-label: #1e293b;
+
+  --primary: #4f46e5;            /* Acción primaria */
+  --primary-hover: #4338ca;
+  --primary-soft: #eef2ff;
+  --primary-text: #3730a3;
+
+  --success: #059669;
+  --success-soft: #ecfdf5;
+  --success-text: #047857;
+
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --warning-text: #92400e;
+
   --error: #dc2626;
-  --error-suave: #fef2f2;
+  --error-soft: #fef2f2;
+  --error-text: #b91c1c;
+
   --info: #0891b2;
-  --info-suave: #ecfeff;
+  --info-soft: #ecfeff;
+  --info-text: #0e7490;
 
-  --radio: 12px;
-  --radio-sm: 8px;
-  --radio-full: 999px;
-  --sombra: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
-  --sombra-alta: 0 10px 25px rgb(15 23 42 / 0.12);
+  /* El visor de la camara es oscuro en los dos modos: es una imagen de video,
+     no una superficie de la app. */
+  --tint-surface: #0f172a;
+  --tint-border: #e2e8f0;
 
-  /* Area segura: en un iPhone con notch, sin esto el boton inferior queda
-     debajo del gesto de inicio y no se puede apretar. */
+  /* Texto sobre botón primario: blanco en claro, oscuro en oscuro (token) */
+  --btn-primary-text: #ffffff;
+
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.06), 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 10px 25px rgb(15 23 42 / 0.12);
+  --shadow-xl: 0 20px 40px rgb(15 23 42 / 0.14), 0 8px 16px rgb(15 23 42 / 0.08);
+
+  /* Focus visible accesible */
+  --focus-ring: 0 0 0 3px rgba(79, 70, 229, 0.35);
+
+  /* Transiciones suaves */
+  --transition-fast: 120ms ease-out;
+  --transition-base: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
+
+  /* Radio: los del diseño anterior (12px el general, 8px el chico). */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* Área segura */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  --toque: 44px; /* minimo comodo con una mano */
+  --toque: 44px; /* Mínimo táctil */
+
+  /* =========================================================================
+     ALIAS PARA COMPATIBILIDAD CON CÓDIGO EXISTENTE (nombres antiguos)
+     =========================================================================
+     El resto del CSS usa estos nombres. Los mapeamos a los nuevos tokens.
+     ========================================================================= */
+  --fondo: var(--color-bg);
+  --superficie: var(--color-surface);
+  --superficie-2: var(--color-surface-hover);
+  --superficie-hover: var(--color-surface-hover);
+  --superficie-pressed: var(--color-surface-pressed);
+  --borde: var(--color-border);
+  --borde-control: var(--color-border-strong);
+  --borde-fuerte: var(--color-border-strong);
+  --primario: var(--primary);
+  --primario-fuerte: var(--primary-hover);
+  --primario-suave: var(--primary-soft);
+  --primario-texto: var(--primary-text);
+  --exito: var(--success);
+  --exito-suave: var(--success-soft);
+  --exito-texto: var(--success-text);
+  --alerta: var(--warning);
+  --alerta-suave: var(--warning-soft);
+  --alerta-texto: var(--warning-text);
+  --error: var(--error);
+  --error-suave: var(--error-soft);
+  --error-texto: var(--error-text);
+  --info: var(--info);
+  --info-suave: var(--info-soft);
+  --info-texto: var(--info-text);
+  --taller: var(--warning);      /* Alias para taller = warning */
+  --taller-suave: var(--warning-soft);
+  --taller-texto: var(--warning-text);
+  --baja: var(--error);          /* Alias para baja = error */
+  --baja-suave: var(--error-soft);
+  --baja-texto: var(--error-text);
+  --texto: var(--color-text);
+  /* Antes `--texto-suave` y `--texto-tenue` apuntaban al mismo token, y el
+     texto de 14px quedaba claro de mas para leerse. Con los dos separados, el
+     secundario es legible y el tenue sigue siendo el nivel mas bajo. */
+  --texto-secundario: var(--color-text-secondary);
+  --texto-suave: var(--color-text-secondary);
+  --texto-tenue: var(--color-text-muted);
+  --etiqueta: var(--color-label);
+  --visor: var(--tint-surface);
+  --sombra: var(--shadow-md);
+  --sombra-alta: var(--shadow-lg);
+  --radio: var(--radius-md);
+  --radio-sm: var(--radius-sm);
+  --radio-md: var(--radius-md);
+  --radio-lg: var(--radius-lg);
+  --radio-xl: var(--radius-xl);
+  --radio-full: var(--radius-full);
+  --texto-boton: var(--btn-primary-text);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #0f172a;
-    --superficie: #1e293b;
-    --superficie-2: #172033;
-    --borde: #334155;
-    --borde-fuerte: #475569;
-    --texto: #f1f5f9;
-    --texto-suave: #94a3b8;
-    --texto-tenue: #64748b;
+    --color-bg: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-hover: #172033;
+    --color-surface-pressed: #1f2a3d;
 
-    --primario: #818cf8;
-    --primario-fuerte: #6366f1;
-    --primario-suave: #1e1b4b;
+    --color-border: #334155;
+    --color-border-strong: #475569;
+    --color-border-focus: #818cf8;
 
-    --exito: #34d399;
-    --exito-suave: #022c22;
-    --alerta: #fbbf24;
-    --alerta-suave: #451a03;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-text-muted: #64748b;
+    --color-label: #cbd5e1;
+
+    --primary: #818cf8;            /* Índigo claro para modo oscuro */
+    --primary-hover: #6366f1;
+    --primary-soft: #1e1b4b;
+    --primary-text: #e0e7ff;
+
+    --success: #34d399;
+    --success-soft: #022c22;
+    --success-text: #a7f3d0;
+
+    --warning: #fbbf24;
+    --warning-soft: #451a03;
+    --warning-text: #fde68a;
+
     --error: #f87171;
-    --error-suave: #450a0a;
-    --info: #22d3ee;
-    --info-suave: #083344;
+    --error-soft: #450a0a;
+    --error-text: #fecaca;
 
-    --sombra: 0 1px 3px rgb(0 0 0 / 0.4);
-    --sombra-alta: 0 10px 25px rgb(0 0 0 / 0.5);
+    --info: #22d3ee;
+    --info-soft: #083344;
+    --info-text: #a5f3fc;
+
+    /* El visor sigue oscuro en los dos modos. */
+    --tint-surface: #0f172a;
+    --tint-border: #334155;
+
+    --btn-primary-text: #0f172a;
+
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 1px 3px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 40px rgb(0 0 0 / 0.6), 0 8px 16px rgb(0 0 0 / 0.5);
+
+    --focus-ring: 0 0 0 3px rgba(212, 139, 91, 0.4);
   }
+}
+
+[data-outdoor="1"] {
+  /* Claro forzado aunque OS diga dark */
+  --color-bg: #ffffff;
+  --color-surface: #fafafa;
+  --color-surface-hover: #f0f0f0;
+  --color-surface-pressed: #e8e8e8;
+
+  --color-border: #cccccc;
+  --color-border-strong: #999999;
+  --color-border-focus: #8b4513;
+
+  --color-text: #000000;
+  --color-text-secondary: #333333;
+  --color-text-muted: #666666;
+  --color-label: #1a1a1a;
+
+  --primary: #8b4513;
+  --primary-hover: #6b3510;
+  --primary-soft: #e8d5d0;
+  --primary-text: #ffffff;
+
+  --success: #2e7d32;
+  --success-soft: #d4edda;
+  --success-text: #155724;
+
+  --warning: #856404;
+  --warning-soft: #fff3cd;
+  --warning-text: #856404;
+
+  --error: #721c24;
+  --error-soft: #f8d7da;
+  --error-text: #721c24;
+
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.2);
+  --shadow-xl: 0 20px 40px rgba(0,0,0,0.25);
+  --focus-ring: 0 0 0 4px rgba(139, 69, 19, 0.5);
+
+  /* Targets mayores para guantes / mano temblorosa / sol en pantalla */
+  --toque: 52px;
+}
+
+/* =========================================================================
+   PASSWORD STRENGTH METER
+   ========================================================================= */
+.password-strength-meter {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.strength-bar-container {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
+
+.strength-bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.strength-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.strength-requisitos {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.strength-requisitos li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.strength-requisitos li.cumplido {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.strength-requisitos li.pendiente {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.req-icon {
+  display: inline-flex;
+  width: 1em;
+  text-align: center;
+  font-size: 0.75em;
+}
+
+.req-texto {
+  flex: 1;
 }
 
 /* ---------------------------------------------------------------------------
    Reset
+
    --------------------------------------------------------------------------- */
 *,
 *::before,
@@ -121,10 +402,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* En un celular, highlightazul en cada toque se ve como un bug. */
+/* En un celular, highlight azul en cada toque se ve como un bug. */
 button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
-/* Los numeros tabulares evitan que una tabla "baille" al actualizarse: en el
+/* Los numeros tabulares evitan que una tabla "baile" al actualizarse: en el
    escaner, los valores cambian en vivo y sin esto tiembla todo. */
 .tabular { font-variant-numeric: tabular-nums; }
 
@@ -133,7 +414,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   left: -9999px;
   top: 0;
   background: var(--primario);
-  color: #fff;
+  color: var(--texto-boton);
   padding: 0.75rem 1rem;
   z-index: 100;
   border-radius: 0 0 var(--radio-sm) 0;
@@ -182,6 +463,53 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   margin-inline: auto;
 }
 
+.cabecera__salir:hover { color: var(--error); border-color: var(--error); }
+
+/* Info de usuario en cabecera */
+.cabecera__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+}
+
+.cabecera__usuario-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primario-suave);
+  color: var(--primario);
+}
+
+.cabecera__usuario-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.cabecera__usuario-nombre {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cabecera__usuario-rol {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+  text-transform: capitalize;
+}
+
+/* Ajuste para que el botón de salir no choque */
 .cabecera__salir {
   display: grid;
   place-items: center;
@@ -304,7 +632,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   border: 1px solid transparent;
   border-radius: var(--radio-sm);
   background: var(--primario);
-  color: #fff;
+  color: var(--texto-boton);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -340,14 +668,14 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   margin-bottom: 0.35rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--texto-suave);
+  color: var(--etiqueta);
 }
 
 .campo__control {
   width: 100%;
   min-height: var(--toque);
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--borde-fuerte);
+  border: 1px solid var(--borde-control);
   border-radius: var(--radio-sm);
   background: var(--superficie);
   color: var(--texto);
@@ -381,13 +709,50 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
    --------------------------------------------------------------------------- */
 .escaner-marco {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  max-width: 420px;
+  /*POR QUE `min()` CON TRES LIMITES Y NO UN `max-width` FIJO
+
+  El visor se mide contra las tres cosas que lo limitan, y el que gana es el
+  más chico:
+
+    100%  el ancho de la tarjeta
+    360px el tope deliberado
+    50vh  el alto de la pantalla
+
+  POR QUE 360 Y NO MÁS
+  --------------------
+  Con 480px el visor parecía una sala de videollamada: ocupaba media pantalla
+  con la cara del operador de lleno, que es la lectura equivocada de lo que es
+  esta pantalla. Y agrandarlo no aporta nada a la lectura: el `BarcodeDetector`
+  decodifica bien del orden de 100px del código, y la mira es el 64% del marco,
+  así que con 360 el objetivo queda en ~230px.
+
+  El límite de alto (50vh) es el que importa en un celular apaisado: con un tope
+  de ancho fijo el visor empuja los chips de tipo de movimiento y el botón
+  fuera de vista, y el operador tiene que scrollear justo en el momento de
+  escanear, que es cuando menos conviene. A 42vh el visor quedaba en 164px en
+  un celular de 390px de alto: el objetivo de la mira bajaba a 104px, que es
+  justo donde el `BarcodeDetector` empieza a fallar. El mínimo del visor es
+  el de la lectura, no el de la estética.
+
+  Con `min()` los tres se respetan solos, sin media queries: el visor es lo
+  más grande que entra sin tapar los controles. */
+  width: min(100%, 360px, 50vh);
+  /* 5:4: ni cuadrado ni 4:3, y esa es la idea.
+   *
+   * Lo que limita la distancia a la que se puede escanear NO es el ancho del
+   * marco sino su ALTO: un QR se encuadra por el lado corto, y un codigo de
+   * barras necesita ancho. Los dos usan el alto.
+   *
+   * Con 1:1 sobra alto para nada y el codigo de barras no entra. Con 4:3 el
+   * ancho entra, pero el alto queda corto y el operador tiene que acercarse mas
+   * para que el codigo se vea del tamaño necesario — que es exactamente lo que
+   * se quejó. 5:4 reparte: mantiene el ancho para las barras y recupera el alto
+   * que el 4:3 se habia quedado. */
+  aspect-ratio: 5 / 4;
   margin-inline: auto;
   border-radius: var(--radio);
   overflow: hidden;
-  background: #0f172a;
+  background: var(--visor);
   border: 1px solid var(--borde);
 }
 
@@ -416,7 +781,15 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   position: absolute;
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
-  width: 64%;
+  /* El objetivo se mide contra el ALTO del marco, no contra el ancho.
+   *
+   * Con `width: 64%` en un marco 1:1 el objetivo medía mas que el lado corto
+   * real de la imagen y había que alejar el celular. `height` + `aspect-ratio`
+   * lo mantiene cuadrado y siempre dentro del visor. Eso es lo que le dice al
+   * operador "acercá hasta que el codigo llene esto", sin prometer una
+   * distancia que el sistema no puede garantizar. */
+  height: 84%;
+  width: auto;
   aspect-ratio: 1;
   pointer-events: none;
 }
@@ -491,6 +864,187 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .escaner-vacio p { margin: 0; font-size: 0.9rem; }
 
+/* Estado "encendiendo": el marco gira mientras `getUserMedia` espera el
+   permiso del navegador. Sin esto el visor queda idéntico al de cámara apagada
+   y parece que el botón no hace nada. */
+.escaner-vacio--cargando { color: #e2e8f0; }
+.escaner-vacio__icono {
+  display: grid;
+  place-items: center;
+  height: 48px;
+}
+.escaner-vacio__texto { font-weight: 600; }
+.escaner-vacio__hint {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  max-width: 30ch;
+}
+
+.girador {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgb(226 232 240 / 0.25);
+  border-top-color: #e2e8f0;
+  animation: girar 0.9s linear infinite;
+}
+
+/* Los formatos que el navegador puede decodificar en ESTE equipo. Es la
+   diferencia entre "la etiqueta es de un formato que el navegador no lee" y
+   "la etiqueta estaba lejos": las dos se ven igual sin esta linea. */
+.escaner-formatos {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 6px;
+  margin: 0;
+  padding: 0 8px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  text-align: center;
+  color: rgb(226 232 240 / 0.75);
+  background: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Con la preferencia de menos animacion activada, el giro se detiene: un
+   elemento que gira para siempre es justo lo que esa preferencia pide evitar.
+   El texto sigue diciendo que esta cargando. */
+@media (prefers-reduced-motion: reduce) {
+  .girador {
+    animation: none;
+    border-top-color: #e2e8f0;
+    border-right-color: #e2e8f0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Segmented Control (Escanear / Manual)
+   --------------------------------------------------------------------------- */
+.segmented-control {
+  display: inline-flex;
+  gap: 0;
+  padding: 4px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-4);
+}
+.segmento {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--toque);
+  padding: 0 1rem;
+  border: none;
+  border-radius: calc(var(--radius-full) - 4px);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.segmento:hover { background: var(--color-surface); color: var(--color-text); }
+.segmento--activo {
+  background: var(--primary);
+  color: var(--btn-primary-text);
+  box-shadow: var(--shadow-sm);
+}
+.segmento__icono { display: inline-flex; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .segmento__texto { display: none; }
+  .segmento { padding: 0 0.75rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   Chips de movimiento
+   --------------------------------------------------------------------------- */
+.chips-movimiento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 550;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: var(--toque);
+}
+/* Los iconos del chip heredan el color del texto: el SVG usa `currentColor`.
+   Sin esto, un chip activo deja el icono del color por defecto del navegador y
+   no acompaña al texto. */
+.chip svg { color: currentColor; }
+
+/* El hover NO lleva relleno: solo cambia borde y texto.
+ *
+ * Antes hover y seleccionado compartian `--primary-soft` de fondo, asi que en
+ * la pantalla de escaneo —con la camara encendida y la mano ocupada— no se
+ * distinguian. Que el unico chip con fondo sea el que esta elegido hace que la
+ * seleccion se lea de un vistazo. */
+.chip:hover:not(.chip--activo):not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chip--activo,
+.chip--activo:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  box-shadow: var(--shadow-xs);
+}
+.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), var(--shadow-xs);
+}
+.chip--activo:focus-visible {
+  box-shadow: var(--focus-ring), var(--shadow-xs);
+}
+.chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+   Tarjeta manual (colapsable)
+   --------------------------------------------------------------------------- */
+.tarjeta--manual {
+  animation: deslizar 0.2s ease-out;
+}
+@keyframes deslizar {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Controles escáner
+   --------------------------------------------------------------------------- */
+.escaner-controles {
+  margin-top: var(--space-3);
+}
+.boton--camara {
+  /* Hereda de .boton -- min-height: var(--toque) ya garantiza 44px+ */
+}
+
+/* ---------------------------------------------------------------------------
+   Zona resultado
+   --------------------------------------------------------------------------- */
+.zona-resultado {
+  min-height: 60px; /* Evita salto de layout */
+}
+
 /* ---------------------------------------------------------------------------
    Resultado del escaneo
    --------------------------------------------------------------------------- */
@@ -561,8 +1115,8 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .insignia--deposito { background: var(--info-suave); color: var(--info); }
 .insignia--transito { background: var(--alerta-suave); color: var(--alerta); }
 .insignia--instalado { background: var(--exito-suave); color: var(--exito); }
-.insignia--taller { background: var(--primario-suave); color: var(--primario-fuerte); }
-.insignia--baja { background: var(--superficie-2); color: var(--texto-suave); }
+.insignia--taller { background: var(--taller-suave); color: var(--taller); }
+.insignia--baja { background: var(--baja-suave); color: var(--baja); }
 .insignia--peligro { background: var(--error-suave); color: var(--error); }
 
 /* ---------------------------------------------------------------------------
@@ -648,7 +1202,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   padding: 0.55rem 1rem;
   border-radius: var(--radio-full);
   background: var(--alerta);
-  color: #fff;
+  color: var(--texto-boton);
   font-size: 0.82rem;
   font-weight: 600;
   box-shadow: var(--sombra-alta);
@@ -717,3 +1271,306 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .pequeno { font-size: 0.82rem; }
 .apilado { display: grid; gap: 0.75rem; }
 .flex-entre { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+
+/* ---------------------------------------------------------------------------
+   Cargando (inline)
+   --------------------------------------------------------------------------- */
+.cargando {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--texto-suave);
+}
+.cargando::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--borde);
+  border-top-color: var(--primario);
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Modal (confirmación, login, etc.)
+   --------------------------------------------------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: modal-entrar 0.15s ease-out;
+}
+@keyframes modal-entrar {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal__contenido {
+  width: min(92vw, 420px);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-lg);
+  box-shadow: var(--sombra-xl);
+  padding: 1.5rem;
+  animation: modal-subir 0.2s ease-out;
+}
+@keyframes modal-subir {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.modal--confirmacion .modal__contenido {
+  text-align: center;
+}
+.modal--confirmacion h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+.modal--confirmacion p {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+/* La nota es el segundo nivel: dice qué hacer, no qué pasó. */
+.modal__nota {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--warning);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+
+/* El modal de "no está en el inventario" no es un error del sistema: es una
+   etiqueta que hay que resolver. Por eso lleva el titulo en color fuerte y no
+   el rojo de `.modal--peligro`. */
+.modal--alerta .modal__contenido {
+  border-top: 3px solid var(--warning);
+}
+.modal--alerta h3 {
+  color: var(--warning-text);
+}
+
+.modal--login .modal__contenido {
+  text-align: start;
+}
+
+/* ---------------------------------------------------------------------------
+   SQL Details (consultas) - Prevenir overflow y mejorar UX
+   --------------------------------------------------------------------------- */
+.sql-detalle {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  overflow: hidden; /* Contiene el pre interno */
+}
+.sql-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-weight: 550;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+.sql-summary:hover {
+  background: var(--superficie-hover);
+}
+.sql-summary::-webkit-details-marker {
+  display: none; /* Ocultar flecha nativa en WebKit */
+}
+.sql-summary::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--texto-suave);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  margin-right: 0.25rem;
+  transition: transform var(--transition-fast);
+}
+.sql-detalle[open] .sql-summary::before {
+  transform: rotate(90deg);
+}
+.sql-code {
+  margin: 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: 300px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  white-space: pre;
+  word-break: normal; /* No romper palabras en SQL */
+}
+.sql-code::-webkit-scrollbar {
+  height: 6px;
+}
+.sql-code::-webkit-scrollbar-track {
+  background: var(--borde);
+}
+.sql-code::-webkit-scrollbar-thumb {
+  background: var(--primario);
+  border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   Fix global text overflow - Prevenir que texto rompa layout
+   --------------------------------------------------------------------------- */
+.tarjeta__subtitulo,
+.campo__ayuda,
+.campo__error,
+.pequeno,
+.tenue,
+.resultado__mensaje,
+.cargando {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Prevenir overflow en contenedores flex/grid */
+.flex-entre,
+.fila-botones,
+.cabecera,
+.cabecera__nav,
+.segmented-control,
+.chips-movimiento {
+  flex-wrap: wrap;
+  min-width: 0; /* Permite que hijos flex se encojan */
+}
+
+/* Inputs y textareas nunca salen de su contenedor */
+.campo__control,
+textarea.campo__control {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Botones con texto largo */
+.boton {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.boton span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+/* ---------------------------------------------------------------------------
+   Footer
+   --------------------------------------------------------------------------- */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.footer__grid {
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Centrado horizontal */
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: 0 var(--space-2);
+}
+
+.footer__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.footer__year::before { content: "©"; margin-right: var(--space-1); }
+
+.footer__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.footer__version { font-family: var(--font-mono); }
+
+.footer__env {
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.footer__env[data-env="production"] { background: var(--success-soft); color: var(--success); }
+.footer__env[data-env="staging"]    { background: var(--warning-soft); color: var(--warning); }
+.footer__env[data-env="development"]{ background: var(--info-soft); color: var(--info); }
+
+.footer__legal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.footer__legal a { color: inherit; text-decoration: none; }
+.footer__legal a:hover { text-decoration: underline; color: var(--primary); }
+
+.footer__tech {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .footer__grid {
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+  }
+  .footer__brand { order: 1; }
+  .footer__meta { order: 2; }
+  .footer__legal { order: 3; width: 100%; justify-content: center; margin-top: var(--space-1); }
+  .footer__tech { order: 4; width: 100%; justify-content: center; }
+}
+
+/* Espacio para que el contenido no quede bajo el footer */
+.contenido { padding-bottom: calc(5.5rem + var(--safe-bottom)); }

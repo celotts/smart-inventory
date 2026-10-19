@@ -24,7 +24,7 @@
  * otros          → red, y cache de respaldo si falla.
  */
 
-const VERSION = 'si-v1';
+const VERSION = 'si-v2';
 const CACHE_ESTATICO = `${VERSION}-estatico`;
 const CACHE_ESTABLE = `${VERSION}-estable`;
 
@@ -39,6 +39,7 @@ const ESQUELETO = [
   '/src/dom.js',
   '/src/escaner.js',
   '/src/avisos.js',
+  '/src/composables/usePasswordStrength.js',
   '/src/vistas/login.js',
   '/src/vistas/escanear.js',
   '/src/vistas/inventario.js',
@@ -121,22 +122,33 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
-  // Assets estaticos: cache primero, y se refresca por detras. Un archivo que
-  // no cambio no vuelve a descargarse; uno que si, llega en la proxima carga.
+  // Assets estaticos: RED PRIMERO, cache de respaldo.
+  //
+  // POR QUE NO ES "CACHE PRIMERO"
+  // --------------------------
+  // `/src/main.js` no tiene hash en el nombre. "Cache primero" con un nombre
+  // fijo significa que un navegador que ya visito la app NUNCA vuelve a pedir
+  // ese archivo: sigue ejecutando el JS viejo para siempre, aunque el servidor
+  // mande el corregido. Pasa por el service worker Y por el `immutable` de un
+  // año en la cabecera de nginx, y el sintoma es "arregle el bug y el navegador
+  // sigue viendo el bug".
+  //
+  // Red primero con respaldo en cache da lo mismo offline (el esqueleto esta
+  // precacheado en `install`) y hace que un fix llegue en la PRIMERA recarga, que
+  // es lo que un operador espera.
   evento.respondWith(
     (async () => {
-      const cacheado = await caches.match(request);
-      const red = fetch(request)
-        .then((respuesta) => {
-          if (respuesta.ok) {
-            const copia = respuesta.clone();
-            caches.open(CACHE_ESTATICO).then((cache) => cache.put(request, copia));
-          }
-          return respuesta;
-        })
-        .catch(() => null);
-
-      return cacheado ?? (await red) ?? new Response('', { status: 504 });
+      try {
+        const respuesta = await fetch(request);
+        if (respuesta.ok) {
+          const copia = respuesta.clone();
+          caches.open(CACHE_ESTATICO).then((cache) => cache.put(request, copia));
+        }
+        return respuesta;
+      } catch {
+        const cacheado = await caches.match(request);
+        return cacheado ?? new Response('', { status: 504 });
+      }
     })(),
   );
 });

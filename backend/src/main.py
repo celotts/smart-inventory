@@ -82,6 +82,10 @@ from src.modules.movements.router import router as movements_router
 from src.modules.users.router import router as auth_router
 from src.modules.users.router import usuarios_router
 from src.modules.operations.router import router as ops_router
+from src.modules.stock.router import router as stock_router
+from src.modules.maintenance.router import router as maintenance_router
+from src.modules.purchasing.router import router as purchasing_router
+from src.modules.reporting.router import router as reporting_router
 
 # Falla en el ARRANQUE y no en el primer login. Un deploy sin SECRET_KEY tiene
 # que caerse en el pipeline, no un martes a la tarde en produccion.
@@ -113,6 +117,10 @@ app.include_router(usuarios_router)
 app.include_router(ops_router)
 app.include_router(devices_router)
 app.include_router(movements_router)
+app.include_router(stock_router)
+app.include_router(maintenance_router)
+app.include_router(purchasing_router)
+app.include_router(reporting_router)
 
 
 @app.get("/health", tags=["operacion"])

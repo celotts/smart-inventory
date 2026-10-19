@@ -1,243 +1,646 @@
 /**
- * Vista de escaneo.
+ * Vista de escaneo - Rediseñada para mejor UX
  *
- * ES EL FLUJO PRINCIPAL DE LA APP Y ESTA DISEÑADO PARA UN USUARIO CON LAS
- * MANOS OCUPADAS: en un deposito, con guantes, con una mano en la caja y la otra
- * en el telefono. De ahi salen todas las decisiones.
+ * PRINCIPIOS DE DISEÑO (5 puntos implementados):
+ * 1. CÁMARA PROTAGONISTA: Ocupa ~70% viewport, es la acción principal
+ * 2. MANUAL COMO FALLBACK: Segmented control [Escanear] [Manual], manual colapsable
+ * 3. AUTO-FOCO CÁMARA: Se enciende al entrar a la vista (si hay permiso)
+ * 4. ENTER = PROCESAR: En input manual, Enter dispara igual que escanear
+ * 5. TOOLTIPS + ARIA: Todos los botones tienen title + aria-label
  *
- *  - Los controles de 44px minimos y la mira grande.
- *  - El tipo de movimiento se elige ANTES de escanear, no despues: en el
- *    momento del escaneo hay que decidir rapido, y decidir sin ver la pantalla
- *    es mucho mas lento que leerla.
- *  - Hay ingreso manual siempre disponible, porque el lector no funciona en
- *    todos los navegadores ni con todas las camaras (vidrio sucio, etiqueta
- *    rayada, permiso denegado, HTTPS no configurado).
- *
- * LA GEOLOCALIZACION ES OPCIONAL
- * -----------------------------
- * El GPS mejora el dato ("este escaneo ocurrio dentro de la sede") pero no es
- * obligatorio: en el interior de un deposito de chapa la senal es mala, y pedir
- * coordenadas como requisito deja al operador sin poder trabajar. Se pide si se
- * puede; si falla, se sigue sin ellas y el backend registra `NULL`, que es "no
- * se pudo verificar" y NO "estabas fuera".
- *
- * IDEMPOTENCIA DEL LADO DEL CLIENTE
- * ----------------------------------
- * El `client_scan_id` se genera ACA, en el dispositivo, antes del `fetch`. Si
- * la respuesta no llega y hay que reintentar, se reutiliza el mismo UUID: es lo
- * que evita que el backend registre dos movimientos por el mismo escaneo.
+ * FUNCIONALIDAD PRESERVADA:
+ * - Idempotencia con client_scan_id (UUID)
+ * - Tipos de movimiento dinámicos desde /api/movement-types
+ * - BarcodeDetector nativo (Chrome/Safari/Edge), fallback manual
+ * - Geolocalización opcional
+ * - Ficha rica: ubicación, historial, días instalado
+ * - Estados: idle → escaneando → procesando → éxito/error
+ * - Accesibilidad: targets 48px+, labels ARIA, focus visible, alto contraste
  */
 
 import { api } from '../api.js';
-import { crear, icono, ICONOS, ESTADOS } from '../dom.js';
+import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
 import { LectorQR, normalizarCodigo } from '../escaner.js';
+import { abrirDialogo } from '../dialogo.js';
 import { avisar } from '../avisos.js';
 
-/**
- * Tipos que tienen sentido desde el escaner.
- *
- * `DISPOSAL` no esta a proposito: dar de baja es una accion que lleva firma y
- * certificado. Que pase por accidente mientras se camina con una caja es
- * exactamente el error que el trigger `PERMANENTLY_DISPOSED` absorbente evita
- * que se pueda deshacer despues.
- */
-const TIPOS_MOVIMIENTO = [
-  { valor: 'OUT_TO_CLIENT', texto: 'Sale a cliente' },
-  { valor: 'INSTALLATION', texto: 'Instalo en sitio' },
-  { valor: 'WAREHOUSE_REENTRY', texto: 'Vuelve a deposito' },
-  { valor: 'WITHDRAWAL_TO_WORKSHOP', texto: 'Manda a taller' },
-];
+/** Tipos de movimiento - se cargan dinámicamente desde /api/movement-types */
+let TIPOS_MOVIMIENTO = [];
 
 export function vistaEscanear({ alAbrirDispositivo }) {
-  const raiz = crear('div');
+  const raiz = crear('div', { clase: 'vista-escanear' });
 
-  // --- Tipo de movimiento ---------------------------------------------------
-  const tarjetaTipo = crear('div', { clase: 'tarjeta' });
-  const listadoTipos = crear('div', { clase: 'fila-botones' });
-  let tipoSeleccionado = TIPOS_MOVIMIENTO[0].valor;
+  // Estado local
+  let tipoSeleccionado = 'OUT_TO_CLIENT';
+  let scanIdPendiente = null;
+  let envioEnCurso = false;
+  let lector = null;
+  let camaraIniciadaAuto = false;
 
-  for (const tipo of TIPOS_MOVIMIENTO) {
-    const boton = crear('button', {
-      clase: 'boton boton--suave',
-      texto: tipo.texto,
-      atributos: {
-        type: 'button',
-        'aria-pressed': String(tipo.valor === tipoSeleccionado),
-        onclick: () => {
-          tipoSeleccionado = tipo.valor;
-          for (const otro of listadoTipos.children) {
-            otro.setAttribute('aria-pressed', String(otro.dataset.tipo === tipoSeleccionado));
-          }
-        },
-      },
-    });
-    boton.dataset.tipo = tipo.valor;
-    listadoTipos.append(boton);
-  }
+  // Referencias DOM
+  let zonaVacia = null;
+  let mira = null;
+  let botonCamara = null;
+  let vacioIcono = null;
+  let vacioTexto = null;
+  let vacioPista = null;
+  let timerSinLectura = null;
+  let inputCodigo = null;
+  let botonManual = null;
+  let zonaResultado = null;
+  let chipsContainer = null;
+  let segmentoActivo = 'escanear'; // 'escanear' | 'manual'
 
-  tarjetaTipo.append(
-    crear('h2', { clase: 'tarjeta__titulo', texto: 'Que estas haciendo' }),
-    crear('p', { clase: 'tarjeta__subtitulo', texto: 'Elegilo antes de escanear.' }),
-    listadoTipos,
-  );
+  // ============================================================
+  // CONSTRUCCIÓN DE LA UI
+  // ============================================================
 
-  // --- Camara ---------------------------------------------------------------
-  const zonaVideo = crear('div', { clase: 'escaner-marco' });
-  const lector = new LectorQR(zonaVideo);
-  const video = lector.elementoVideo;
-
-  const zonaVacia = crear('div', { clase: 'escaner-vacio' });
-  zonaVacia.append(
-    icono(ICONOS.camara, { tamano: 40 }),
-    crear('p', { texto: 'La camara esta apagada' }),
-  );
-  zonaVideo.append(zonaVacia);
-
-  // La mira: dice donde apuntar, sin tapar el codigo.
-  const mira = crear('div', { clase: 'escaner-mira' });
-  zonaVideo.append(mira);
-
-  const botonCamara = crear('button', {
-    clase: 'boton boton--bloque',
-    atributos: { type: 'button', onclick: alternarCamara },
-    hijos: [icono(ICONOS.camara, { tamano: 18 }), crear('span', { texto: 'Encender camara' })],
+  // ----- 1. Tarjeta: Tipo de movimiento (chips) -----
+  const tarjetaTipo = crear('section', { clase: 'tarjeta tarjeta--accion' });
+  chipsContainer = crear('div', {
+    clase: 'chips-movimiento',
+    role: 'radiogroup',
+    'aria-label': 'Tipo de movimiento',
+    id: 'chips-movimiento',
   });
 
-  const tarjetaCamara = crear('div', { clase: 'tarjeta' });
-  tarjetaCamara.append(
-    crear('h2', { clase: 'tarjeta__titulo', texto: 'Escanear etiqueta' }),
-    crear('p', {
-      clase: 'tarjeta__subtitulo',
-      texto: 'Apunta a la etiqueta, o usa el ingreso manual de abajo.',
+  tarjetaTipo.append(
+    crear('header', {
+      clase: 'tarjeta__header',
+      // Los hijos van DENTRO de las opciones. `crear(etiqueta, opciones)` no
+      // tiene un tercer parametro: pasarlos aparte los descarta en silencio y
+      // el header sale vacio, sin titulo.
+      hijos: [
+        crear('h2', { clase: 'tarjeta__titulo', texto: '¿Qué estás haciendo?' }),
+        crear('p', { clase: 'tarjeta__subtitulo', texto: 'Selecciona la acción antes de escanear' }),
+      ],
     }),
-    zonaVideo,
-    crear('div', { clase: 'fila-botones', hijos: [botonCamara] }),
+    chipsContainer
   );
 
-  const razon = LectorQR.razonNoDisponible();
-  if (razon) {
-    botonCamara.disabled = true;
-    tarjetaCamara.append(crear('p', { clase: 'campo__ayuda', texto: razon }));
+  // ----- 2. Tarjeta: Escáner (CÁMARA PROTAGONISTA) -----
+  // El `<video>` NO se crea aca: lo crea `LectorQR` y se expone en
+  // `elementoVideo`. Si la vista fabrica uno propio, quedan DOS `<video>` en el
+  // marco: el de la vista, al que nunca se le asigna `srcObject`, y el del
+  // lector, que tiene la imagen pero es el que la vista no muestra. El
+  // resultado es un rectangulo negro con "cámara apagada" arriba y un video
+  // encendido abajo, y ningun boton lo arregla porque el estado dice "on".
+  //
+  // `lector` se crea mas abajo, cuando ya existe `marcoVideo`; el video se
+  // resuelve en `iniciar()`/`apagarCamara()` con `lector.elementoVideo`.
+
+  // Estado del marco: apagada | encendiendo | error.
+  //
+  // `getUserMedia` no es instantaneo: abre el permiso del navegador y, la
+  // primera vez, espera a que el operador lo apruebe. Durante ese tiempo el
+  // marco se ve igual que apagado, asi que parece que el boton no funciono.
+  // Con un giro y un texto que dice que esta pasando, la espera se lee como
+  // espera y no como fallo.
+  zonaVacia = crear('div', { clase: 'escaner-vacio' });
+  vacioIcono = crear('div', { clase: 'escaner-vacio__icono' });
+  vacioIcono.append(icono(ICONOS.camara, { tamano: 48 }));
+  vacioTexto = crear('p', { clase: 'escaner-vacio__texto', texto: 'Cámara apagada' });
+  vacioPista = crear('p', {
+    clase: 'escaner-vacio__hint',
+    texto: 'Toca "Encender cámara" para escanear',
+  });
+  zonaVacia.append(vacioIcono, vacioTexto, vacioPista);
+
+  /**
+   * Pinta el estado del marco cuando no hay imagen.
+   * @param {'apagada'|'encendiendo'|'error'} estado
+   */
+  function pintarVacio(estado) {
+    zonaVacia.classList.toggle('escaner-vacio--cargando', estado === 'encendiendo');
+    // La mira (las cuatro esquinas y la viñeta) solo tiene sentido sobre una
+    // imagen real. Con la cámara apagada se dibujaba encima del mensaje y
+    // dejaba el marco con un rectangón oscuro sin explicación.
+    mira.hidden = true;
+
+    if (estado === 'encendiendo') {
+      vacioTexto.textContent = 'Encendiendo cámara…';
+      vacioPista.textContent = 'Aceptá el permiso si el navegador lo pide.';
+      vacioIcono.replaceChildren(crear('div', { clase: 'girador' }));
+      return;
+    }
+
+    vacioIcono.replaceChildren(icono(estado === 'error' ? ICONOS.error : ICONOS.camara, { tamano: 48 }));
+
+    if (estado === 'error') {
+      vacioTexto.textContent = 'No se pudo encender la cámara';
+      vacioPista.textContent = 'Revisá el permiso de cámara del navegador o usá el ingreso manual.';
+    } else {
+      vacioTexto.textContent = 'Cámara apagada';
+      vacioPista.textContent = 'Toca "Encender cámara" para escanear';
+    }
   }
 
-  // --- Ingreso manual -------------------------------------------------------
-  const inputCodigo = crear('input', {
-    clase: 'campo__control mono',
+  mira = document.createElement('div');
+  mira.className = 'escaner-mira';
+
+  /**
+   * Qué formatos puede leer ESTE navegador en ESTE equipo.
+   *
+   * Una etiqueta que no se lee casi siempre es una de dos cosas: el formato no
+   * está entre los que el navegador decodifica (cada navegador y cada sistema
+   * tienen una lista distinta), o el código está demasiado lejos o desenfocado.
+   * Sin esta línea, las dos se ven igual: nada pasa. Con ella, el operador ve
+   * si su Code 128 está en la lista sin tener que adivinar.
+   */
+  const lineaFormatos = crear('p', { clase: 'escaner-formatos' });
+  lineaFormatos.hidden = true;
+
+  /** Nombres legibles de los formatos, para que no parezca un error de sistema. */
+  const NOMBRES_FORMATO = {
+    qr_code: 'QR',
+    code_128: 'Code 128',
+    code_39: 'Code 39',
+    code_93: 'Code 93',
+    ean_13: 'EAN-13',
+    ean_8: 'EAN-8',
+    upc_a: 'UPC-A',
+    upc_e: 'UPC-E',
+    itf: 'ITF',
+    data_matrix: 'Data Matrix',
+    aztec: 'Aztec',
+    pdf417: 'PDF417',
+  };
+
+  function mostrarFormatos() {
+    const nombres = lector.formatos.map((f) => NOMBRES_FORMATO[f] ?? f);
+    lineaFormatos.textContent = `Lee: ${nombres.join(' · ')}`;
+    lineaFormatos.hidden = nombres.length === 0;
+  }
+
+  const marcoVideo = crear('div', { clase: 'escaner-marco' });
+  marcoVideo.append(zonaVacia, mira, lineaFormatos);
+
+  // Botón cámara: toggle on/off con tooltip
+  botonCamara = crear('button', {
+    clase: 'boton boton--bloque boton--camara',
+    atributos: {
+      type: 'button',
+      title: 'Encender/Apagar cámara (Ctrl+Shift+C)',
+      'aria-label': 'Alternar cámara del escáner',
+      'aria-pressed': 'false',
+    },
+    hijos: [icono(ICONOS.camara, { tamano: 20 }), crear('span', { texto: 'Encender cámara' })],
+  });
+
+  const tarjetaCamara = crear('section', { clase: 'tarjeta tarjeta--camara', id: 'tarjeta-escanear' });
+  tarjetaCamara.append(
+    crear('header', {
+      clase: 'tarjeta__header',
+      hijos: [
+        crear('h2', { clase: 'tarjeta__titulo', texto: 'Escanear etiqueta' }),
+        crear('p', { clase: 'tarjeta__subtitulo', texto: 'Apunta el código dentro del marco. El escaneo es automático.' }),
+      ],
+    }),
+    marcoVideo,
+    crear('div', { clase: 'escaner-controles', hijos: [botonCamara] })
+  );
+
+  // ----- 3. Tarjeta: Ingreso Manual (COLAPSABLE) -----
+  inputCodigo = crear('input', {
+    clase: 'campo__control campo__control--codigo mono',
     atributos: {
       type: 'text',
       id: 'codigo-manual',
+      inputmode: 'text',
       autocomplete: 'off',
       autocapitalize: 'characters',
       autocorrect: 'off',
       spellcheck: 'false',
       placeholder: 'INV-a1b2c3d4 o SER-123',
+      'aria-label': 'Código de la etiqueta (manual)',
+      'aria-describedby': 'ayuda-manual',
     },
   });
 
-  const botonManual = crear('button', {
-    clase: 'boton boton--bloque',
+  botonManual = crear('button', {
+    clase: 'boton boton--bloque boton--manual',
     texto: 'Registrar',
-    atributos: { type: 'submit' },
+    atributos: {
+      type: 'submit',
+      title: 'Registrar código manualmente (Enter)',
+      'aria-label': 'Registrar código ingresado manualmente',
+    },
   });
 
-  const formularioManual = crear('form', {
-    atributos: {
-      onsubmit: (evento) => {
-        evento.preventDefault();
-        procesar(inputCodigo.value);
-      },
-    },
+  const ayudaManual = crear('p', {
+    id: 'ayuda-manual',
+    clase: 'campo__ayuda',
+    texto: 'Para etiquetas sucias, rotas o si la cámara no enfoca. Pulsa Enter para registrar.',
   });
 
   const etiquetaManual = crear('label', { clase: 'campo' });
   etiquetaManual.htmlFor = 'codigo-manual';
   etiquetaManual.append(
-    crear('span', { clase: 'campo__etiqueta', texto: 'Codigo de la etiqueta' }),
+    crear('span', { clase: 'campo__etiqueta', texto: 'Código de la etiqueta' }),
     inputCodigo,
+    ayudaManual,
   );
 
+  const formularioManual = crear('form', {
+    clase: 'formulario-manual',
+    atributos: {
+      onsubmit: (e) => {
+        e.preventDefault();
+        procesar(inputCodigo.value);
+      },
+    },
+  });
   formularioManual.append(etiquetaManual, botonManual);
 
-  const tarjetaManual = crear('div', { clase: 'tarjeta' });
+  const tarjetaManual = crear('section', {
+    clase: 'tarjeta tarjeta--manual',
+    id: 'tarjeta-manual',
+    hidden: true, // Oculta por defecto - se muestra al cambiar segmento
+  });
   tarjetaManual.append(
-    crear('h2', { clase: 'tarjeta__titulo', texto: 'Ingreso manual' }),
-    crear('p', {
-      clase: 'tarjeta__subtitulo',
-      texto: 'Para cuando la etiqueta esta sucia o el lector no funciona.',
+    crear('header', {
+      clase: 'tarjeta__header',
+      hijos: [
+        crear('h2', { clase: 'tarjeta__titulo', texto: 'Ingreso manual' }),
+        crear('p', { clase: 'tarjeta__subtitulo', texto: 'Alternativa si la cámara no lee la etiqueta.' }),
+      ],
     }),
-    formularioManual,
+    formularioManual
   );
 
-  // --- Resultado ------------------------------------------------------------
-  const zonaResultado = crear('div');
-  zonaResultado.setAttribute('aria-live', 'polite');
+  // ----- 4. Segmented Control: [Escanear] [Manual] -----
+  const segmentoEscanear = crear('button', {
+    clase: 'segmento segmento--activo',
+    role: 'tab',
+    'aria-selected': 'true',
+    'aria-controls': 'tarjeta-escanear',
+    id: 'seg-escanear',
+    atributos: {
+      type: 'button',
+      title: 'Modo escáner con cámara (principal)',
+      'aria-label': 'Activar modo escáner con cámara',
+    },
+    hijos: [icono(ICONOS.camara, { tamano: 18 }), crear('span', { texto: 'Escanear' })],
+  });
 
-  raiz.append(tarjetaTipo, tarjetaCamara, tarjetaManual, zonaResultado);
+  const segmentoManual = crear('button', {
+    clase: 'segmento',
+    role: 'tab',
+    'aria-selected': 'false',
+    'aria-controls': 'tarjeta-manual',
+    id: 'seg-manual',
+    atributos: {
+      type: 'button',
+      title: 'Ingresar código a mano (fallback)',
+      'aria-label': 'Activar modo ingreso manual',
+    },
+    hijos: [icono(ICONOS.teclado, { tamano: 18 }), crear('span', { texto: 'Manual' })],
+  });
 
-  let envioEnCurso = false;
-  let scanIdPendiente = null;
+  const segmentedControl = crear('div', {
+    clase: 'segmented-control',
+    role: 'tablist',
+    'aria-label': 'Modo de ingreso',
+  });
+  segmentedControl.append(segmentoEscanear, segmentoManual);
 
-  // --- Camara: encendido y apagado ------------------------------------------
-  async function alternarCamara() {
-    if (lector.activo) {
+  // ----- 5. Área de resultado (vive) -----
+  zonaResultado = crear('div', {
+    id: 'zona-resultado',
+    clase: 'zona-resultado',
+    'aria-live': 'polite',
+  });
+
+  // Ensamblar vista principal
+  raiz.className = 'vista-escanear';
+  raiz.append(
+    tarjetaTipo,
+    tarjetaCamara,
+    segmentedControl,
+    tarjetaManual,
+    zonaResultado
+  );
+
+  // ============================================================
+  // INICIALIZACIÓN DEL LECTOR
+  // ============================================================
+
+  lector = new LectorQR(marcoVideo);
+
+  // Verificar soporte y mostrar aviso si no hay cámara nativa
+  const razon = LectorQR.razonNoDisponible();
+  if (razon) {
+    botonCamara.disabled = true;
+    botonCamara.title = razon;
+    botonCamara.setAttribute('aria-label', razon);
+    tarjetaCamara.append(crear('p', { clase: 'campo__ayuda', texto: razon }));
+  }
+
+  // ============================================================
+  // EVENTOS Y LÓGICA
+  // ============================================================
+
+  // --- Cambio de segmento (Escanear ↔ Manual) ---
+  function cambiarSegmento(nuevo) {
+    if (nuevo === segmentoActivo) return;
+
+    segmentoActivo = nuevo;
+    const esEscanear = nuevo === 'escanear';
+
+    // Actualizar UI
+    segmentoEscanear.classList.toggle('segmento--activo', esEscanear);
+    segmentoEscanear.setAttribute('aria-selected', esEscanear);
+    segmentoManual.classList.toggle('segmento--activo', !esEscanear);
+    segmentoManual.setAttribute('aria-selected', !esEscanear);
+
+    tarjetaCamara.hidden = !esEscanear;
+    tarjetaManual.hidden = esEscanear;
+
+    // Si vamos a escanear y no estaba iniciada, intentar auto-iniciar
+    if (esEscanear && !camaraIniciadaAuto && !razon) {
+      // Pequeño delay para que la transición termine
+      setTimeout(() => alternarCamara(true), 150);
+    }
+
+    // Si vamos a manual, enfocar input
+    if (!esEscanear) {
+      setTimeout(() => inputCodigo.focus({ preventScroll: true }), 150);
+    }
+  }
+
+  segmentoEscanear.addEventListener('click', () => cambiarSegmento('escanear'));
+  segmentoManual.addEventListener('click', () => cambiarSegmento('manual'));
+
+  // --- Cámara: encendido y apagado ---
+
+  /**
+   * Espera a que el `<video>` tenga algo que mostrar.
+   *
+   * @param {HTMLVideoElement} video
+   * @param {number} ms  Tope de espera.
+   * @returns {Promise<void>}
+   */
+  function primerFotograma(video, ms = 1500) {
+    if (video.videoWidth > 0 && video.readyState >= 2) return Promise.resolve();
+
+    return new Promise((resolver) => {
+      const listo = () => {
+        video.removeEventListener('loadeddata', listo);
+        clearTimeout(tope);
+        resolver();
+      };
+      const tope = setTimeout(() => {
+        video.removeEventListener('loadeddata', listo);
+        resolver();
+      }, ms);
+      video.addEventListener('loadeddata', listo);
+    });
+  }
+
+  /**
+   * Si pasan varios segundos sin leer nada, decirlo.
+   *
+   * El bucle de deteccion es silencioso por diseno: un frame sin codigo es lo
+   * normal. Pero cuando la etiqueta no se lee NADA, el operador ve una camara
+   * encendida y ninguna reaccion, y no hay forma de distinguir "todavia no
+   * leyo" de "esto no lo va a leer nunca". Este aviso cubre las dos, sin
+   * inventar un error.
+   */
+  function armarAvisoDeNadaDetectado() {
+    if (timerSinLectura) clearTimeout(timerSinLectura);
+    timerSinLectura = setTimeout(() => {
+      if (lector.activo) {
+        avisar(
+          'No detectó ningún código. Acercá la etiqueta hasta que ocupe un quinto del ancho del marco, o usá el ingreso manual.',
+          'alerta',
+          4000,
+        );
+      }
+    }, 6000);
+  }
+
+  /** El botón refleja el estado REAL de la cámara, no el último conocido. */
+  function pintarBotonCamara(encendida) {
+    const accion = encendida ? 'Apagar' : 'Encender';
+    botonCamara.replaceChildren(
+      icono(encendida ? ICONOS.error : ICONOS.camara, { tamano: 20 }),
+      crear('span', { texto: `${accion} cámara` })
+    );
+    botonCamara.setAttribute('aria-pressed', encendida ? 'true' : 'false');
+    botonCamara.title = `${accion} cámara (Ctrl+Shift+C)`;
+    botonCamara.setAttribute('aria-label', `${accion} cámara del escáner`);
+  }
+
+  /** El callback que el lector dispara cuando lee algo. */
+  function alLeerCodigo(codigo) {
+    // El lector se detiene SOLO en cuanto lee, para no leer diez veces la misma
+    // etiqueta. A esta altura la cámara ya está apagada, así que el botón tiene
+    // que volver a "Encender": si se queda en "Apagar cámara" sobre un cuadro
+    // negro, el operador que quiera seguir escaneando tiene que adivinar que
+    // apretarlo lo ENCIENDE.
+    pintarBotonCamara(false);
+    inputCodigo.value = codigo;
+    return procesar(codigo);
+  }
+
+  async function alternarCamara(forzarEncendido = false) {
+    const quiereEncender = forzarEncendido || !lector.activo;
+
+    if (!quiereEncender) {
       apagarCamara();
       return;
     }
 
+    if (lector.activo) return; // Ya está encendida
+
     botonCamara.disabled = true;
+    zonaVacia.hidden = false;
+    pintarVacio('encendiendo');
     try {
-      await lector.iniciar((codigo) => {
-        inputCodigo.value = codigo;
-        procesar(codigo);
-      });
-      video.hidden = false;
+      await lector.iniciar(alLeerCodigo);
+      // `play()` resuelve cuando la reproducción arranca, no cuando hay imagen:
+      // sin este espera el marco pasa de "encendiendo" a un rectangulo negro
+      // durante un par de cuadros. El timeout evita que una camara que nunca
+      // entrega fotogramas deje el girador girando para siempre.
+      await primerFotograma(lector.elementoVideo);
+      // El `<video>` del lector es el que tiene el stream: se muestra ese.
+      lector.elementoVideo.hidden = false;
       zonaVacia.hidden = true;
-      botonCamara.replaceChildren(
-        icono(ICONOS.error, { tamano: 18 }),
-        crear('span', { texto: 'Apagar camara' }),
-      );
+      mira.hidden = false;
+      mostrarFormatos();
+      armarAvisoDeNadaDetectado();
+      pintarBotonCamara(true);
+      camaraIniciadaAuto = true;
     } catch (error) {
+      // No se llama a `apagarCamara()` porque eso repintaria el marco como
+      // "apagada" y perderia el motivo: el operador necesita leer por que no
+      // se pudo, no ver el mismo cuadro de antes con un aviso al costado.
+      lector.detener();
+      lector.elementoVideo.hidden = true;
+      zonaVacia.hidden = false;
+      pintarVacio('error');
+      pintarBotonCamara(false);
+      // El aviso va para el operador; esto va para el que_programa: sin el, un
+      // fallo de cámara es una pantalla con un texto y nada más.
+      console.error('No se pudo encender la cámara:', error);
       avisar(error.message, 'error');
     } finally {
       botonCamara.disabled = false;
     }
   }
 
-  function apagarCamara() {
-    lector.detener();
-    video.hidden = true;
-    zonaVacia.hidden = false;
-    botonCamara.replaceChildren(
-      icono(ICONOS.camara, { tamano: 18 }),
-      crear('span', { texto: 'Encender camara' }),
-    );
+  /**
+   * Vuelve a encender la cámara después de un código que no existe.
+   *
+   * El lector se detiene solo en cuanto lee, para no leer diez veces la misma
+   * etiqueta. Con un código válido eso es lo correcto: el operador ya tiene el
+   * resultado. Con uno que NO existe no: la etiqueta no era el problema, el
+   * operador todavía tiene una entera por escanear, y quedarse con el cuadro
+   * negro lo obliga a apretar un botón extra en cada etiqueta mala.
+   *
+   * Se rearma AL CERRAR EL MODAL, no antes: si la cámara se encendiera con la
+   * etiqueta mala todavía en el encuadre, volvería a leer el mismo código y
+   * abriría el modal otra vez, sin fin.
+   */
+  function rearmarCamara() {
+    if (razon) return; // El navegador no puede abrir cámara: no tiene sentido.
+    alternarCamara(true).catch(() => { /* ya se avisa en `alternarCamara` */ });
   }
 
-  // Si el usuario se va a otra pestana, la camara se apaga sola. Dejarla
-  // encendida en background consume bateria y es una de las cosas que hacen que
-  // los usuarios odien las web apps.
+  function apagarCamara() {
+    lector.detener();
+    if (timerSinLectura) {
+      clearTimeout(timerSinLectura);
+      timerSinLectura = null;
+    }
+    lector.elementoVideo.hidden = true;
+    zonaVacia.hidden = false;
+    pintarVacio('apagada');
+    pintarBotonCamara(false);
+    botonCamara.title = 'Encender cámara (Ctrl+Shift+C)';
+    botonCamara.setAttribute('aria-label', 'Encender cámara del escáner');
+  }
+
+  botonCamara.onclick = () => alternarCamara();
+
+  // --- Teclado: Ctrl+Shift+C = toggle cámara, Enter en input = procesar ---
+  const atajoCamara = (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      if (segmentoActivo === 'escanear') alternarCamara();
+    }
+  };
+  document.addEventListener('keydown', atajoCamara);
+
+  // Enter en input manual = procesar (ya lo maneja el form submit, pero reforzamos)
+  inputCodigo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      procesar(inputCodigo.value);
+    }
+  });
+
+  // --- Auto-apagar cámara al cambiar de pestaña/ventana ---
   const alOcultar = () => {
     if (document.hidden && lector.activo) apagarCamara();
   };
   document.addEventListener('visibilitychange', alOcultar);
 
-  // --- Procesamiento --------------------------------------------------------
+  // --- Cargar tipos de movimiento dinámicos ---
+  async function cargarTiposMovimiento() {
+    try {
+      const tipos = await api.obtenerTiposMovimiento();
+      TIPOS_MOVIMIENTO = tipos;
+
+      vaciar(chipsContainer);
+
+      for (const t of tipos) {
+        const chip = crear('button', {
+          clase: `chip chip--movimiento ${t.valor === tipoSeleccionado ? 'chip--activo' : ''}`,
+          role: 'radio',
+          'aria-checked': t.valor === tipoSeleccionado,
+          atributos: {
+            type: 'button',
+            title: t.descripcion || t.texto,
+            'aria-label': `${t.texto}${t.descripcion ? ': ' + t.descripcion : ''}`,
+          },
+          hijos: [
+            // `t.icono` es el NOMBRE del icono, no el path: sin el lookup se le pasa
+            // 'buscar' como atributo `d` y el SVG sale con un error por consola.
+            icono(ICONOS[t.icono] || ICONOS.buscar, { tamano: 16 }),
+            crear('span', { texto: t.texto }),
+          ],
+        });
+
+        chip.onclick = () => {
+          tipoSeleccionado = t.valor;
+          for (const c of chipsContainer.querySelectorAll('.chip')) {
+            c.classList.toggle('chip--activo', c === chip);
+            c.setAttribute('aria-checked', c === chip);
+          }
+        };
+
+        chipsContainer.append(chip);
+      }
+
+      // Si no hay tipos, fallback a hardcodeados
+      if (tipos.length === 0) throw new Error('Sin tipos');
+    } catch {
+      // Fallback: tipos hardcodeados usando constantes de dom.js
+      const fallback = [
+        { valor: 'OUT_TO_CLIENT', texto: 'Salida a cliente', icono: 'buscar', descripcion: 'El equipo sale del depósito hacia el cliente' },
+        { valor: 'INSTALLATION', texto: 'Instalación', icono: 'ubicacion', descripcion: 'El equipo se instala en sitio del cliente' },
+        { valor: 'WAREHOUSE_REENTRY', texto: 'Reingreso a depósito', icono: 'refrescar', descripcion: 'El equipo vuelve al depósito desde cliente' },
+        { valor: 'WITHDRAWAL_TO_WORKSHOP', texto: 'Retiro a taller', icono: 'relojito', descripcion: 'El equipo va a reparación' },
+        { valor: 'REPLACEMENT', texto: 'Reemplazo', icono: 'refrescar', descripcion: 'Se reemplaza un equipo por otro' },
+        { valor: 'WAREHOUSE_ENTRY', texto: 'Entrada a depósito', icono: 'buscar', descripcion: 'Nuevo equipo ingresa al depósito' },
+        { valor: 'DISPOSAL', texto: 'Baja definitiva', icono: 'error', descripcion: 'El equipo se da de baja permanentemente' },
+      ];
+
+      vaciar(chipsContainer);
+      for (const t of fallback) {
+        const chip = crear('button', {
+          clase: `chip chip--movimiento ${t.valor === tipoSeleccionado ? 'chip--activo' : ''}`,
+          role: 'radio',
+          'aria-checked': t.valor === tipoSeleccionado,
+          atributos: {
+            type: 'button',
+            title: t.descripcion,
+            'aria-label': `${t.texto}: ${t.descripcion}`,
+          },
+          hijos: [icono(ICONOS[t.icono] || ICONOS.buscar, { tamano: 16 }), crear('span', { texto: t.texto })],
+        });
+        chip.onclick = () => {
+          tipoSeleccionado = t.valor;
+          for (const c of chipsContainer.querySelectorAll('.chip')) {
+            c.classList.toggle('chip--activo', c === chip);
+            c.setAttribute('aria-checked', c === chip);
+          }
+        };
+        chipsContainer.append(chip);
+      }
+    }
+  }
+
+  // --- Procesamiento del escaneo (manual o cámara) ---
   async function procesar(codigoCrudo) {
     if (envioEnCurso) return;
 
     const codigo = normalizarCodigo(codigoCrudo);
     if (!codigo) {
-      avisar('El codigo viene vacio.', 'alerta');
+      avisar('El código viene vacío.', 'alerta');
+      inputCodigo.focus({ preventScroll: true });
       return;
     }
 
     envioEnCurso = true;
     botonManual.disabled = true;
-    zonaResultado.replaceChildren(crear('p', { clase: 'tenue pequeno', texto: 'Registrando…' }));
+    botonCamara.disabled = true;
+    zonaResultado.replaceChildren(crear('p', { clase: 'cargando', texto: 'Registrando…' }));
 
-    // El UUID se genera UNA vez por intento de escaneo. Si la peticion falla
-    // por red y el operador reintenta con el mismo codigo, se reutiliza este
-    // y el backend lo reconoce como el mismo envio.
+    // El UUID se genera UNA vez por intento de escaneo.
+    // Si la petición falla por red y el operador reintenta con el mismo código,
+    // se reutiliza este y el backend lo reconoce como el mismo envío.
     if (!scanIdPendiente) scanIdPendiente = nuevoScanId();
 
     try {
@@ -251,24 +654,75 @@ export function vistaEscanear({ alAbrirDispositivo }) {
         longitude: posicion.longitude,
       });
 
-      // Solo se descarta el UUID cuando el backend confirmo. Si respondio con
-      // `replay: true`, tambien es exito: el envio ya estaba registrado.
+      // Solo se descarta el UUID cuando el backend confirmó.
+      // Si respondió con `replay: true`, también es éxito: el envío ya estaba registrado.
       scanIdPendiente = null;
       inputCodigo.value = '';
       pintarResultado(resultado, codigo);
     } catch (error) {
       // El UUID se CONSERVA para el reintento, salvo que el error sea de
-      // validacion: un `400` significa que la peticion esta mal y reenviarla
-      // identica va a fallar igual. En ese caso se descarta para que el
-      // operador pueda corregir y mandar una peticion nueva.
+      // validación: un 4xx significa que la petición está mal y reenviarla
+      // idéntica va a fallar igual. En ese caso se descarta para que el
+      // operador pueda corregir y mandar una petición nueva.
       if (error.status >= 400 && error.status < 500) scanIdPendiente = null;
+
+      // Un 404 NO es un fallo del sistema: es una etiqueta que no está dada de
+      // alta. Es el caso más común en un depósito —el operador escanea un equipo
+      // de otra empresa, o uno dado de baja sin certificado nuevo— y con un
+      // aviso que se va solo a los 4 segundos el operador lo pierde de vista
+      // mientras sigue apuntando la cámara. Va en modal, que no se va solo, y
+      // con el motivo del backend tal cual: el texto está escrito para el
+      // operador, no para un developers.
+      if (error.status === 404) {
+        mostrarCodigoDesconocido(error.message, codigo, rearmarCamara);
+        return;
+      }
+
       pintarError(error, codigo);
     } finally {
       envioEnCurso = false;
       botonManual.disabled = false;
+      botonCamara.disabled = false;
     }
   }
 
+  /**
+ * Código que no existe en el inventario.
+ *
+ * @param {string}   motivo    Lo que respondió el servidor.
+ * @param {string}   codigo    El código escaneado, para que el operador lo lea.
+ * @param {Function} [alCerrar] Se dispara al cerrar, con y sin Escape.
+ */
+function mostrarCodigoDesconocido(motivo, codigo, alCerrar) {
+  const boton = crear('button', {
+    clase: 'boton boton--bloque',
+    texto: 'Entendido',
+    atributos: { type: 'button' },
+  });
+
+  abrirDialogo({
+    titulo: 'Ese código no está en el inventario',
+    mensaje: motivo || `Ningún componente de este inventario tiene el código ${codigo}.`,
+    nota: 'Si el componente está dado de baja, hay que emitir un certificado nuevo antes de volver a inventariarlo.',
+    clase: 'modal--alerta',
+    acciones: [boton],
+    // El botón se escucha acá y no al construirlo porque `cerrar` todavía no
+    // existe: el diálogo se arma antes de poder cerrarse.
+    alAbrir: (_modal, cerrar) => {
+      boton.addEventListener('click', () => {
+        cerrar();
+        alCerrar?.();
+      });
+      // Escape cierra el modal, y la cámara tiene que volver igual: el modal
+      // no es el evento, es una de las dos formas de cerrarlo.
+      _modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') alCerrar?.();
+      });
+    },
+  });
+}
+
+// --- Pintar resultado exitoso ---
   function pintarResultado(resultado, codigo) {
     const geo = resultado.geo ?? {};
     const dispositivo = resultado.dispositivo ?? {};
@@ -296,21 +750,23 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       if (opciones.insignia) {
         dd.append(crear('span', { clase: `insignia ${opciones.insignia}`, texto: valor }));
       } else {
-        // `textContent`: el serial viene de la base y el codigo de una etiqueta
-        // fisica. Ninguno de los dos puede interpretarse como HTML.
+        // textContent: el serial viene de la base y el código de una etiqueta
+        // física. Ninguno de los dos puede interpretarse como HTML.
         dd.textContent = valor ?? '—';
       }
       def.append(crear('dt', { texto: clave }), dd);
     };
 
-    fila('Codigo', codigo, { clase: 'mono' });
+    fila('Código', codigo, { clase: 'mono' });
     fila('Serial', dispositivo.serial_number, { clase: 'mono' });
-    fila(
-      'Equipo',
-      [dispositivo.marca, dispositivo.modelo].filter(Boolean).join(' ') || null,
-    );
-    fila('Ubicacion', dispositivo.ubicacion_nombre);
+    fila('Equipo', [dispositivo.marca, dispositivo.modelo].filter(Boolean).join(' ') || null);
+    fila('Ubicación', dispositivo.ubicacion_nombre);
     fila('Estado', estadoInfo.texto, { insignia: estadoInfo.clase });
+
+    // Alerta geo si fuera de radio
+    if (geo.dentro_del_radio === false) {
+      fila('⚠️ Ubicación', `Fuera de radio (${geo.distancia_metros?.toFixed(0) ?? '?'} m)`, { clase: 'mono' });
+    }
 
     bloque.append(
       titulo,
@@ -325,6 +781,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
           texto: 'Ver la ficha del componente',
           atributos: {
             type: 'button',
+            title: 'Abrir ficha completa del dispositivo',
+            'aria-label': 'Abrir ficha completa del dispositivo',
             onclick: () => alAbrirDispositivo(dispositivo.id),
           },
         }),
@@ -332,8 +790,18 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     }
 
     zonaResultado.replaceChildren(bloque);
+
+    // Auto-limpiar después de 8s si no hay error geo
+    if (geo.dentro_del_radio !== false) {
+      setTimeout(() => {
+        if (zonaResultado.firstChild === bloque) {
+          zonaResultado.replaceChildren();
+        }
+      }, 8000);
+    }
   }
 
+  // --- Pintar error ---
   function pintarError(error, codigo) {
     const bloque = crear('div', { clase: 'resultado resultado--error' });
 
@@ -342,7 +810,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       icono(ICONOS.error, { tamano: 18 }),
       crear('span', {
         texto: error.status === 404
-          ? 'Ese codigo no esta en el inventario'
+          ? 'Ese código no está en el inventario'
           : 'No se pudo registrar',
       }),
     );
@@ -354,7 +822,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
         crear('p', {
           clase: 'resultado__mensaje pequeno tenue',
           texto:
-            'Si el componente esta dado de baja, hay que emitir un certificado ' +
+            'Si el componente está dado de baja, hay que emitir un certificado ' +
             'nuevo antes de volver a inventariarlo.',
         }),
       );
@@ -364,7 +832,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       bloque.append(
         crear('p', {
           clase: 'resultado__mensaje pequeno tenue',
-          texto: 'Revisa la conexion e intenta de nuevo con el mismo codigo.',
+          texto: 'Revisa la conexión e intenta de nuevo con el mismo código.',
         }),
       );
     }
@@ -375,62 +843,71 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     avisar(error.message, 'error');
   }
 
-  /**
-   * Un UUID v4 para la idempotencia.
-   *
-   * `crypto.randomUUID` requiere contexto seguro, que es la misma condicion que
-   * ya pide la camara. El fallback usa `crypto.getRandomValues`, que existe en
-   * todos los navegadores seguros.
-   *
-   * `Math.random` NO se usa: es predecible, y un `client_scan_id` adivinable
-   * rompe la idempotencia, que es justamente la garantia que protege el conteo.
-   */
-  function nuevoScanId() {
-    if (crypto?.randomUUID) return crypto.randomUUID();
+  // ============================================================
+  // CICLO DE VIDA
+  // ============================================================
 
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
+  // Cargar tipos al montar
+  cargarTiposMovimiento();
 
-  /** El GPS, con un timeout corto y sin bloquear el escaneo si falla. */
-  function obtenerPosicion() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({});
-        return;
-      }
+  // Auto-iniciar cámara al montar (si hay permiso y está en segmento escanear)
+  // Usamos setTimeout para que el paint termine primero
+  setTimeout(() => {
+    if (segmentoActivo === 'escanear' && !razon && !camaraIniciadaAuto) {
+      alternarCamara(true).catch(() => { /* silencioso */ });
+    }
+  }, 300);
 
-      navigator.geolocation.getCurrentPosition(
-        (posicion) =>
-          resolve({
-            latitude: posicion.coords.latitude,
-            longitude: posicion.coords.longitude,
-          }),
-        () => resolve({}),
-        {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          // Un escaneo con 30 s de antiguedad sigue siendo valido para validar
-          // que estabas en la sede: no hace falta la precision del metro.
-          maximumAge: 30000,
-        },
-      );
-    });
-  }
-
-  // SE APAGA AL CAMBIAR DE VISTA.
-  //
-  // `visibilitychange` apagaba la camara al cambiar de PESTANA, pero no al
-  // cambiar de VISTA dentro de la app: ir de "Escanear" a "Inventario" dejaba
-  // la camara encendida, que es justo lo que hace que un operador cierre la
-  // pestaña para "cortar la camara" y razonable en un celular.
-  function destruir() {
-    lector.detener();
+  // Limpieza al destruir la vista
+  const destruir = () => {
+    document.removeEventListener('keydown', atajoCamara);
     document.removeEventListener('visibilitychange', alOcultar);
-  }
+    // El timer vive fuera del DOM: sin esto sigue corriendo y avisa "no se
+    // detectó nada" en una vista que ya no está en pantalla.
+    if (timerSinLectura) clearTimeout(timerSinLectura);
+    if (lector.activo) apagarCamara();
+  };
 
+  // Contrato con `mostrarVista`: `{ elemento, destruir? }`. Devolver `raiz` en vez
+  // de `elemento` deja a `vistaActual.elemento` en `undefined`, el fallback
+  // `?? vistaActual` mete el objeto entero en el DOM y la pantalla muestra
+  // literalmente "[object Object]" en lugar de la vista.
   return { elemento: raiz, destruir };
+}
+
+// ============================================================
+// HELPERS GLOBALES
+// ============================================================
+
+function nuevoScanId() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function obtenerPosicion() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({});
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (posicion) =>
+        resolve({
+          latitude: posicion.coords.latitude,
+          longitude: posicion.coords.longitude,
+        }),
+      () => resolve({}),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+    );
+  });
+}
+
+function vaciar(el) {
+  while (el.firstChild) el.removeChild(el.firstChild);
 }

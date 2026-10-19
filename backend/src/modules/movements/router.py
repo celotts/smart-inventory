@@ -30,12 +30,102 @@ from src.modules.movements.schemas import (
     EscanearResponse,
     HistorialMovimiento,
     ListaMovimientosResponse,
+    MovimientoTipoResponse,
 )
 from src.modules.users.models import UsuarioActual
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/movements", tags=["movimientos"])
+
+
+# Metadatos de tipos de movimiento para UI (descripciones, iconos, etc.)
+METADATOS_MOVIMIENTO = {
+    "WAREHOUSE_ENTRY": {
+        "texto": "Entrada a depósito",
+        "descripcion": "Nuevo equipo ingresa al depósito",
+        "icono": "buscar",
+        "estado_destino": "IN_WAREHOUSE",
+        "requiere_reemplazo": False,
+    },
+    "WAREHOUSE_REENTRY": {
+        "texto": "Reingreso a depósito",
+        "descripcion": "El equipo vuelve al depósito desde cliente",
+        "icono": "refrescar",
+        "estado_destino": "IN_WAREHOUSE",
+        "requiere_reemplazo": False,
+    },
+    "OUT_TO_CLIENT": {
+        "texto": "Salida a cliente",
+        "descripcion": "El equipo sale del depósito hacia el cliente",
+        "icono": "buscar",
+        "estado_destino": "IN_TRANSIT",
+        "requiere_reemplazo": False,
+    },
+    "INSTALLATION": {
+        "texto": "Instalación",
+        "descripcion": "El equipo se instala en sitio del cliente",
+        "icono": "ubicacion",
+        "estado_destino": "INSTALLED",
+        "requiere_reemplazo": False,
+    },
+    "REPLACEMENT": {
+        "texto": "Reemplazo",
+        "descripcion": "Se reemplaza un equipo por otro",
+        "icono": "refrescar",
+        "estado_destino": "IN_TRANSIT",
+        "requiere_reemplazo": True,
+    },
+    "WITHDRAWAL_TO_WORKSHOP": {
+        "texto": "Retiro a taller",
+        "descripcion": "El equipo va a reparación",
+        "icono": "relojito",
+        "estado_destino": "IN_REPAIR",
+        "requiere_reemplazo": False,
+    },
+    "DISPOSAL": {
+        "texto": "Baja definitiva",
+        "descripcion": "El equipo se da de baja permanentemente",
+        "icono": "error",
+        "estado_destino": "PERMANENTLY_DISPOSED",
+        "requiere_reemplazo": False,
+    },
+}
+
+
+@router.get(
+    "/movement-types",
+    response_model=list[MovimientoTipoResponse],
+    summary="Listar tipos de movimiento disponibles",
+)
+def listar_tipos_movimiento(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
+) -> list[MovimientoTipoResponse]:
+    """
+    Devuelve los tipos de movimiento con metadatos para UI.
+    
+    El frontend usa esto para construir los chips de selección en la vista
+    de escaneo. Requiere permiso de crear movimientos (Operador o superior).
+    """
+    from src.modules.movements.service import ESTADO_POR_MOVIMIENTO, REQUIERE_REEMPLAZO
+    
+    tipos = []
+    for valor, estado_destino in ESTADO_POR_MOVIMIENTO.items():
+        meta = METADATOS_MOVIMIENTO.get(valor, {})
+        tipos.append(
+            MovimientoTipoResponse(
+                valor=valor,
+                texto=meta.get("texto", valor),
+                descripcion=meta.get("descripcion", ""),
+                icono=meta.get("icono", "buscar"),
+                estado_destino=estado_destino,
+                requiere_reemplazo=valor in REQUIERE_REEMPLAZO,
+            )
+        )
+    
+    # Ordenar por texto para UI consistente
+    tipos.sort(key=lambda t: t.texto)
+    return tipos
 
 
 def _errores_de_escaneo(exc: Exception) -> HTTPException:

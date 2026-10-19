@@ -33,6 +33,7 @@ claro, en vez de dejar que bcrypt haga su truncamiento en silencio.
 import hashlib
 import hmac
 import json
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -70,7 +71,12 @@ class _EncoderTolerante(json.JSONEncoder):
 
 # Longitud minima. La NIST recomienda 8; 12 es mas prudente para un sistema
 # donde las passwords dan acceso a inventario y datos de clientes.
-PASSWORD_MIN_LEN = 8
+PASSWORD_MIN_LEN = 12
+
+# Umbrales de fortaleza (entropy bits aproximados)
+# Débil: < 30 bits, Media: 30-59 bits, Fuerte: >= 60 bits
+PASSWORD_ENTROPY_WEAK = 30
+PASSWORD_ENTROPY_MEDIUM = 60
 
 
 class ErrorDePassword(ValueError):
@@ -132,6 +138,68 @@ def verificar_password(password: str, hash_guardado: str) -> bool:
         return False
 
 
+def calcular_entropia_password(password: str) -> float:
+    """Calcula la entropía estimada de una contraseña en bits (aproximación NIST)."""
+    if not password:
+        return 0.0
+
+    # Calcular el tamaño del conjunto de caracteres (pool size)
+    pool = 0
+    if any(c.islower() for c in password):
+        pool += 26      # a-z
+    if any(c.isupper() for c in password):
+        pool += 26      # A-Z
+    if any(c.isdigit() for c in password):
+        pool += 10      # 0-9
+    if any(not c.isalnum() for c in password):
+        pool += 32      # símbolos comunes
+
+    if pool == 0:
+        return 0.0
+
+    # Entropía = log2(pool^longitud) = longitud * log2(pool)
+    import math
+    return len(password) * math.log2(pool)
+
+
+def clasificar_fortaleza_password(password: str) -> str:
+    """Clasifica la fortaleza: 'débil', 'media', 'fuerte'."""
+    entropia = calcular_entropia_password(password)
+    if entropia < PASSWORD_ENTROPY_WEAK:
+        return "débil"
+    elif entropia < PASSWORD_ENTROPY_MEDIUM:
+        return "media"
+    return "fuerte"
+
+
+def obtener_info_fortaleza_password(password: str) -> dict:
+    """Retorna info completa de fortaleza para el frontend."""
+    entropia = calcular_entropia_password(password)
+    nivel = clasificar_fortaleza_password(password)
+
+    # Calcular requisitos cumplidos
+    tiene_mayus = any(c.isupper() for c in password)
+    tiene_minus = any(c.islower() for c in password)
+    tiene_digito = any(c.isdigit() for c in password)
+    tiene_simbolo = any(not c.isalnum() for c in password)
+    longitud_ok = len(password) >= PASSWORD_MIN_LEN
+
+    requisitos = [
+        {"nombre": "longitud", "cumplido": longitud_ok, "minimo": PASSWORD_MIN_LEN},
+        {"nombre": "mayúscula", "cumplido": tiene_mayus},
+        {"nombre": "minúscula", "cumplido": tiene_minus},
+        {"nombre": "número", "cumplido": tiene_digito},
+        {"nombre": "símbolo", "cumplido": tiene_simbolo},
+    ]
+
+    return {
+        "entropia": round(entropia, 1),
+        "nivel": nivel,
+        "requisitos": requisitos,
+        "es_valida": all(r["cumplido"] for r in requisitos),
+    }
+
+
 def validar_password(password: str) -> None:
     """Reglas de password. Lanza `ErrorDePassword` con el motivo."""
     if password is None:
@@ -160,6 +228,8 @@ def validar_password(password: str) -> None:
         raise ErrorDePassword("La contraseña debe tener al menos una minúscula.")
     if not any(c.isdigit() for c in password):
         raise ErrorDePassword("La contraseña debe tener al menos un número.")
+    if not any(not c.isalnum() for c in password):
+        raise ErrorDePassword("La contraseña debe tener al menos un símbolo (ej: !@#$%).")
 
 
 # ---------------------------------------------------------------------------

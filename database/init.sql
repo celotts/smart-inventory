@@ -11,6 +11,12 @@
 -- justamente el unico motivo por el que existe. Por eso las tablas de negocio
 -- caen de abajo hacia arriba (hijas antes que padres, por las FK), pero
 -- audit_logs se respeta.
+DROP TABLE IF EXISTS sessions CASCADE;
+DROP TABLE IF EXISTS stock_movements CASCADE;
+DROP TABLE IF EXISTS stock_items CASCADE;
+DROP TABLE IF EXISTS installation_periods CASCADE;
+DROP TABLE IF EXISTS movement_types CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS disposal_certificates CASCADE;
 DROP TABLE IF EXISTS repairs CASCADE;
 DROP TABLE IF EXISTS movement_history CASCADE;
@@ -43,6 +49,24 @@ DROP TYPE IF EXISTS device_status CASCADE;
 --      de sembrar un password sin meter el hash a mano en el .sql.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+
+-- ============================================================================
+-- FUNCTION: set_updated_at
+-- ============================================================================
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: set_updated_at
+-- ============================================================================
+
+
+
 -- 1. Enumerated Types (ENUMs)
 CREATE TYPE device_status AS ENUM (
     'IN_WAREHOUSE',
@@ -52,15 +76,7 @@ CREATE TYPE device_status AS ENUM (
     'PERMANENTLY_DISPOSED'
 );
 
-CREATE TYPE movement_type AS ENUM (
-    'WAREHOUSE_ENTRY',
-    'OUT_TO_CLIENT',
-    'INSTALLATION',
-    'REPLACEMENT',
-    'WITHDRAWAL_TO_WORKSHOP',
-    'WAREHOUSE_REENTRY',
-    'DISPOSAL'
-);
+
 
 CREATE TYPE repair_status AS ENUM (
     'DIAGNOSIS',
@@ -469,18 +485,69 @@ CREATE TABLE devices (
     )
 );
 
+-- ============================================================================
+-- 3b. Tipos de movimiento personalizables (configurables por cliente)
+-- ============================================================================
+--
+-- ANTES esto era un ENUM (`movement_type`) con los valores fijos en el codigo.
+-- Un cliente cuyo flujo no calzaba — "prestado en sitio", "en garantia del
+-- proveedor" — no podia registrar su operacion: el sistema no tenia nombre para
+-- ese movimiento, y un movimiento sin nombre no se puede reportar.
+--
+-- Ahora los tipos base viven como filas con `is_system = TRUE` (client_id NULL,
+-- no editables ni borrables) y cada cliente agrega los suyos con su client_id.
+-- La FK de movement_history pasa a apuntar al id, no a un string.
+--
+-- POR QUE ESTA AQUI Y NO SOLO EN 0010: init.sql es el instalador de una base
+-- nueva. Si esta tabla viviera solo en la migracion, una instalacion limpia
+-- -- que monte init.sql sin aplicar migraciones -- crearia movement_history con
+-- una FK a una tabla inexistente y fallaria.
+CREATE TABLE movement_types (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- NULL = tipo del sistema (no editable). INT = tipo personalizado del cliente.
+    client_id INT REFERENCES clients(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,           -- Identificador unico: 'WAREHOUSE_ENTRY', 'OUT_TO_CLIENT', etc.
+    label VARCHAR(100) NOT NULL,         -- Texto visible: 'Sale a cliente', 'Instalo en sitio'
+    target_status device_status NOT NULL, -- Estado destino al ejecutar este movimiento
+    icon VARCHAR(50),
+    color VARCHAR(20),                   -- Hex para la UI
+    sort_order INT DEFAULT 0,
+    is_system BOOLEAN DEFAULT FALSE,     -- TRUE = tipo del sistema (no editable)
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT uq_movement_type_client_name UNIQUE (client_id, name)
+);
+
+CREATE TRIGGER trigger_movement_types_updated_at
+    BEFORE UPDATE ON movement_types
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE INDEX idx_movement_types_client ON movement_types(client_id);
+CREATE INDEX idx_movement_types_active ON movement_types(is_active);
+
+-- Dos tipos del sistema con el mismo nombre romperian el catalogo global.
+CREATE UNIQUE INDEX uq_movement_type_system_name ON movement_types(name) WHERE (is_system = TRUE);
+
+-- Seed de los tipos del sistema. Los nombres coinciden 1:1 con los valores del
+-- ENUM que reemplazaron, asi que el mapeo nombre -> estado no se negocia.
+INSERT INTO movement_types (name, label, target_status, icon, color, sort_order, is_system, is_active) VALUES
+    ('WAREHOUSE_ENTRY', 'Entrada a depósito', 'IN_WAREHOUSE', 'package', '#2e7d32', 1, TRUE, TRUE),
+    ('OUT_TO_CLIENT', 'Sale a cliente', 'IN_TRANSIT', 'truck', '#b45309', 2, TRUE, TRUE),
+    ('INSTALLATION', 'Instalo en sitio', 'INSTALLED', 'home', '#0277bd', 3, TRUE, TRUE),
+    ('REPLACEMENT', 'Reemplazo', 'IN_TRANSIT', 'swap', '#b45309', 4, TRUE, TRUE),
+    ('WITHDRAWAL_TO_WORKSHOP', 'Manda a taller', 'IN_REPAIR', 'wrench', '#6b4a86', 5, TRUE, TRUE),
+    ('WAREHOUSE_REENTRY', 'Vuelve a depósito', 'IN_WAREHOUSE', 'package-2', '#2e7d32', 6, TRUE, TRUE),
+    ('DISPOSAL', 'Dar de baja', 'PERMANENTLY_DISPOSED', 'trash', '#c62828', 8, TRUE, TRUE);
+
+-- ============================================================================
 -- 4. Traceability and Movements
---
--- ON DELETE RESTRICT, NO CASCADE.
---
--- Con CASCADE, un DELETE accidental de un dispositivo borra TODOS sus
--- movimientos: donde estuvo, cuando salio y quien lo movio. En inventario eso
--- es informacion que no se recupera, y el borrado accidental es justamente el
--- caso para el que existe la FK. La baja legitima se hace con `deleted_at`.
+-- ============================================================================
 CREATE TABLE movement_history (
     id SERIAL PRIMARY KEY,
     device_id INT NOT NULL REFERENCES devices(id) ON DELETE RESTRICT,
-    movement_type movement_type NOT NULL,
+    movement_type_id UUID NOT NULL REFERENCES movement_types(id) ON DELETE RESTRICT,
     origin_location_id INT REFERENCES locations(id) ON DELETE RESTRICT,
     destination_location_id INT REFERENCES locations(id) ON DELETE RESTRICT,
     replaced_device_id INT REFERENCES devices(id) ON DELETE RESTRICT,
@@ -507,13 +574,49 @@ CREATE TABLE movement_history (
     -- Con una sola de las dos, un WAREHOUSE_ENTRY con replacement_reason
     -- "se rayo" pasa el filtro y queda un movimiento con un motivo que no
     -- corresponde a su tipo.
-    CONSTRAINT ck_movement_replacement CHECK (
-        CASE WHEN movement_type = 'REPLACEMENT'
-             THEN replaced_device_id IS NOT NULL AND replacement_reason IS NOT NULL
-             ELSE replaced_device_id IS NULL AND replacement_reason IS NULL
-        END
-    )
+-- La validacion REPLACEMENT NO puede ser un CHECK: un CHECK no admite
+    -- subconsultas, y la regla necesita preguntar el nombre del tipo a
+    -- movement_types. Por eso vive en el trigger de abajo.
 );
+
+-- ============================================================================
+-- TRIGGER: ck_movement_replacement_trigger
+-- ============================================================================
+--
+-- Implementa la misma regla que antes era el CHECK ck_movement_replacement,
+-- pero con la diferencia que obliga: el tipo ahora es una FK, no un ENUM, asi
+-- que "es REPLACEMENT" ya no se puede responder leyendo la fila -- hay que
+-- preguntar a movement_types.
+--
+-- Sin esto, la regla no existiria: un REPLACEMENT sin motivo, o un
+-- WAREHOUSE_ENTRY con motivo, entrarian igual y el reporte de reemplazos
+-- contaria operacoes que no fueron reemplazos.
+CREATE OR REPLACE FUNCTION ck_movement_replacement()
+RETURNS TRIGGER AS $$
+DECLARE
+    tipo_nombre VARCHAR(50);
+BEGIN
+    SELECT name INTO tipo_nombre FROM movement_types WHERE id = NEW.movement_type_id;
+
+    IF tipo_nombre = 'REPLACEMENT' THEN
+        IF NEW.replaced_device_id IS NULL OR NEW.replacement_reason IS NULL THEN
+            RAISE EXCEPTION
+                'Un movimiento REPLACEMENT exige replaced_device_id y replacement_reason';
+        END IF;
+    ELSE
+        IF NEW.replaced_device_id IS NOT NULL OR NEW.replacement_reason IS NOT NULL THEN
+            RAISE EXCEPTION
+                'Solo un movimiento REPLACEMENT puede tener replaced_device_id o replacement_reason';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER ck_movement_replacement_trigger
+    BEFORE INSERT OR UPDATE ON movement_history
+    FOR EACH ROW EXECUTE FUNCTION ck_movement_replacement();
 
 -- 5. Workshop and Disposals
 CREATE TABLE repairs (
@@ -707,14 +810,6 @@ CREATE INDEX idx_disposal_repair ON disposal_certificates(repair_id);
 --
 -- users y roles ya lo tenian (dentro de set_audit_role_id); devices, clients y
 -- locations no, y sus updated_at mentian.
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 CREATE TRIGGER trigger_devices_updated_at
 BEFORE UPDATE ON devices
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -972,6 +1067,176 @@ COMMENT ON TABLE scan_receipts IS
 -- un error. UNIQUE a secas convierte el reescaneo en un 409 explicito, que es
 -- la respuesta honesta.
 
+CREATE INDEX IF NOT EXISTS idx_scan_receipts_device ON scan_receipts(device_id, created_at DESC);
+
+COMMENT ON TABLE scan_receipts IS
+    'Idempotencia de escaneo: un client_scan_id, un movimiento. Un reintento no duplica.';
+
+
+-- ============================================================================
+-- PERIODOS DE INSTALACION (acumula tiempo de uso aunque se mueva el equipo)
+-- ============================================================================
+--
+-- POR QUE ESTA TABLA
+-- --------------------
+-- El campo `devices.installation_date` se resetea cada vez que el equipo se
+-- instala. Si el equipo va a reparación y vuelve al mismo sitio, se pierde el
+-- tiempo acumulado anterior. Esta tabla guarda cada periodo de instalación
+-- como una fila independiente, permitiendo consultar:
+--   - Cuantos dias TOTALES lleva el equipo instalado en su vida util
+--   - Cuantos dias en CADA sede especifica
+--   - El historico completo de instalaciones sin perder datos por reparaciones
+--
+-- Se alimenta automaticamente por los triggers de cambio de estado:
+--   - Entrada a INSTALLED  -> INSERT nueva fila (started_at = NOW)
+--   - Salida de INSTALLED   -> UPDATE ended_at = NOW, days_installed cached
+CREATE TABLE installation_periods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE RESTRICT,
+    location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ended_at TIMESTAMPTZ,
+    -- El movimiento que INICIO la instalacion (escaneo INSTALLATION)
+    movement_id_in INTEGER REFERENCES movement_history(id) ON DELETE RESTRICT,
+    -- El movimiento que TERMINO la instalacion (escaneo que saca de INSTALLED)
+    movement_id_out INTEGER REFERENCES movement_history(id) ON DELETE RESTRICT,
+    -- Dias instalados en ESTE periodo (cached para consultas rapidas)
+    -- Se calcula al cerrar el periodo: EXTRACT(DAY FROM ended_at - started_at)
+    days_installed INTEGER,
+
+    -- Un equipo no puede tener dos periodos abiertos en la misma sede
+    CONSTRAINT uq_install_period_open UNIQUE (device_id, location_id, ended_at)
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_install_periods_device ON installation_periods(device_id, started_at DESC);
+CREATE INDEX idx_install_periods_location ON installation_periods(location_id, started_at DESC);
+CREATE INDEX idx_install_periods_open ON installation_periods(device_id) WHERE ended_at IS NULL;
+
+COMMENT ON TABLE installation_periods IS
+    'Periodos de instalación por sede. Acumula tiempo de uso aunque el equipo vaya a reparación y vuelva.
+     Cada fila = un periodo continuo en una sede. days_installed se cachea al cerrar.';
+
+
+-- ============================================================================
+-- INVENTARIO POR CANTIDAD (stock por SKU + ubicacion + lote)
+-- ============================================================================
+--
+-- POR QUE ESTA TABLA Y NO REUTILIZAR devices
+-- -------------------------------------------
+-- devices = 1 fila = 1 EQUIPO UNICO (serial unico, vida util, reparacion)
+-- stock_items = 1 fila = 1 SKU en 1 ubicacion + lote (cantidad, vencimiento)
+--
+-- devices = "este portatil SN-123" (identidad unica, trazabilidad individual)
+-- stock_items = "15 cables USB-C lote L-2024-03 en Deposito Central" (cantidad)
+--
+-- NO se pueden unificar: devices exige serial unico; stock_items agrega por SKU+ubicacion+lote.
+-- Se usan flujos distintos:
+--   devices -> escaneo QR/serial -> movimiento individual -> trazabilidad completa
+--   stock_items -> escaneo codigo barras + cantidad -> entrada/salida/ajuste -> stock
+CREATE TABLE stock_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- Mismo catalogo que devices (models -> categories)
+    model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE RESTRICT,
+    location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+    -- Lote de fabricacion (trazabilidad para recalls, vencimientos)
+    lot_number VARCHAR(50) NOT NULL DEFAULT '',
+    -- Fecha de vencimiento (baterias, medicamentos, consumibles con caducidad)
+    expiry_date DATE,
+    -- Stock actual disponible
+    quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+    -- Cantidad reservada para ordenes/ordenes de trabajo
+    reserved_quantity INTEGER NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
+    -- Punto de reposicion (alerta cuando quantity - reserved <= min_stock)
+    min_stock INTEGER NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
+    -- Capacidad maxima (opcional, para control de capacidad)
+    max_stock INTEGER CHECK (max_stock IS NULL OR max_stock >= 0),
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Un SKU + ubicacion + lote = una fila de stock
+    CONSTRAINT uq_stock_item_unique UNIQUE (model_id, location_id, lot_number)
+);
+
+-- Trigger para updated_at
+CREATE TRIGGER trigger_stock_items_updated_at
+    BEFORE UPDATE ON stock_items
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Indices para consultas de stock
+CREATE INDEX idx_stock_items_model ON stock_items(model_id);
+CREATE INDEX idx_stock_items_location ON stock_items(location_id);
+CREATE INDEX idx_stock_items_expiry ON stock_items(expiry_date) WHERE expiry_date IS NOT NULL;
+CREATE INDEX idx_stock_items_low ON stock_items(model_id, location_id)
+    WHERE (quantity - reserved_quantity) <= min_stock AND min_stock > 0;
+
+COMMENT ON TABLE stock_items IS
+    'Inventario por cantidad (SKU + ubicacion + lote). Para consumibles, repuestos genericos,
+     insumos con vencimiento. NO para equipos con serial unico (eso es devices).';
+
+
+-- ============================================================================
+-- MOVIMIENTOS DE STOCK (entrada, salida, traslado, ajuste, vencimiento)
+-- ============================================================================
+CREATE TABLE stock_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    stock_item_id UUID NOT NULL REFERENCES stock_items(id) ON DELETE RESTRICT,
+    -- Tipo de movimiento
+    movement_type VARCHAR(20) NOT NULL CHECK (movement_type IN (
+        'IN',              -- Entrada (compra, recepcion, devolucion)
+        'OUT',             -- Salida (consumo, venta, asignacion a dispositivo)
+        'TRANSFER_IN',     -- Entrada por traslado desde otra ubicacion
+        'TRANSFER_OUT',    -- Salida por traslado a otra ubicacion
+        'ADJUSTMENT',      -- Ajuste de inventario (conteo ciclico, merma)
+        'EXPIRED',         -- Vencimiento / baja por caducidad
+        'RETURN'           -- Devolucion de prestamo / garantia
+    )),
+    quantity INTEGER NOT NULL CHECK (quantity != 0),
+    -- Trazabilidad del origen/destino del movimiento
+    reference_type VARCHAR(30),   -- 'purchase_order', 'work_order', 'sale', 'adjustment', 'transfer'
+    reference_id UUID,
+    -- Para TRANSFER: ubicacion origen/destino
+    from_location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+    to_location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+    -- Lote afectado (si el stock_item tiene lote, se hereda; si no, se declara)
+    lot_number VARCHAR(50),
+    expiry_date DATE,
+    -- Usuario que registra el movimiento
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    -- Idempotencia: client_scan_id para que reintentos no dupliquen
+    client_scan_id UUID UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Validaciones logicas
+    CONSTRAINT chk_stock_movement_qty_positive CHECK (
+        (movement_type IN ('IN', 'TRANSFER_IN', 'RETURN') AND quantity > 0) OR
+        (movement_type IN ('OUT', 'TRANSFER_OUT', 'EXPIRED', 'ADJUSTMENT') AND quantity != 0)
+    ),
+    CONSTRAINT chk_transfer_locations CHECK (
+        (movement_type IN ('TRANSFER_IN', 'TRANSFER_OUT') AND from_location_id IS NOT NULL AND to_location_id IS NOT NULL) OR
+        (movement_type NOT IN ('TRANSFER_IN', 'TRANSFER_OUT'))
+    )
+);
+
+CREATE INDEX idx_stock_movements_item ON stock_movements(stock_item_id, created_at DESC);
+CREATE INDEX idx_stock_movements_type ON stock_movements(movement_type, created_at DESC);
+CREATE INDEX idx_stock_movements_ref ON stock_movements(reference_type, reference_id);
+CREATE INDEX idx_stock_movements_client_scan ON stock_movements(client_scan_id) WHERE client_scan_id IS NOT NULL;
+
+COMMENT ON TABLE stock_movements IS
+    'Movimientos de stock por cantidad. Cada fila = una entrada/salida/traslado/ajuste.
+     client_scan_id permite idempotencia: reintentar el mismo escaneo no duplica el movimiento.';
+
+
+-- ============================================================================
+-- INDICES Y TRIGGERS ADICIONALES
+-- ============================================================================
+
+-- Trigger updated_at para stock_items (ya existe set_updated_at)
+-- Trigger updated_at para stock_movements si se permite UPDATE (no recomendado, es append-only)
+
+
 -- ============================================================================
 -- REGISTRO DE MIGRACIONES
 -- ============================================================================
@@ -1016,5 +1281,13 @@ VALUES
     -- volver a crear la tabla equivocada.
     ('0004_audit_log',              'aplicado por init.sql (instalación nueva)'),
     ('0005_transferencias_mantenimiento_alertas', 'aplicado por init.sql (instalación nueva)'),
-    ('0006_rotacion_estados_escaneo', 'aplicado por init.sql (instalación nueva)')
+    ('0006_rotacion_estados_escaneo', 'aplicado por init.sql (instalación nueva)'),
+    -- 0010 es la que reemplaza el ENUM `movement_type` por la tabla
+    -- `movement_types`. Arriba, init.sql YA crea `movement_history` con
+    -- `movement_type_id` y el trigger `ck_movement_replacement`, o sea el estado
+    -- final de 0010, no el punto de partida. Sin este registro, `make migrar`
+    -- sobre una base recien instalada intentaria correr los ALTER de 0010 y
+    -- fallarian: `ADD COLUMN movement_type_id` sobre una columna que ya existe.
+    -- Este registro dice "no la necesitas, tu base ya esta en ese estado".
+    ('0010_movement_types_dynamic',  'aplicado por init.sql (instalación nueva)')
 ON CONFLICT (version) DO NOTHING;

@@ -24,9 +24,34 @@
  * en un celular lento no haya una pantalla en blanco esperando la red.
  */
 
-import { api, cerrarSesion, haySesion, configurar } from './api.js';
+import { abrirDialogo } from './dialogo.js';
+import {
+  api,
+  cerrarSesion,
+  haySesion,
+  configurar,
+  consumirOperacionPendiente,
+  restaurarSesion,
+} from './api.js';
 import { crear, reemplazar } from './dom.js';
 import { avisar, marcarPendientes } from './avisos.js';
+/**
+ * Sello de build.
+ *
+ * POR QUE EXISTE
+ * --------------
+ * No hay bundler: el navegador carga los modulos ES nativos desde nginx. Por eso
+ * no hay un hash de contenido que cambie solo, y con un `Cache-Control` mal
+ * puesto el navegador sigue ejecutando un archivo viejo mientras el servidor ya
+ * tiene el nuevo. Cuando eso pasa, los errores que aparecen no corresponden a
+ * ningun archivo del repo y no hay forma de saber que version se esta mirando.
+ *
+ * Este sello se incrementa con cada cambio y se muestra en el pie. Si el pie dice
+ * algo distinto de lo esperado, el problema no es el codigo: es la cache del
+ * navegador, y se arregla con una recarga forzada (Cmd+Shift+R).
+ */
+const SELLO_BUILD = '2619-1';
+
 import { vistaLogin } from './vistas/login.js';
 import { vistaEscanear } from './vistas/escanear.js';
 import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
@@ -179,7 +204,10 @@ function pintarLogin() {
       await cargarUsuario();
       cabecera.hidden = false;
       mostrarVista('escanear');
+      actualizarEstadoIA();
       avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
+      // Reanudar operación pendiente (si venía de expiración con refresh token válido)
+      await reanudarOperacionPendiente();
     },
   });
 
@@ -214,6 +242,8 @@ async function cargarUsuario() {
     if (error?.status !== 401 && error?.status !== 403) {
       console.error('No se pudo cargar el perfil del usuario:', error);
     }
+
+    actualizarCabeceraUsuario();
   }
 }
 
@@ -222,35 +252,174 @@ async function cargarUsuario() {
 // ---------------------------------------------------------------------------
 
 async function intentarRestaurar() {
-  let refresh = null;
-  try {
-    refresh = sessionStorage.getItem('si.refresh');
-  } catch {
-    // Sin storage (Safari privado, iframe): no hay nada que restaurar y se
-    // muestra el login. Es lo correcto, no un error a mostrar.
-    return null;
-  }
+  // Sin storage (Safari privado, iframe) o sin refresh token, `restaurarSesion`
+  // devuelve null y se muestra el login: es lo correcto, no un error a mostrar.
+  return restaurarSesion();
+}
 
-  if (!refresh) return null;
 
-  try {
-    return await api.pedir('/auth/refresh', {
-      metodo: 'POST',
-      cuerpo: { refresh_token: refresh },
-      reintentar: false,
-    });
-  } catch {
-    return null;
+/**
+ * Actualiza la info del usuario en la cabecera.
+ * Se llama tras login y tras restaurar sesión.
+ */
+function actualizarCabeceraUsuario() {
+  const contenedor = document.getElementById('cabecera-usuario');
+  const nombreEl = document.getElementById('cabecera-usuario-nombre');
+  const rolEl = document.getElementById('cabecera-usuario-rol');
+
+  if (!contenedor || !nombreEl || !rolEl) return;
+
+  if (usuario && (usuario.full_name || usuario.email)) {
+    nombreEl.textContent = usuario.full_name || usuario.email;
+    // El rol viene del backend como role_name (ADMIN, TECHNICIAN, OPERATOR)
+    const rol = usuario.role_name || '—';
+    rolEl.textContent = rol.charAt(0) + rol.slice(1).toLowerCase();
+    contenedor.hidden = false;
+  } else {
+    contenedor.hidden = true;
   }
 }
 
 function cerrar() {
+  const btnCancelar = crear('button', {
+    clase: 'boton boton--suave',
+    texto: 'Cancelar',
+    atributos: { type: 'button' },
+  });
+  const btnConfirmar = crear('button', {
+    clase: 'boton boton--peligro',
+    texto: 'Cerrar sesión',
+    atributos: { type: 'button' },
+  });
+
+  abrirDialogo({
+    titulo: '¿Cerrar sesión?',
+    mensaje: 'Se cerrará tu sesión actual. ¿Continuar?',
+    clase: 'modal--confirmacion',
+    acciones: [btnCancelar, btnConfirmar],
+    alAbrir: (_modal, cerrarModal) => {
+      btnCancelar.addEventListener('click', cerrarModal);
+      btnConfirmar.addEventListener('click', () => {
+        cerrarModal();
+        hacerLogout();
+      });
+    },
+  });
+}
+
+/**
+ * Muestra modal de login (para expiración de token durante operación).
+ * NO navega a login page - mantiene la vista actual en background.
+ * @param {Function} alExito - Callback cuando login exitoso
+ */
+function mostrarLoginModal(alExito) {
+  let cerrarModal = () => {};
+
+  const form = crear('form', {
+    clase: 'apilado',
+    estilo: 'margin-top:1rem;gap:0.75rem',
+    atributos: {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        if (!email || !password) return;
+
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Entrando…';
+
+        try {
+          const datos = await api.login(email, password);
+          cerrarModal();
+          await alExito(datos);
+        } catch (error) {
+          avisar(error.message, 'error');
+        } finally {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = 'Entrar';
+        }
+      },
+    },
+  });
+
+  const emailInput = crear('input', {
+    clase: 'campo__control',
+    atributos: {
+      type: 'email',
+      placeholder: 'Email',
+      autocomplete: 'email',
+      required: true,
+      autofocus: true,
+    },
+  });
+
+  const passwordInput = crear('input', {
+    clase: 'campo__control',
+    atributos: {
+      type: 'password',
+      placeholder: 'Contraseña',
+      autocomplete: 'current-password',
+      required: true,
+    },
+  });
+
+  const btnSubmit = crear('button', {
+    clase: 'boton boton--bloque',
+    texto: 'Entrar',
+    atributos: { type: 'submit' },
+  });
+
+  form.append(
+    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Email' }), emailInput] }),
+    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Contraseña' }), passwordInput] }),
+    btnSubmit
+  );
+
+  // `cuerpo` a mano porque este modal lleva un `<form>` adentro, no un texto:
+  // `abrirDialogo` acepta nodos ya construidos.
+  cerrarModal = abrirDialogo({
+    titulo: 'Sesión expirada',
+    cuerpo: [
+      crear('p', { clase: 'tenue pequeno', texto: 'Tu sesión ha expirado. Inicia sesión para continuar.' }),
+      form,
+    ],
+    clase: 'modal--login',
+  });
+}
+
+/**
+ * Reanuda operación pendiente tras login exitoso.
+ *
+ * `consumirOperacionPendiente` es un export con nombre de `api.js`, no un metodo
+ * del objeto `api`: llamar `api.consumirOperacionPendiente()` es `undefined`
+ * y tira un TypeError que el manejador de promesas no controladas de mas abajo
+ * convierte en un error rojo en la consola, sin relación visible con lo que el
+ * operador estaba haciendo.
+ */
+async function reanudarOperacionPendiente() {
+  const op = consumirOperacionPendiente();
+  if (!op) return;
+
+  const { ruta, ...opciones } = op;
+  try {
+    avisar('Reanudando operación…', 'info', 1500);
+    await api.pedir(ruta, opciones);
+    avisar('Operación completada', 'exito', 2000);
+  } catch (error) {
+    if (error.status !== 401) { // 401 ya manejado por api.js
+      avisar(`No se pudo reanudar: ${error.message}`, 'error');
+    }
+  }
+}
+
+function hacerLogout() {
   api.logout();
   cerrarSesion();
   usuario = null;
   vistaActual = null;
   vistaActualNombre = null;
   history.replaceState(null, '', window.location.pathname);
+  actualizarCabeceraUsuario();
   pintarLogin();
 }
 
@@ -293,10 +462,34 @@ for (const boton of cabecera.querySelectorAll('[data-vista]')) {
 
 document.getElementById('btn-salir')?.addEventListener('click', cerrar);
 
+// Botón modo exterior / alto contraste (para sol directo, guantes, accesibilidad)
+const btnExterior = document.getElementById('btn-exterior');
+if (btnExterior) {
+  btnExterior.addEventListener('click', () => {
+    const activo = document.documentElement.toggleAttribute('data-outdoor');
+    btnExterior.setAttribute('aria-pressed', activo);
+    btnExterior.title = activo
+      ? 'Desactivar modo exterior (alto contraste)'
+      : 'Activar modo exterior / alto contraste (para sol directo)';
+    avisar(activo ? 'Modo exterior activado' : 'Modo exterior desactivado', 'exito', 2000);
+  });
+}
+
 configurar({
   alExpirar: () => {
     usuario = null;
     pintarLogin();
+  },
+  alRequerirLogin: () => {
+    // Mostrar modal login en lugar de navegar a login page
+    mostrarLoginModal(async (datos) => {
+      usuario = datos.usuario ?? { role_name: datos.role_name };
+      await cargarUsuario();
+      cabecera.hidden = false;
+      avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
+      // Reanudar operación pendiente
+      await reanudarOperacionPendiente();
+    });
   },
 });
 
@@ -324,5 +517,99 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
   avisar('Sin conexion. Los escaneos se guardan y se envian solos.', 'alerta', 0);
 });
+
+/* ---------------------------------------------------------------------------
+   Footer - inicialización dinámica
+   --------------------------------------------------------------------------- */
+function inicializarFooter() {
+  // Versión (inyectada por Vite/build o fallback)
+  // En módulos ES nativos sin bundler, import.meta.env no existe.
+  // Usamos una función auxiliar para acceder de forma segura.
+  const getEnv = (key) => {
+    try {
+      return import.meta.env?.[key];
+    } catch {
+      return undefined;
+    }
+  };
+  const version = getEnv('VITE_APP_VERSION') || '0.3.0';
+  const buildHash = getEnv('VITE_BUILD_HASH') || SELLO_BUILD;
+  const env = getEnv('MODE') || 'development';
+  const company = getEnv('VITE_COMPANY_NAME') || 'FC Quality';
+  const supportEmail = getEnv('VITE_SUPPORT_EMAIL') || 'soporte@fcquality.com';
+
+  // Año dinámico
+  const yearEl = document.querySelector('.footer__year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  // Versión
+  const versionEl = document.getElementById('footer-version');
+  if (versionEl) versionEl.textContent = `v${version}`;
+
+  // Build hash
+  const buildEl = document.getElementById('build-hash');
+  if (buildEl) buildEl.textContent = buildHash.slice(0, 7);
+
+  // Entorno
+  const envEl = document.getElementById('footer-env');
+  if (envEl) {
+    envEl.textContent = env.toUpperCase();
+    envEl.dataset.env = env;
+  }
+
+  // Empresa
+  const brandEl = document.querySelector('.footer__brand strong');
+  if (brandEl) brandEl.textContent = company;
+
+  // Email soporte
+  const supportLink = document.querySelector('.footer__legal a[href^="mailto:"]');
+  if (supportLink) supportLink.href = `mailto:${supportEmail}`;
+
+  // Estado IA
+  actualizarEstadoIA();
+  setInterval(actualizarEstadoIA, 60000);
+}
+
+/**
+ * Estado de la IA en el footer.
+ *
+ * Vive a nivel de modulo, y no dentro de `inicializarFooter`, para poder
+ * refrescarlo en el momento exacto en que hay sesion: el pie se inicializa una
+ * sola vez, al arrancar, y para entonces casi siempre esta en la pantalla de
+ * login.
+ */
+async function actualizarEstadoIA() {
+  const el = document.getElementById('ai-status');
+  if (!el) return;
+
+  // `/api/ai/health` es un endpoint autenticado: sin sesion responde 401
+  // siempre. Preguntar igual no informa nada, deja un error rojo en la consola
+  // cada 60 segundos mientras el operador esta en la pantalla de login, y hace
+  // creer que la IA esta caida cuando lo unico que falta es iniciar sesion.
+  if (!haySesion()) {
+    el.textContent = 'IA: —';
+    el.style.color = '';
+    return;
+  }
+
+  try {
+    // `api.estadoIA()`, no `fetch('/api/ai/health')`: el access token vive en el
+    // modulo de la API, en memoria. Un `fetch` pelado sale sin cabecera
+    // `Authorization` y el endpoint responde 401 aunque la sesion este
+    // abierta — que es exactamente lo que pasaba y se veía como un error rojo
+    // en la consola del navegador con el usuario ya logueado.
+    const d = await api.estadoIA();
+    el.textContent = d.disponible
+      ? `IA: ${d.modelo_configurado || 'ollama'} ✓`
+      : `IA: indisponible`;
+    el.style.color = d.disponible ? 'var(--success)' : 'var(--error)';
+  } catch {
+    el.textContent = 'IA: error';
+    el.style.color = 'var(--error)';
+  }
+}
+
+// Inicializar footer al arrancar
+inicializarFooter();
 
 arrancar();
