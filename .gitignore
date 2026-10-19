@@ -57,6 +57,23 @@ yarn-error.log*
 .env.*
 !.env.example
 
+# --- Scripts de depuracion de sesion ---------------------------------------
+#
+# Los `_qa_*.mjs` del harness de navegador (skill `browser-automation`): se
+# escriben al vuelo para reproducir UN bug, se correr con
+# `node .../browser.mjs <url> --script ./_qa_x.mjs` y ya no sirven al dia
+# siguiente.
+#
+# No se versionan porque no son pruebas: dependen de una skill que vive FUERA
+# del repo (~/.claude/skills/), de patchright que no esta en package.json, y
+# de credenciales de dev. Quien clonee el repo no puede correrlos, y un
+# `git status` con 19 archivos sin trackear esconde cambios de verdad.
+#
+# Si uno de ellos revela un bug que hay que fijar dos veces, ese script se
+# reescribe como prueba real en `scripts/qa/` o como test del backend, con sus
+# dependencias declaradas.
+_qa_*.mjs
+
 # --- Sistema --------------------------------------------------------------
 .DS_Store
 Thumbs.db
