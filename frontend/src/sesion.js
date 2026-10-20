@@ -323,6 +323,7 @@ const VISTAS_POR_NOMBRE = {
   compras: true,
   auditoria: true,
   nuevo: true,
+  usuarios: true,
 };
 
 // ---------------------------------------------------------------------------

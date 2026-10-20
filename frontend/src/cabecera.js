@@ -46,6 +46,7 @@ export function actualizarCabeceraUsuario() {
   const pestanaMovimientos = document.getElementById('pestana-movimientos');
   const pestanaAuditoria = document.getElementById('pestana-auditoria');
   const pestanaIncidencias = document.getElementById('pestana-incidencias');
+  const pestanaUsuarios = document.getElementById('pestana-usuarios');
 
   if (!contenedor || !nombreEl || !rolEl) return;
 
@@ -74,6 +75,10 @@ export function actualizarCabeceraUsuario() {
     // Incidencias: verlas es de cualquiera (el operador ve los problemas que
     // reporta), gestionarlas es del taller.
     if (pestanaIncidencias) pestanaIncidencias.hidden = !perms.includes('incidents:read');
+    // Usuarios es de ADMIN: la lista de quien entra es informacion que un
+    // tecnico no necesita para trabajar, y el que la tiene puede cambiar el
+    // rol de cualquiera.
+    if (pestanaUsuarios) pestanaUsuarios.hidden = !perms.includes('users:read');
   } else {
     contenedor.hidden = true;
     if (pestanaNuevo) pestanaNuevo.hidden = true;
@@ -82,7 +87,39 @@ export function actualizarCabeceraUsuario() {
     if (pestanaMovimientos) pestanaMovimientos.hidden = true;
     if (pestanaAuditoria) pestanaAuditoria.hidden = true;
     if (pestanaIncidencias) pestanaIncidencias.hidden = true;
+    if (pestanaUsuarios) pestanaUsuarios.hidden = true;
   }
+}
+
+/**
+ * El chip de usuario: abre "Mi cuenta" (cambiar la contrasena).
+ *
+ * ES UN BOTON Y NO UN DIV
+ * ----------------------
+ * Con un `<div>` al que se le pone un click, el teclado no llega: el
+ * operador con teclado no puede cambiar su contrasena, y el lector de
+ * pantalla anuncia un texto que no hace nada. Un `<button>` es un boton: foco,
+ * Enter y Espacio funcionan, y el lector anuncia "boton".
+ */
+export function iniciarChipUsuario() {
+  const chip = document.getElementById('cabecera-usuario');
+  if (!chip) return;
+
+  chip.setAttribute('role', 'button');
+  chip.setAttribute('tabindex', '0');
+  chip.setAttribute('aria-label', 'Mi cuenta: cambiar la contrasena');
+
+  const abrir = () => {
+    import('./mi-cuenta.js').then(({ abrirMiCuenta }) => abrirMiCuenta(estado.usuario));
+  };
+
+  chip.addEventListener('click', abrir);
+  chip.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Enter' || evento.key === ' ') {
+      evento.preventDefault();
+      abrir();
+    }
+  });
 }
 
 /**

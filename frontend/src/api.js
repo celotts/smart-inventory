@@ -567,6 +567,21 @@ export const api = {
   moverPorProducto: (datos) =>
     pedir('/movements/por-producto', { metodo: 'POST', cuerpo: datos }),
 
+  // --- Usuarios -------------------------------------------------------------
+  // El admin da de alta, cambia la clave y desactiva. La API existe desde
+  // hace rato; lo que faltaba era la pantalla.
+  listarUsuarios: (params) => pedir('/users', { params }),
+  crearUsuario: (datos) => pedir('/users', { metodo: 'POST', cuerpo: datos }),
+  actualizarUsuario: (id, datos) => pedir(`/users/${id}`, { metodo: 'PATCH', cuerpo: datos }),
+  resetearPassword: (id, password_nueva) =>
+    pedir(`/users/${id}/reset-password`, { metodo: 'POST', cuerpo: { password_nueva } }),
+  desactivarUsuario: (id) => pedir(`/users/${id}/desactivar`, { metodo: 'POST' }),
+  restaurarUsuario: (id) => pedir(`/users/${id}/restaurar`, { metodo: 'POST' }),
+  roles: () => pedir('/users/roles'),
+  // Mi propia contrasena: pide la ACTUAL (si no, cualquiera con un token
+  // robado se cambia la clave y echa al dueño de su cuenta).
+  cambiarMiPassword: (datos) => pedir('/auth/cambiar-password', { metodo: 'POST', cuerpo: datos }),
+
   // --- Incidencias ----------------------------------------------------------
   // El reporte de un problema: lo ve, lo reporta y lo resuelve el taller.
   incidencias: (params) => pedir('/incidents', { params }),

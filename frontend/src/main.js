@@ -28,7 +28,7 @@
  */
 
 import { verificarVersionDelServidor } from './build.js';
-import { iniciarModoExterior, inicializarFooter } from './cabecera.js';
+import { iniciarChipUsuario, iniciarModoExterior, inicializarFooter } from './cabecera.js';
 import { iniciarCampana } from './campana.js';
 import { mostrarVista } from './navegacion.js';
 import { arrancar, cerrar } from './sesion.js';
@@ -109,6 +109,9 @@ document.addEventListener('auditoria:abrir-equipo', (evento) => {
 
 // Botón modo exterior / alto contraste (para sol directo, guantes, accesibilidad)
 iniciarModoExterior();
+
+// El chip de usuario: "Mi cuenta" (cambiar la propia contraseña).
+iniciarChipUsuario();
 
 // ---------------------------------------------------------------------------
 // Arranque

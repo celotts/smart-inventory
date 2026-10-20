@@ -254,6 +254,17 @@ db-shell:
 # no suponiendo, y separa tres casos que antes se confundian — base al dia,
 # base con pendientes, y base SIN registro (creada antes de que la tabla
 # existiera), donde no se puede saber y hay que decirlo en vez de adivinar.
+# Crea un usuario desde la terminal, con su contrasena.
+#
+# El camino NORMAL para dar de alta a alguien es la pantalla "Usuarios" de la
+# app (un ADMIN lo hace en dos clicks). Este target es para el caso en que no
+# hay admin todavia, o el admin perdio su clave: ahi no se puede entrar a la
+# app, y el unico camino es la base.
+#
+# La contrasena se pide oculta (`read -s`) y NO se escribe en ningun archivo.
+usuario:
+	@bash scripts/crear-usuario.sh
+
 migrar-estado:
 	@bash scripts/migrar.sh --estado
 

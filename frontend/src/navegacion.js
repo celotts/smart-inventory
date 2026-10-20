@@ -28,6 +28,7 @@ import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
 import { vistaMovimientos } from './vistas/movimientos.js';
 import { vistaNuevo } from './vistas/nuevo.js';
 import { vistaProductos } from './vistas/productos.js';
+import { vistaUsuarios } from './vistas/usuarios.js';
 import { reemplazar } from './dom.js';
 import { permisosDe, setVistaActual, estado } from './estado.js';
 
@@ -43,6 +44,7 @@ export const VISTAS = {
   compras: { etiqueta: 'Compras', construir: vistaCompras },
   auditoria: { etiqueta: 'Auditoría', construir: vistaAuditoria },
   nuevo: { etiqueta: 'Nuevo', construir: vistaNuevo },
+  usuarios: { etiqueta: 'Usuarios', construir: vistaUsuarios },
 };
 
 const contenido = document.getElementById('contenido');
