@@ -25,6 +25,8 @@ El estado de la IA vive en `/api/ai/health`, que reporta sin propagar el fallo.
 La separación es deliberada: el inventario no depende del modelo.
 """
 
+import asyncio
+import contextlib
 import os
 import sys
 import time
@@ -97,6 +99,43 @@ def esperar_base() -> None:
             time.sleep(2)
 
 
+async def barrer_sla_en_segundo_plano(intervalo: int = 60) -> None:
+    """
+    Corre el barrido de SLA cada minuto, en segundo plano.
+
+    QUE HACE
+    --------
+    Avisa de los casos que vencen en breve y escala los que ya pasaron su
+    plazo de respuesta sin que nadie los haya tomado. El motor del SLA esta
+    en el servicio de incidencias; esto es solo el reloj.
+
+    POR QUE `asyncio.to_thread`
+    --------------------------
+    La consulta a la base es BLOQUEANTE. Corrida en el event loop, frena
+    TODAS las peticiones de la API mientras el barrido habla con Postgres: en
+    un deposito, con el escaner abierto, eso se nota. En un hilo aparte, la
+    API sigue respondiendo.
+
+    POR QUE UN HILO Y NO UN CRON
+    ---------------------------
+    Un cron externo necesitaria una imagen mas, un despliegue mas y un lugar
+    mas donde se rompe. Ademas, con el cron, un contenedor reiniciado durante
+    un deploy pierde el aviso del medio. Con esto, el barrido sigue vivo con
+    el contenedor.
+    """
+    from src.modules.incidents import service as incidents_service
+
+    while True:
+        try:
+            await asyncio.sleep(intervalo)
+            await asyncio.to_thread(incidents_service.barrer_sla)
+        except asyncio.CancelledError:
+            # El cierre del contenedor: se sale sin ruido.
+            raise
+        except Exception as error:  # noqa: BLE001 - el barrido no puede tumbar la API
+            print(f"[sla] El barrido fallo: {error}", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """
@@ -106,9 +145,20 @@ async def lifespan(_app: FastAPI):
     evento de startup es la API vieja de FastAPI, y el `lifespan` es la que
     todos los frameworks de ASGI usan. Ademas, desde el lifespan se puede
     levantar un error y DILE al proceso que muera, que es lo que se quiere.
+
+    El barrido de SLA arranca aca y se corta al apagar: una tarea de fondo que
+    sobrevive al cierre del contenedor es una tarea que sigue consultando una
+    base que ya no existe.
     """
     esperar_base()
-    yield
+
+    tarea_sla = asyncio.create_task(barrer_sla_en_segundo_plano())
+    try:
+        yield
+    finally:
+        tarea_sla.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await tarea_sla
 
 app = FastAPI(
     title="Smart Inventory B2B API",

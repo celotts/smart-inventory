@@ -113,6 +113,16 @@
         <span class="pestana__texto">Movimientos</span>
       </button>
 
+      <button class="pestana" data-vista="incidencias" id="pestana-incidencias" hidden>
+        <span class="pestana__icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linejoin="round"/>
+            <path d="M12 9v4M12 17h.01" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="pestana__texto">Incidencias</span>
+      </button>
+
       <button class="pestana" data-vista="consultas">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -172,6 +182,23 @@
         <circle cx="12" cy="12" r="5" stroke-linecap="round"/>
         <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
+    </button>
+
+    <!--
+      La campana de avisos de SLA.
+
+      El badge con el numero es lo que el operador ve de reojo: un caso que
+      se pasa de plazo sin que nadie mire la lista de incidencias es un SLA
+      que no existe.
+    -->
+    <button class="cabecera__campana" id="btn-campana" hidden
+            aria-label="Avisos de SLA"
+            title="Avisos de SLA">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="cabecera__campana-contador" id="campana-contador" hidden>0</span>
     </button>
 
     <button class="cabecera__salir" id="btn-salir" title="Cerrar sesion" aria-label="Cerrar sesion">

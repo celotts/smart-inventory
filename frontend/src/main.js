@@ -54,6 +54,7 @@ const SELLO_BUILD = '2619-1';
 
 import { vistaLogin } from './vistas/login.js';
 import { vistaInicio } from './vistas/inicio.js';
+import { vistaIncidencias } from './vistas/incidencias.js';
 import { vistaEscanear } from './vistas/escanear.js';
 import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
 import { vistaConsultas } from './vistas/consultas.js';
@@ -63,6 +64,7 @@ import { vistaCompras } from './vistas/compras.js';
 import { vistaMovimientos } from './vistas/movimientos.js';
 import { vistaAuditoria } from './vistas/auditoria.js';
 import { conTooltip } from './tooltip.js';
+import { iniciarCampana } from './campana.js';
 
 const contenido = document.getElementById('contenido');
 const cabecera = document.getElementById('cabecera');
@@ -241,6 +243,7 @@ const VISTAS = {
   escanear: { etiqueta: 'Escanear', construir: vistaEscanear },
   inventario: { etiqueta: 'Inventario', construir: vistaInventario },
   movimientos: { etiqueta: 'Movimientos', construir: vistaMovimientos },
+  incidencias: { etiqueta: 'Incidencias', construir: vistaIncidencias },
   consultas: { etiqueta: 'Consultas', construir: vistaConsultas },
   productos: { etiqueta: 'Productos', construir: vistaProductos },
   compras: { etiqueta: 'Compras', construir: vistaCompras },
@@ -360,6 +363,9 @@ function pintarLogin() {
       // inventario antes de hacer nada. El escaner queda a un toque, en la
       // primera pestana de la izquierda.
       mostrarVista('inicio');
+      // La campana de avisos de SLA arranca con la sesion: sin ella, el
+      // pedido de conteo seria un 401 en cada arranque de la app.
+      iniciarCampana();
       actualizarEstadoIA();
       avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
       // Reanudar operación pendiente (si venía de expiración con refresh token válido)
@@ -448,6 +454,7 @@ function actualizarCabeceraUsuario() {
   const pestanaCompras = document.getElementById('pestana-compras');
   const pestanaMovimientos = document.getElementById('pestana-movimientos');
   const pestanaAuditoria = document.getElementById('pestana-auditoria');
+  const pestanaIncidencias = document.getElementById('pestana-incidencias');
 
   if (!contenedor || !nombreEl || !rolEl) return;
 
@@ -474,6 +481,9 @@ function actualizarCabeceraUsuario() {
     if (pestanaMovimientos) pestanaMovimientos.hidden = !perms.includes('movements:create');
     // Auditoría es de ADMIN: muestra lo que hizo cada usuario.
     if (pestanaAuditoria) pestanaAuditoria.hidden = !perms.includes('audit:read');
+    // Incidencias: verlas es de cualquiera (el operador ve los problemas que
+    // reporta), gestionarlas es del taller.
+    if (pestanaIncidencias) pestanaIncidencias.hidden = !perms.includes('incidents:read');
   } else {
     contenedor.hidden = true;
     if (pestanaNuevo) pestanaNuevo.hidden = true;
@@ -481,6 +491,7 @@ function actualizarCabeceraUsuario() {
     if (pestanaCompras) pestanaCompras.hidden = true;
     if (pestanaMovimientos) pestanaMovimientos.hidden = true;
     if (pestanaAuditoria) pestanaAuditoria.hidden = true;
+    if (pestanaIncidencias) pestanaIncidencias.hidden = true;
   }
 }
 
@@ -653,6 +664,7 @@ async function arrancar() {
     cabecera.hidden = false;
     const destino = window.location.hash.replace('#', '');
     mostrarVista(VISTAS[destino] ? destino : 'inicio');
+    iniciarCampana();
   } else {
     pintarLogin();
   }

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
+
+logger = logging.getLogger(__name__)
 
 
 class DomainError(Exception):
@@ -61,7 +65,32 @@ def register_exception_handlers(app: FastAPI) -> None:
 
         El 503 dice ademas que el problema NO es de la app: un 500 le hace
         pensar al operador que hay que llamar al soporte de sistemas.
+
+        SOLO LOS ERRORES DE CONEXION
+        -----------------------------
+        Un `ProgrammingError` (una consulta mal escrita) TAMBIEN es un
+        `SQLAlchemyError`, y NO es que la base este caida. Si se reportara
+        como 503, un bug del codigo se disfrazaria de "la base no esta" y
+        nadie lo encontraria. Por eso se mira la clase: los de conexion son
+        503, y los demas siguen siendo 500.
         """
+        es_de_conexion = isinstance(exc, (OperationalError, InterfaceError)) or (
+            "could not connect" in str(exc)
+            or "Name or service not known" in str(exc)
+            or "connection" in str(exc).lower()
+        )
+
+        if not es_de_conexion:
+            logger.exception("Error de base de datos (no de conexion): %s", exc)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "internal_error",
+                    "detail": "Error interno.",
+                    "request_id": getattr(request.state, "request_id", None),
+                },
+            )
+
         return JSONResponse(
             status_code=503,
             content={

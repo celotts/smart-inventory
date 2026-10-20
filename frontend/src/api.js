@@ -567,6 +567,18 @@ export const api = {
   moverPorProducto: (datos) =>
     pedir('/movements/por-producto', { metodo: 'POST', cuerpo: datos }),
 
+  // --- Incidencias ----------------------------------------------------------
+  // El reporte de un problema: lo ve, lo reporta y lo resuelve el taller.
+  incidencias: (params) => pedir('/incidents', { params }),
+  incidencia: (id) => pedir(`/incidents/${id}`),
+  metricasIncidencias: () => pedir('/incidents/metrics'),
+  reportarIncidencia: (datos) => pedir('/incidents', { metodo: 'POST', cuerpo: datos }),
+  editarIncidencia: (id, datos) => pedir(`/incidents/${id}`, { metodo: 'PATCH', cuerpo: datos }),
+  cambiarEstadoIncidencia: (id, datos) =>
+    pedir(`/incidents/${id}/transitions`, { metodo: 'POST', cuerpo: datos }),
+  comentarIncidencia: (id, nota) =>
+    pedir(`/incidents/${id}/comments`, { metodo: 'POST', cuerpo: { nota } }),
+
   // --- Auditoria ------------------------------------------------------------
   // `auditoria` une movimientos de inventario y eventos de cuentas en una sola
   // linea de tiempo (ver el service del backend).

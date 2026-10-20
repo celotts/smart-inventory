@@ -124,6 +124,129 @@ def metricas(
     return service.metricas()
 
 
+
+
+# ===========================================================================
+# AVISOS DE SLA
+# ===========================================================================
+
+
+@router.get(
+    "/notifications",
+    summary="Avisos de SLA del usuario",
+)
+def listar_notificaciones(
+    solo_no_leidas: bool = Query(False),
+    limite: int = Query(30, ge=1, le=100),
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> list[dict]:
+    """
+    Los avisos: los propios y los generales.
+
+    Un aviso general (sin destinatario) le llega a todos los que pueden ver
+    el caso: "el deposito se quedo sin conexion" le interesa a mas de uno.
+    """
+    return service.listar_notificaciones(
+        user_id=usuario.id,
+        solo_no_leidas=solo_no_leidas,
+        limite=limite,
+    )
+
+
+@router.get(
+    "/notifications/count",
+    summary="Cuantos avisos sin leer tiene el usuario",
+)
+def contar_notificaciones(
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    return {"no_leidos": service.contar_notificaciones(user_id=usuario.id)}
+
+
+@router.post(
+    "/notifications/{notificacion_id}/leer",
+    summary="Marcar un aviso como leido",
+)
+def marcar_leida(
+    notificacion_id: int,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    try:
+        return service.marcar_notificacion_leida(notificacion_id, user_id=usuario.id)
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "/sweep",
+    summary="Correr el barrido de SLA a mano (admin)",
+)
+def barrer(
+    minutos_aviso: int = Query(service.MINUTOS_AVISO_POR_DEFECTO, ge=1, le=1440),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    """
+    El barrido: avisa de los casos que vencen y escala los que se pasaron.
+
+    Lo corre el backend en segundo plano cada minuto. Este endpoint existe
+    para probarlo y para que un operador pueda forzar el barrido sin esperar.
+    """
+    return service.barrer_sla(minutos_aviso=minutos_aviso)
+
+
+# ===========================================================================
+# CALENDARIO LABORAL
+# ===========================================================================
+
+
+@router.get(
+    "/calendar",
+    summary="Configuracion del calendario laboral del SLA",
+)
+def ver_calendario(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    """
+    La ventana en la que corren los plazos del SLA.
+
+    Es lo que define si un SLA de 4 horas son 4 horas de reloj o 4 horas de
+    trabajo. Y los dias que el sistema NO conoce (feriados) son una limitacion
+    declarada: la lista se carga a mano.
+    """
+    try:
+        return service.obtener_calendario()
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.put(
+    "/calendar",
+    summary="Cambiar la configuracion del calendario laboral (admin)",
+)
+def cambiar_calendario(
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    """
+    Body:
+    {
+      "timezone": "America/Argentina/Buenos_Aires",
+      "day_start": "09:00",
+      "day_end": "18:00",
+      "workdays": [1, 2, 3, 4, 5],
+      "holidays": ["2026-12-25"]
+    }
+
+    La zona horaria se valida contra las que el propio Postgres tiene: una
+    zona invalida hace fallar el calculo del SLA en el ALTA de una incidencia,
+    que es el peor momento para descubrirlo.
+    """
+    try:
+        return service.actualizar_calendario(body)
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
 @router.get(
     "/{incidencia_id}",
     response_model=IncidenciaDetalle,
