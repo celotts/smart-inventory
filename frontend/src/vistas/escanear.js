@@ -23,6 +23,8 @@ import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
 import { LectorQR, normalizarCodigo } from '../escaner.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { avisar } from '../avisos.js';
+import { conTooltip } from '../tooltip.js';
+import { descargarCsv } from '../descargas.js';
 
 /** Tipos de movimiento - se cargan dinámicamente desde /api/movement-types */
 let TIPOS_MOVIMIENTO = [];
@@ -179,17 +181,28 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   const marcoVideo = crear('div', { clase: 'escaner-marco' });
   marcoVideo.append(zonaVacia, mira, lineaFormatos);
 
+  // La leyenda de encuadre: dice QUE se tiene que encuadrar y COMO. Es la
+  // diferencia entre un codigo de barras que se lee y uno que no.
+  const leyendaGuia = crear('p', {
+    clase: 'escaner-guia',
+    texto: 'QR: encuadra la etiqueta dentro del cuadro. Codigo de barras: gira el celular en horizontal y llena la franja.',
+  });
+
   // Botón cámara: toggle on/off con tooltip
   botonCamara = crear('button', {
     clase: 'boton boton--bloque boton--camara',
     atributos: {
       type: 'button',
-      title: 'Encender/Apagar cámara (Ctrl+Shift+C)',
       'aria-label': 'Alternar cámara del escáner',
       'aria-pressed': 'false',
     },
     hijos: [icono(ICONOS.camara, { tamano: 20 }), crear('span', { texto: 'Encender cámara' })],
   });
+  conTooltip(
+    botonCamara,
+    'Enciende o apaga la camara. La camara se queda encendida entre escaneos: ' +
+      'podes pasar el celu sobre las etiquetas sin tocar la pantalla.',
+  );
 
   const tarjetaCamara = crear('section', { clase: 'tarjeta tarjeta--camara', id: 'tarjeta-escanear' });
   tarjetaCamara.append(
@@ -201,6 +214,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       ],
     }),
     marcoVideo,
+    leyendaGuia,
     crear('div', { clase: 'escaner-controles', hijos: [botonCamara] })
   );
 
@@ -239,10 +253,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
   const etiquetaManual = crear('label', { clase: 'campo' });
   etiquetaManual.htmlFor = 'codigo-manual';
-  etiquetaManual.append(
-    crear('span', { clase: 'campo__etiqueta', texto: 'Código de la etiqueta' }),
-    inputCodigo,
-    ayudaManual,
+  const textoEtiquetaManual = crear('span', { clase: 'campo__etiqueta', texto: 'Código de la etiqueta' });
+  etiquetaManual.append(textoEtiquetaManual, inputCodigo, ayudaManual);
+  conTooltip(
+    textoEtiquetaManual,
+    'El codigo de la etiqueta: el QR (INV-...) o el serial del fabricante. ' +
+      'Tambien acepta el codigo de un producto del maestro (PRD-...).',
   );
 
   const formularioManual = crear('form', {
@@ -281,11 +297,11 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     id: 'seg-escanear',
     atributos: {
       type: 'button',
-      title: 'Modo escáner con cámara (principal)',
       'aria-label': 'Activar modo escáner con cámara',
     },
     hijos: [icono(ICONOS.camara, { tamano: 18 }), crear('span', { texto: 'Escanear' })],
   });
+  conTooltip(segmentoEscanear, 'Usa la camara para leer las etiquetas. Es el modo principal.');
 
   const segmentoManual = crear('button', {
     clase: 'segmento',
@@ -295,11 +311,11 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     id: 'seg-manual',
     atributos: {
       type: 'button',
-      title: 'Ingresar código a mano (fallback)',
       'aria-label': 'Activar modo ingreso manual',
     },
     hijos: [icono(ICONOS.teclado, { tamano: 18 }), crear('span', { texto: 'Manual' })],
   });
+  conTooltip(segmentoManual, 'Escribe el codigo a mano. Para etiquetas sucias, rotas o si la camara no enfoca.');
 
   const segmentedControl = crear('div', {
     clase: 'segmented-control',
@@ -423,9 +439,11 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     timerSinLectura = setTimeout(() => {
       if (lector.activo) {
         avisar(
-          'No detectó ningún código. Acercá la etiqueta hasta que ocupe un quinto del ancho del marco, o usá el ingreso manual.',
+          'No detectó ningún código. Acercá la etiqueta hasta que ocupe un quinto del ancho del marco. ' +
+            'Si es un código de barras, girá el celular en horizontal: necesita ocupar el ancho de la franja, no un cuadrado. ' +
+            'También podés usar el ingreso manual.',
           'alerta',
-          4000,
+          6000,
         );
       }
     }, 6000);
@@ -450,9 +468,41 @@ export function vistaEscanear({ alAbrirDispositivo }) {
    * El codigo se ENCOLA, porque puede leerse otro mientras el primero se
    * esta registrando, y descartarlo seria perder un equipo del conteo.
    */
-  function alLeerCodigo(codigo) {
+  function alLeerCodigo(codigo, formato) {
     inputCodigo.value = codigo;
+    // La guia de encuadre se adapta al formato leido.
+    ajustarGuia(formato);
     encolar(codigo);
+  }
+
+  /**
+   * Adapta la guia de encuadre al formato del codigo.
+   *
+   * POR QUE
+   * -------
+   * Un QR tiene 33 modulos y uno de los lados. Un Code 128 de 16 caracteres
+   * tiene unos 130 modulos: SIEMPRE de ANCHO. Para que un lector lo vea, el
+   * codigo tiene que ocupar unos 400 pixeles de ancho en el cuadro de la
+   * camara (medido: a 300 px deja de leerse).
+   *
+   * O sea: el operador tiene que acercarse CUATRO VECES mas que para un QR. Y
+   * la guia cuadrada de la app no puede encuadrar jamas un codigo de barras:
+   * lo esta encuadrando en una franja que no entra.
+   *
+   * Medido en este repo, con el Code 128 que genera la app:
+   *   900 px -> se lee    600 px -> se lee    400 px -> se lee
+   *   300 px -> NO se lee  240 px -> NO se lee
+   *
+   * @param {string} formato  'qr_code', 'code_128', 'ean_13'...
+   */
+  function ajustarGuia(formato) {
+    const esLineal = Boolean(formato) && !formato.startsWith('qr') && !formato.startsWith('data_matrix') && !formato.startsWith('aztec') && !formato.startsWith('pdf417');
+    marcoVideo.classList.toggle('escaner-marco--lineal', esLineal);
+    if (leyendaGuia) {
+      leyendaGuia.textContent = esLineal
+        ? 'Codigo de barras: gira el celular en horizontal y llena la franja con la etiqueta.'
+        : 'QR: encuadra la etiqueta dentro del cuadro.';
+    }
   }
 
   /**
@@ -1013,6 +1063,47 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   }
 
   /**
+   * Exporta el recibo de escaneos a CSV.
+   *
+   * El CSV se arma en el navegador: el recibo es de ESTA sesion y todavia no
+   * esta en el servidor. El separador es `;` y lleva BOM UTF-8, igual que los
+   * exportes del backend, para que se abra bien en Excel en espanol.
+   */
+  function exportarRecibo() {
+    if (!listaRecibo || !listaRecibo.children.length) {
+      avisar('Todavia no hay escaneos para exportar.', 'alerta');
+      return;
+    }
+
+    const filas = [['Hora', 'Codigo', 'Serial', 'Equipo', 'Ubicacion', 'Estado', 'Resultado']];
+
+    // Del mas viejo al mas nuevo: el CSV se lee en orden cronologico.
+    for (const item of [...listaRecibo.children].reverse()) {
+      const hora = item.querySelector('.escaneo__hora')?.textContent ?? '';
+
+      // Los pares etiqueta/valor de la ficha del equipo.
+      const pares = {};
+      const definiciones = item.querySelectorAll('dt');
+      const valores = item.querySelectorAll('dd');
+      definiciones.forEach((dt, i) => {
+        pares[dt.textContent?.trim() ?? ''] = valores[i]?.textContent?.trim() ?? '';
+      });
+
+      const codigo = pares['Código'] || item.querySelector('.resultado__mensaje.mono')?.textContent?.trim() || '';
+      const serial = pares['Serial'] || '';
+      const equipo = pares['Equipo'] || '';
+      const ubicacion = pares['Ubicación'] || '';
+      const estado = pares['Estado'] || '';
+      const resultado = item.querySelector('.resultado__mensaje:not(.mono)')?.textContent?.trim() || '';
+
+      filas.push([hora, codigo, serial, equipo, ubicacion, estado, resultado]);
+    }
+
+    const csv = '\ufeff' + filas.map((f) => f.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    descargarCsv('', 'escaneos.csv', csv);
+  }
+
+  /**
    * Agrega un ESCANEO FALLIDO al recibo de la sesion.
    *
    * @param {string} codigo
@@ -1051,17 +1142,28 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       const btnLimpiar = crear('button', {
         clase: 'boton boton--suave boton--chico',
         texto: 'Limpiar',
-        atributos: {
-          type: 'button',
-          title: 'Borrar el recibo de escaneos de esta sesion',
-        },
+        atributos: { type: 'button' },
       });
       btnLimpiar.addEventListener('click', () => {
         listaRecibo?.replaceChildren();
         zonaResultado.replaceChildren();
         listaRecibo = null;
       });
-      encabezadoRecibo.append(btnLimpiar);
+      conTooltip(btnLimpiar, 'Borra el recibo de escaneos de esta sesion.');
+
+      const btnExportar = crear('button', {
+        clase: 'boton boton--suave boton--chico',
+        texto: 'Exportar CSV',
+        atributos: { type: 'button' },
+      });
+      btnExportar.addEventListener('click', () => exportarRecibo());
+      conTooltip(
+        btnExportar,
+        'Descarga el recibo en CSV: la hora, el codigo y el estado de cada escaneo. ' +
+          'Es el comprobante del conteo.',
+      );
+
+      encabezadoRecibo.append(btnExportar, btnLimpiar);
 
       zonaResultado.replaceChildren(encabezadoRecibo, listaRecibo);
     }

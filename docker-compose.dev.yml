@@ -40,6 +40,10 @@ services:
       # refleja sin rebuild, PERO no recarga uvicorn: eso es lo que hace el
       # target `reload` de este Makefile, con su watcher.
       - ./backend/src:/app/src
+      # El CSS del front, para el test de contraste de accesibilidad. Es de
+      # SOLO LECTURA y solo en desarrollo: en produccion la imagen del backend
+      # no tiene el front adentro, y el test se saltea con un motivo claro.
+      - ./frontend/src:/app/frontend-src:ro
     command:
       - uvicorn
       - src.main:app

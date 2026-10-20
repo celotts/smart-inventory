@@ -18,6 +18,7 @@ import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { imagenQr } from '../qr.js';
 import { descargarCsv } from '../descargas.js';
+import { conTooltip } from '../tooltip.js';
 
 const ESTADOS_FILTRO = [
   { valor: '', texto: 'Todos' },
@@ -97,9 +98,12 @@ export function vistaInventario({ alAbrirDispositivo }) {
   selectUbicacion.append(crear('option', { texto: 'Todas las ubicaciones', atributos: { value: '' } }));
 
   const etiquetaBusqueda = crear('label', { clase: 'campo' });
-  etiquetaBusqueda.append(
-    crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' }),
-    inputBuscar,
+  const textoBusqueda = crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' });
+  etiquetaBusqueda.append(textoBusqueda, inputBuscar);
+  conTooltip(
+    textoBusqueda,
+    'Busqueda de texto completo: serial, codigo de etiqueta, SKU, marca o modelo. ' +
+      'Tambien acepta un fragmento ("notebook dell" encuentra el "Dell Latitude").',
   );
 
   const etiquetaEstado = crear('label', { clase: 'campo' });
@@ -109,22 +113,21 @@ export function vistaInventario({ alAbrirDispositivo }) {
   );
 
   const etiquetaCategoria = crear('label', { clase: 'campo' });
-  etiquetaCategoria.append(
-    crear('span', { clase: 'campo__etiqueta', texto: 'Categoria' }),
-    selectCategoria,
-  );
+  const textoCategoria = crear('span', { clase: 'campo__etiqueta', texto: 'Categoria' });
+  etiquetaCategoria.append(textoCategoria, selectCategoria);
+  conTooltip(textoCategoria, 'Filtra por la categoria del producto. Trae tambien las subcategorias.');
 
   const etiquetaUbicacion = crear('label', { clase: 'campo' });
-  etiquetaUbicacion.append(
-    crear('span', { clase: 'campo__etiqueta', texto: 'Ubicacion' }),
-    selectUbicacion,
-  );
+  const textoUbicacion = crear('span', { clase: 'campo__etiqueta', texto: 'Ubicacion' });
+  etiquetaUbicacion.append(textoUbicacion, selectUbicacion);
+  conTooltip(textoUbicacion, 'Filtra por la ubicacion. Trae tambien sus pasillos y estantes.');
 
   const btnExportar = crear('button', {
     clase: 'boton boton--suave',
     texto: 'Exportar CSV',
-    atributos: { type: 'button', title: 'Descargar el inventario en CSV' },
+    atributos: { type: 'button' },
   });
+  conTooltip(btnExportar, 'Descarga el inventario completo en CSV, listo para abrir en Excel.');
 
   const filaBotones = crear('div', { clase: 'fila-botones' });
   filaBotones.append(btnExportar);
@@ -139,13 +142,21 @@ export function vistaInventario({ alAbrirDispositivo }) {
   );
 
   // --- Resultados -----------------------------------------------------------
-  const zonaLista = crear('div');
+  //
+  // `aria-live="polite"`: la lista cambia con cada tecla del buscador, y sin
+  // esto un lector de pantalla no se entera de nada. Es `polite` y no
+  // `assertive` porque el cambio NO es urgente: no interrumpe lo que el
+  // operador esta haciendo.
+  const zonaLista = crear('div', {
+    atributos: { 'aria-live': 'polite', 'aria-label': 'Resultados de la busqueda' },
+  });
+  const contadorResultados = crear('p', { clase: 'tenue pequeno' });
   const zonaPaginacion = crear('div', {
     clase: 'fila-botones',
     estilo: 'margin-top:1rem',
   });
 
-  raiz.append(tarjetaFiltros, zonaLista, zonaPaginacion);
+  raiz.append(tarjetaFiltros, contadorResultados, zonaLista, zonaPaginacion);
 
   let pagina = 0;
   const POR_PAGINA = 25;
@@ -180,6 +191,9 @@ export function vistaInventario({ alAbrirDispositivo }) {
       if (numero !== peticionEnCurso) return; // respuesta vieja
 
       total = datos.total;
+      contadorResultados.textContent = datos.total
+        ? `${datos.total} ${datos.total === 1 ? 'equipo' : 'equipos'}`
+        : 'Sin resultados';
       pintarLista(datos.items);
       pintarPaginacion();
     } catch (error) {
@@ -589,7 +603,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       }
 
       if (!Object.keys(cambios).length) {
-        cerrarModal();
+        cerrarModal(true);
         return;
       }
 
@@ -605,7 +619,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       try {
         await api.actualizarDispositivo(deviceId, cambios);
         avisar('Componente actualizado', 'exito', 2500);
-        cerrarModal();
+        cerrarModal(true);
         cargar();
       } catch (error) {
         avisar(error.message, 'error');
@@ -620,6 +634,8 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
+      // Avisar antes de perder los cambios escritos.
+      avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
         btnCancelar.addEventListener('click', cerrar);

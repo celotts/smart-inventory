@@ -22,6 +22,7 @@ import { api } from '../api.js';
 import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
+import { conTooltip } from '../tooltip.js';
 
 const ESTADOS_ORDEN = {
   BORRADOR: { texto: 'Borrador', clase: 'insignia--deposito' },
@@ -30,6 +31,21 @@ const ESTADOS_ORDEN = {
   RECIBIDA: { texto: 'Recibida', clase: 'insignia--instalado' },
   CANCELADA: { texto: 'Cancelada', clase: 'insignia--baja' },
 };
+
+/**
+ * Una etiqueta de campo con tooltip.
+ *
+ * El tooltip va en la ETIQUETA y no en el control: en el control desaparece
+ * en cuanto el operador hace clic, y lo que necesita es leer la ayuda sin
+ * perder el foco.
+ */
+function etiquetaConAyuda(texto, control, descripcion) {
+  const etiqueta = crear('label', { clase: 'campo' });
+  const textoEtiqueta = crear('span', { clase: 'campo__etiqueta', texto });
+  etiqueta.append(textoEtiqueta, control);
+  if (descripcion) conTooltip(textoEtiqueta, descripcion);
+  return etiqueta;
+}
 
 export function vistaCompras({ permisos = [] }) {
   const raiz = crear('div');
@@ -334,11 +350,11 @@ export function vistaCompras({ permisos = [] }) {
     });
 
     form.append(
-      crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Proveedor *' }), selectProveedor] }),
-      crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Producto *' }), selectProducto] }),
-      crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Cantidad *' }), campoCantidad] }),
-      crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Costo unitario' }), campoCosto] }),
-      crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Fecha esperada de entrega' }), campoFecha] }),
+      etiquetaConAyuda('Proveedor *', selectProveedor, 'A quien se le pide la mercancia.'),
+      etiquetaConAyuda('Producto *', selectProducto, 'El producto del maestro que se esta pidiendo.'),
+      etiquetaConAyuda('Cantidad *', campoCantidad, 'Cuantas unidades se piden.'),
+      etiquetaConAyuda('Costo unitario', campoCosto, 'Lo que costo una unidad. Con esto se calcula el valor de la orden.'),
+      etiquetaConAyuda('Fecha esperada de entrega', campoFecha, 'Cuando se espera que llegue. Se usa para saber si una orden se atrasa.'),
     );
 
     const btnGuardar = crear('button', {
@@ -380,7 +396,7 @@ export function vistaCompras({ permisos = [] }) {
           expected_date: campoFecha.value || undefined,
         });
         avisar('Orden creada. Cuando llegue la mercancía, recibila desde la lista.', 'exito', 3500);
-        cerrarModal();
+        cerrarModal(true);
         cargar();
       } catch (error) {
         avisar(error.message, 'error');
@@ -395,6 +411,8 @@ export function vistaCompras({ permisos = [] }) {
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
+      // Avisar antes de perder los cambios escritos.
+      avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
         btnCancelar.addEventListener('click', cerrar);

@@ -24,12 +24,14 @@ import { avisar } from './avisos.js';
  * @param {string} ruta   Ruta del CSV. Ej: '/export/inventario.csv'
  * @param {string} nombre Nombre del archivo que se descarga.
  */
-export async function descargarCsv(ruta, nombre) {
+export async function descargarCsv(ruta, nombre, contenido) {
   try {
-    const contenido = await api.pedir(ruta, { comoTexto: true });
+    // Si el contenido viene dado, es un CSV armado en el navegador (el recibo
+    // de escaneos, por ejemplo). Si no, se pide a la API.
+    const texto = contenido ?? (await api.pedir(ruta, { comoTexto: true }));
 
     // El BOM UTF-8 lo pone el backend: sin el, Excel abre los acentos rotos.
-    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([texto], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
     const enlace = document.createElement('a');

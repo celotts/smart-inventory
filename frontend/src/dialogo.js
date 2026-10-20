@@ -93,6 +93,14 @@ function esSuperior(modal) {
  *                                        falta algo que no sea texto (un form).
  * @param {Function}[opciones.alAbrir]    Recibe `(modal, cerrar)`. Lo que se
  *                                        enganche con `cerrar` se puede cerrar.
+ * @param {Function}[opciones.alCerrar]   Recibe `()`. Se llama cuando el modal
+ *                                        se cierra de verdad (no cuando se
+ *                                        cancela un guardado). Sirve para
+ *                                        guardar el estado de un formulario.
+ * @param {boolean}[opciones.avanzarAlCerrar]  Si es true, se avisa antes de
+ *                                        cerrar y el cierre se cancela si el
+ *                                        operador no confirma. Es lo que evita
+ *                                        perder diez campos escritos.
  * @returns {() => void}
  */
 export function abrirDialogo({
@@ -103,6 +111,8 @@ export function abrirDialogo({
   clase = '',
   acciones = [],
   alAbrir,
+  alCerrar,
+  avanzarAlCerrar = false,
 }) {
   const focoPrevio = document.activeElement;
 
@@ -177,8 +187,64 @@ export function abrirDialogo({
   }
 
   let cerrado = false;
-  function cerrar() {
+
+  /**
+   * Cierra el modal.
+   *
+   * @param {boolean} [forzar]  Cierra sin preguntar, aunque haya cambios sin
+   *                             guardar. Lo usa el guardado exitoso: despues
+   *                             de guardar, preguntar "¿descartar los
+   *                             cambios?" no tiene sentido.
+   */
+  function cerrar(forzar = false) {
     if (cerrado) return;
+
+    // SOLO `true` descarta el aviso.
+    //
+    // `cerrar` se pasa directo como manejador de un boton: `addEventListener`
+    // le pasa el EVENTO como primer argumento, y un evento es truthy. Con un
+    // `if (forzar)` normal, el clic de "Cancelar" se tomaba como un "si,
+    // descartá todo" y el aviso nunca aparecia.
+    const descartar = forzar === true;
+
+    // AVISO DE CAMBIOS SIN GUARDAR
+    //
+    // Un modal de edicion con diez campos, y el operador escribio cinco y
+    // aprieto "Cancelar" (o Escape, o el clic afuera). Se perdio trabajo sin
+    // avisar, y el operador no se da cuenta hasta que lo reescribe.
+    //
+    // El aviso se hace con un modal encima, porque la confirmacion tiene dos
+    // respuestas y una needs attention: un `confirm()` del navegador rompe el
+    // tema y el foco.
+    if (avanzarAlCerrar && !descartar) {
+      const btnPerder = crear('button', {
+        clase: 'boton boton--peligro',
+        texto: 'Descartar los cambios',
+        atributos: { type: 'button' },
+      });
+      const btnSeguir = crear('button', {
+        clase: 'boton boton--suave',
+        texto: 'Seguir editando',
+        atributos: { type: 'button' },
+      });
+
+      abrirDialogo({
+        titulo: 'Hay cambios sin guardar',
+        mensaje: 'Cerrar ahora descarta lo que escribiste.',
+        nota: 'Si querés conservarlo, volve a abrir la edicion.',
+        clase: 'modal--alerta',
+        acciones: [btnSeguir, btnPerder],
+        alAbrir: (_aviso, cerrarAviso) => {
+          btnSeguir.addEventListener('click', () => cerrarAviso());
+          btnPerder.addEventListener('click', () => {
+            cerrarAviso();
+            cerrar(true);
+          });
+        },
+      });
+      return;
+    }
+
     cerrado = true;
     modal.remove();
     const i = pila.indexOf(modal);
@@ -186,6 +252,7 @@ export function abrirDialogo({
     desbloquearScroll();
     document.removeEventListener('keydown', alEscape);
     document.removeEventListener('keydown', atraparFoco);
+    alCerrar?.();
     // El foco vuelve a donde estaba: si no, al cerrarse el modal el operador
     // queda con el foco en el body y el próximo Tab lo manda al principio de la
     // pagina, no al escaner que tiene delante.

@@ -24,6 +24,7 @@ import { abrirDialogo, confirmar } from '../dialogo.js';
 import { imagenBarcodeProducto, imagenQrProducto, svgsDeEtiqueta } from '../etiqueta.js';
 import { errorDe, resumenDeErrores } from '../formulario.js';
 import { botonEscanear } from '../escaner-campo.js';
+import { conTooltip } from '../tooltip.js';
 
 export function vistaProductos({ permisos = [] }) {
   const raiz = crear('div');
@@ -69,15 +70,16 @@ export function vistaProductos({ permisos = [] }) {
       texto: 'Nuevo producto',
       atributos: { type: 'button', onclick: abrirAlta },
     });
+    conTooltip(btnNuevo, 'Alta de un producto del maestro: marca, modelo, SKU, stock y codigos de etiqueta.');
     const btnCategorias = crear('button', {
       clase: 'boton boton--suave',
       texto: 'Categorias',
       atributos: {
         type: 'button',
-        title: 'Administrar categorias, subcategorias y atributos',
         onclick: () => abrirCategorias(),
       },
     });
+    conTooltip(btnCategorias, 'Administra las categorias, sus subcategorias y los atributos que define cada una.');
     encabezado.append(btnCategorias, btnNuevo);
   }
 
@@ -157,6 +159,7 @@ export function vistaProductos({ permisos = [] }) {
         texto: 'Etiqueta',
         atributos: { type: 'button', onclick: () => abrirEtiqueta(p) },
       });
+      conTooltip(btnEtiqueta, 'Muestra la etiqueta del producto: QR y codigo de barras, listos para imprimir.');
       item.append(btnEtiqueta);
 
       if (puedeEditar) {
@@ -165,16 +168,24 @@ export function vistaProductos({ permisos = [] }) {
           texto: 'Editar',
           atributos: { type: 'button', onclick: () => abrirEdicion(p) },
         });
+        conTooltip(btnEditar, 'Edita el producto: precio, puntos de stock, codigos de etiqueta y atributos.');
         const btnDescontinuar = crear('button', {
           clase: 'boton boton--chico boton--peligro',
           texto: p.is_active ? 'Descontinuar' : 'Reactivar',
           atributos: { type: 'button', onclick: () => confirmarAlternarActivo(p) },
         });
+        conTooltip(
+          btnDescontinuar,
+          p.is_active
+            ? 'Deja de venderse el producto sin borrarlo: el historial de los equipos que lo têm no se pierde.'
+            : 'Vuelve a marcar el producto como vendible.',
+        );
         const btnEliminar = crear('button', {
           clase: 'boton boton--chico boton--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button', onclick: () => confirmarEliminarProducto(p) },
         });
+        conTooltip(btnEliminar, 'Borra el producto del maestro. Solo se puede si no tiene equipos ni movimientos.');
         item.append(btnEditar, btnDescontinuar, btnEliminar);
       }
       lista.append(item);
@@ -217,6 +228,7 @@ export function vistaProductos({ permisos = [] }) {
       texto: 'Imprimir',
       atributos: { type: 'button' },
     });
+    conTooltip(btnImprimir, 'Abre la etiqueta en una ventana aparte, sola y lista para imprimir.');
     const btnCerrar = crear('button', {
       clase: 'boton boton--suave',
       texto: 'Cerrar',
@@ -378,6 +390,7 @@ export function vistaProductos({ permisos = [] }) {
       texto: 'Nueva categoria',
       atributos: { type: 'button', onclick: () => abrirEdicionCategoria(null, pintar) },
     });
+    conTooltip(btnNueva, 'Crea una categoria. Si le pones una categoria padre, pasa a ser una subcategoria.');
 
     const btnCerrar = crear('button', {
       clase: 'boton boton--suave',
@@ -667,12 +680,15 @@ export function vistaProductos({ permisos = [] }) {
       return;
     }
 
-    const campoMarca = campoTexto('Ej: Dell, HP, Cisco', 'Marca *');
-    const campoModelo = campoTexto('Ej: Latitude 5520', 'Modelo *');
-    const campoSKU = campoTexto('Ej: NB-DELL-5520', 'SKU *', { mono: true });
-    const campoVariante = campoTexto('Ej: i5/16GB/512GB (opcional)', 'Variante');
-    const campoQR = campoTexto('Ej: PRD-NB-DELL-5520 (se genera si vacío)', 'Código QR', { mono: true });
-    const campoBarras = campoTexto('Ej: el SKU (opcional)', 'Código de barras', { mono: true });
+    const campoMarca = campoTexto('Ej: Dell, HP, Cisco', 'Marca *', { descripcion: 'La marca del fabricante. Es parte del nombre del producto.' });
+    const campoModelo = campoTexto('Ej: Latitude 5520', 'Modelo *', { descripcion: 'El modelo exacto. Con la marca, identifica el producto.' });
+    const campoSKU = campoTexto('Ej: NB-DELL-5520', 'SKU *', { mono: true, descripcion: 'La clave del producto: es con la que se compra, se cuenta el stock y se etiqueta. No se puede cambiar despues.' });
+    const campoVariante = campoTexto('Ej: i5/16GB/512GB (opcional)', 'Variante', { descripcion: 'La diferencia entre dos productos de la misma marca y modelo: capacidad, color, tamaño.' });
+    const campoQR = campoTexto('Ej: PRD-NB-DELL-5520 (se genera si vacío)', 'Código QR', { mono: true, descripcion: 'El codigo de la etiqueta del producto. Si lo dejas vacio se genera uno propio (PRD-<sku>).' });
+    const campoBarras = campoTexto('Ej: el SKU (opcional)', 'Código de barras', {
+      mono: true,
+      descripcion: 'El codigo de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.',
+    });
 
     // ESCANEAR EL CODIGO DE LA CAJA
     //
@@ -702,9 +718,9 @@ export function vistaProductos({ permisos = [] }) {
     }
     const errorCategoria = errorDe(selectCategoria);
 
-    const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01' });
-    const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0' });
-    const campoMax = campoTexto('Ej: 20', 'Stock maximo', { type: 'number', valor: '100' });
+    const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01', descripcion: 'Lo que costo una unidad. Con esto se calcula el valor del inventario.' });
+    const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0', descripcion: 'Por debajo de este numero, el producto aparece para reponer.' });
+    const campoMax = campoTexto('Ej: 20', 'Stock maximo', { type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este numero, el producto esta por sobre stockeado.' });
 
     const form = crear('form', {
       clase: 'apilado',
@@ -732,10 +748,7 @@ export function vistaProductos({ permisos = [] }) {
       campoModelo.campo,
       campoSKU.campo,
       campoVariante.campo,
-      crear('label', {
-        clase: 'campo',
-        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria *' }), selectCategoria],
-      }),
+      etiquetaConDescripcion('Categoria *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
       zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
@@ -831,7 +844,7 @@ export function vistaProductos({ permisos = [] }) {
           atributos: leerAtributos(),
         });
         avisar('Producto creado correctamente', 'exito', 2500);
-        cerrarModal();
+        cerrarModal(true);
         cargar();
       } catch (error) {
         // Un 409 es un problema de un campo (el SKU ya existe, el QR esta
@@ -856,6 +869,9 @@ export function vistaProductos({ permisos = [] }) {
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
+      // Si el operador cerro sin guardar, se le avisa: perder diez campos
+      // escritos sin decir nada es la peor forma de perder el trabajo.
+      avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
         btnCancelar.addEventListener('click', cerrar);
@@ -873,18 +889,21 @@ export function vistaProductos({ permisos = [] }) {
       return;
     }
 
-    const campoMarca = campoTexto('Ej: Dell, HP, Cisco', 'Marca *');
+    const campoMarca = campoTexto('Ej: Dell, HP, Cisco', 'Marca *', { descripcion: 'La marca del fabricante. Es parte del nombre del producto.' });
     campoMarca.input.value = p.brand || '';
-    const campoModelo = campoTexto('Ej: Latitude 5520', 'Modelo *');
+    const campoModelo = campoTexto('Ej: Latitude 5520', 'Modelo *', { descripcion: 'El modelo exacto. Con la marca, identifica el producto.' });
     campoModelo.input.value = p.model || '';
     const campoSKU = campoTexto('Ej: NB-DELL-5520', 'SKU (no editable)', { mono: true });
     campoSKU.input.value = p.sku || '';
     campoSKU.input.disabled = true;
-    const campoVariante = campoTexto('Ej: i5/16GB/512GB (opcional)', 'Variante');
+    const campoVariante = campoTexto('Ej: i5/16GB/512GB (opcional)', 'Variante', { descripcion: 'La diferencia entre dos productos de la misma marca y modelo: capacidad, color, tamaño.' });
     campoVariante.input.value = p.variant || '';
     const campoQR = campoTexto('Ej: PRD-NB-DELL-5520', 'Código QR', { mono: true });
     campoQR.input.value = p.qr_code || '';
-    const campoBarras = campoTexto('Ej: el SKU', 'Código de barras', { mono: true });
+    const campoBarras = campoTexto('Ej: el SKU', 'Código de barras', {
+      mono: true,
+      descripcion: 'El codigo de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.',
+    });
 
     // El mismo escaner que en el alta: el codigo del proveedor se lee de la
     // caja, no se escribe. Ver la nota del alta.
@@ -907,11 +926,11 @@ export function vistaProductos({ permisos = [] }) {
     }
     selectCategoria.value = String(p.category_id || '');
 
-    const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01' });
+    const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01', descripcion: 'Lo que costo una unidad. Con esto se calcula el valor del inventario.' });
     campoCosto.input.value = p.unit_cost ?? '';
-    const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0' });
+    const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0', descripcion: 'Por debajo de este numero, el producto aparece para reponer.' });
     campoMin.input.value = String(p.min_stock ?? 0);
-    const campoMax = campoTexto('Ej: 20', 'Stock maximo', { type: 'number', valor: '100' });
+    const campoMax = campoTexto('Ej: 20', 'Stock maximo', { type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este numero, el producto esta por sobre stockeado.' });
     campoMax.input.value = String(p.max_stock ?? 100);
 
     const form = crear('form', {
@@ -937,10 +956,7 @@ export function vistaProductos({ permisos = [] }) {
       campoModelo.campo,
       campoSKU.campo,
       campoVariante.campo,
-      crear('label', {
-        clase: 'campo',
-        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria *' }), selectCategoria],
-      }),
+      etiquetaConDescripcion('Categoria *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
       zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
@@ -1025,7 +1041,7 @@ export function vistaProductos({ permisos = [] }) {
           atributos: leerAtributos(),
         });
         avisar('Producto actualizado correctamente', 'exito', 2500);
-        cerrarModal();
+        cerrarModal(true);
         cargar();
       } catch (error) {
         avisar(error.message, 'error');
@@ -1040,6 +1056,7 @@ export function vistaProductos({ permisos = [] }) {
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
+      avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
         btnCancelar.addEventListener('click', cerrar);
@@ -1131,6 +1148,21 @@ export function vistaProductos({ permisos = [] }) {
 }
 
 /**
+ * Una etiqueta de campo con tooltip.
+ *
+ * El tooltip va en la ETIQUETA y no en el control: en el control desaparece
+ * en cuanto el operador hace clic, y lo que necesita es leer la ayuda sin
+ * perder el foco.
+ */
+function etiquetaConDescripcion(texto, control, descripcion) {
+  const etiqueta = crear('label', { clase: 'campo' });
+  const textoEtiqueta = crear('span', { clase: 'campo__etiqueta', texto });
+  etiqueta.append(textoEtiqueta, control);
+  if (descripcion) conTooltip(textoEtiqueta, descripcion);
+  return etiqueta;
+}
+
+/**
  * Campo de texto con su etiqueta, para no repetir el bloque en cada alta.
  *
  * `errorDe` le da la capacidad de marcar error: el texto va debajo del
@@ -1138,7 +1170,7 @@ export function vistaProductos({ permisos = [] }) {
  * esto, el unico aviso es un cartel flotante que se va solo a los 4
  * segundos, y el operador no sabe QUE campo esta mal.
  */
-function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mono = false } = {}) {
+function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mono = false, descripcion } = {}) {
   const input = crear('input', {
     clase: `campo__control${mono ? ' mono' : ''}`,
     atributos: {
@@ -1153,7 +1185,7 @@ function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mo
     clase: 'campo',
     hijos: [crear('span', { clase: 'campo__etiqueta', texto: etiqueta }), input],
   });
-  const error = errorDe(input);
+  const error = errorDe(input, descripcion);
   return { campo, input, marcar: error.marcar, limpiar: error.limpiar, control: input };
 }
 

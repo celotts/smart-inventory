@@ -32,6 +32,23 @@
  */
 
 import { crear } from './dom.js';
+import { conTooltip } from './tooltip.js';
+
+/**
+ * El tooltip va en la ETIQUETA del campo, no en el control.
+ *
+ * POR QUE NO EN EL CONTROL
+ * ------------------------
+ * Un tooltip en un `<input>` desaparece en cuanto el operador hace clic: esta
+ * escribiendo, y lo que necesita es leer la ayuda SIN perder el foco. En un
+ * celular, ademas, el tooltip nativo no aparece nunca.
+ *
+ * La etiqueta es lo que el operador mira ANTES de hacer clic, y lo que el
+ * lector de pantalla anuncia junto al campo. Ahi el tooltip aporta.
+ *
+ * Y la ayuda que de verdad importa —como se usa el campo— esta SIEMPRE
+ * visible, debajo, y enlazada con `aria-describedby`.
+ */
 
 /** Contador para los ids unicos de los errores. */
 let contador = 0;
@@ -46,7 +63,7 @@ let contador = 0;
  * @param {boolean} [opciones.requerido]
  * @returns {object} El contrato del campo.
  */
-function construirCampo({ etiqueta, control, ayuda, requerido = false }) {
+function construirCampo({ etiqueta, control, ayuda, requerido = false, descripcion }) {
   const idCampo = `campo-${(contador += 1)}`;
   const idError = `${idCampo}-error`;
 
@@ -80,6 +97,10 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false }) {
   campo.append(nodoError);
 
   if (requerido) control.setAttribute('aria-required', 'true');
+
+  // El tooltip de la etiqueta: la descripcion corta de que es el campo. La
+  // ayuda larga va debajo, siempre visible.
+  if (descripcion) conTooltip(textoEtiqueta, descripcion);
 
   // El `aria-describedby` se arma con las partes que existen: la ayuda y/o el
   // error. El error se agrega cuando aparece.
@@ -138,6 +159,7 @@ export function campoTexto({
   etiqueta,
   placeholder = '',
   ayuda,
+  descripcion,
   requerido = false,
   tipo = 'text',
   autocomplete = 'off',
@@ -163,7 +185,7 @@ export function campoTexto({
     atributos,
   });
 
-  return construirCampo({ etiqueta, control, ayuda, requerido });
+  return construirCampo({ etiqueta, control, ayuda, requerido, descripcion });
 }
 
 /**
@@ -182,6 +204,7 @@ export function campoTexto({
 export function campoNumero({
   etiqueta,
   ayuda,
+  descripcion,
   placeholder = '',
   min,
   max,
@@ -197,7 +220,7 @@ export function campoNumero({
 
   const control = crear('input', { clase: 'campo__control', atributos });
 
-  return construirCampo({ etiqueta, control, ayuda, requerido });
+  return construirCampo({ etiqueta, control, ayuda, requerido, descripcion });
 }
 
 /**
@@ -211,7 +234,7 @@ export function campoNumero({
  * @param {string} [opciones.vacio] Texto de la primera opcion (sin valor).
  * @returns {object}
  */
-export function campoSelect({ etiqueta, opciones = [], ayuda, requerido = false, vacio, name }) {
+export function campoSelect({ etiqueta, opciones = [], ayuda, descripcion, requerido = false, vacio, name }) {
   const atributos = { autocomplete: 'off' };
   if (name) atributos.name = name;
 
@@ -226,7 +249,7 @@ export function campoSelect({ etiqueta, opciones = [], ayuda, requerido = false,
     );
   }
 
-  return construirCampo({ etiqueta, control, ayuda, requerido });
+  return construirCampo({ etiqueta, control, ayuda, requerido, descripcion });
 }
 
 /**
@@ -294,9 +317,17 @@ export function resumenDeErrores(campos) {
  * @param {HTMLElement} control
  * @returns {{marcar: Function, limpiar: Function, nodo: HTMLElement}}
  */
-export function errorDe(control) {
+export function errorDe(control, descripcion) {
   const contenedor = control.closest('.campo') || control.parentElement || control;
   const idError = `error-${(contador += 1)}`;
+
+  // El tooltip va en la etiqueta del campo (la que el operador mira antes de
+  // hacer clic), no en el control: en el control desaparece en cuanto el
+  // operador empieza a escribir.
+  if (descripcion) {
+    const etiqueta = contenedor.querySelector('.campo__etiqueta');
+    if (etiqueta) conTooltip(etiqueta, descripcion);
+  }
 
   const nodo = crear('p', { clase: 'campo__error', id: idError, atributos: { role: 'alert' } });
   nodo.hidden = true;

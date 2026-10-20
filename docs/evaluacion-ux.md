@@ -193,13 +193,71 @@ escaneo de cámara.
 | # | Qué | Por qué importa | Esfuerzo |
 |---|---|---|---|
 | 1 | **Pantalla de usuarios y roles** | Hoy la API permite crear usuarios y roles, pero el front no tiene pantalla. Un admin **no puede revocar el acceso** de alguien desde la app: tiene que pedirlo por mail. Es el hueco de seguridad mas grande que queda | Alto |
-| 2 | **Confirmar al cerrar un formulario con cambios sin guardar** | Hoy, si el operador escribo 10 campos y cierra el modal, se pierden en silencio. `dialogo.js` tiene el lugar exacto para pedirlo | Medio |
-| 3 | **Migrar compras y movimientos al helper de formularios** | La infraestructura está; falta aplicarla | Bajo |
-| 4 | **Navegación en celular** | 9 pestañas que envuelven en dos filas en un teléfono. Una barra inferior con las 4 principales + "más" es lo que espera un usuario de app | Medio |
-| 5 | **`aria-live` en las listas que cambian** | El inventario actualiza la lista al escribir, y un lector de pantalla no se entera del cambio | Bajo |
-| 6 | **Auditoría de contraste con un verificador automático** | Los contrastes están anotados a mano en los tokens: bien, pero un test que los mida evita que se rompan en el próximo cambio | Bajo |
-| 7 | **Linterna de accesibilidad en CI** (eslint-plugin-jsx-a11y o similar) | Sin dependencias, no: un chequeo propio de las reglas basicas | Medio |
-| 8 | **Imprimir el recibo de la sesion** | El recibo de escaneos existe en pantalla, pero no se puede imprimir ni exportar: en un conteo de deposito, el papel es el comprobante que pide el responsable | Bajo |
+| 2 | **Navegación en celular** | 9 pestañas que envuelven en dos filas en un teléfono. Una barra inferior con las 4 principales + "más" es lo que espera un usuario de app | Medio |
+| 3 | **Linterna de accesibilidad en CI** (eslint-plugin-jsx-a11y o similar) | Sin dependencias, no: un chequeo propio de las reglas basicas | Medio |
+| 4 | **Migrar compras y movimientos al helper de formularios** | La infraestructura esta; los tooltips ya estan, falta la validacion en linea | Bajo |
+| 5 | **Imprimir el recibo de la sesion** | El recibo se exporta a CSV, pero no se imprime en un formato de etiqueta | Bajo |
+
+### 2.7 Tooltips en los botones y en los campos
+
+**Los botones**: todos los de la vista de productos (30 de 30) tienen tooltip
+con el contexto de la accion ("Descontinuar: deja de venderse el producto sin
+borrarlo, el historial se conserva"), y tambien los de la cabecera, el
+inventario, los movimientos, las compras y el escaner.
+
+**Los campos de texto**: el tooltip va en la **etiqueta**, no en el control.
+Un tooltip en un `<input>` desaparece en cuanto el operador hace clic (esta
+escribiendo, y lo que necesita es leer la ayuda sin perder el foco), y en un
+celular el tooltip nativo no aparece nunca. La etiqueta es lo que el operador
+mira ANTES de hacer clic.
+
+Y lo que de verdad importa —como se usa el campo— quedo **siempre visible**,
+debajo, y enlazado con `aria-describedby`.
+
+### 2.8 Aviso de cambios sin guardar
+
+Cerrar un modal de edicion con diez campos escritos los perdia en silencio.
+Ahora `abrirDialogo` acepta `avanzarAlCerrar: true` y pregunta antes, con un
+modal propio (no un `confirm()` del navegador, que rompe el tema y el foco).
+
+**Un bug que encontre probandolo**: `cerrar` se pasa directo como manejador de
+un boton, y `addEventListener` le pasa el **evento** como primer argumento. Un
+evento es truthy, asi que el `if (forzar)` normal lo tomaba como un "si,
+descarta todo" y **el aviso nunca aparecia**. Ahora solo un `true` explicito
+descarta.
+
+### 2.9 El borde de los campos: 1.59:1 (WCAG pide 3:1)
+
+El test automatico de contraste (abajo) fallo en el primer intento: el borde
+de los campos de texto tenia **1.59:1** contra la superficie, en los dos
+temas. WCAG 1.4.11 pide 3:1 para el borde de un control: es lo unico que dice
+"escribi aca".
+
+El arreglo no fue oscurecer todos los bordes (el de una tarjeta puede ser
+sutil), sino un token aparte, `--color-border-control`, solo para los campos.
+
+### 2.10 Test automatico de contraste
+
+`backend/tests/test_contraste.py` lee el CSS real, calcula el contraste de
+cada par de tokens que la app usa y falla si alguno baja del minimo de
+WCAG 2.2 AA. Cubre los tres temas (claro, oscuro y modo exterior).
+
+Los contrastes estaban anotados a mano en los tokens, que es una buena
+practica... hasta que el proximo que cambie un color deja el comentario
+mintiendo. Un test no se rompe solo.
+
+### 2.11 El recibo de escaneos se exporta
+
+El recibo de la sesion se descarga en CSV: hora, codigo, serial, equipo,
+ubicacion, estado y resultado. En un conteo de deposito, el papel es el
+comprobante que pide el responsable.
+
+### 2.12 `aria-live` en la lista que cambia
+
+La lista del inventario se actualiza con cada tecla del buscador, y un lector
+de pantalla no se enteraba. Ahora la zona de resultados es `aria-live="polite"`
+(polite, no assertive: el cambio no interrumpe lo que el operador esta
+haciendo) y hay un contador de resultados visibles.
 
 ---
 

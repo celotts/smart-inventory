@@ -167,7 +167,11 @@ export class LectorQR {
   /**
    * Abre la camara y empieza a leer.
    *
-   * @param {(codigo: string) => void} alLeer
+   * @param {(codigo: string, formato: string) => void} alLeer
+   *   El formato ('qr_code', 'code_128', 'ean_13'...) viaja con el codigo:
+   *   la interfaz lo usa para cambiar la guia de encuadre. Un codigo de barras
+   *   necesita ocupar cuatro veces mas ancho que un QR, y el operador tiene
+   *   que saberlo.
    * @returns {Promise<void>}
    */
   async iniciar(alLeer) {
@@ -278,14 +282,14 @@ export class LectorQR {
                 if (valor !== this.#ultimoValor || ahora - this.#ultimoMomento > COOLDOWN_MS) {
                   this.#ultimoValor = valor;
                   this.#ultimoMomento = ahora;
-                  alLeer(valor);
+                  alLeer(valor, codigos[0].format ?? '');
                 }
               } else {
                 // Se detiene ANTES de llamar al callback: seguir leyendo frames
                 // mientras la app procesa el escaneo produce diez escaneos del
                 // mismo codigo en un segundo.
                 this.detener();
-                alLeer(valor);
+                alLeer(valor, codigos[0].format ?? '');
                 return;
               }
             }

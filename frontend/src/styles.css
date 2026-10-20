@@ -71,6 +71,14 @@
 
   --color-border: #e5e5e5;                /* neutral-200 */
   --color-border-strong: #d4d4d4;         /* neutral-300 */
+  /* El borde de los CONTROLES (campos, selects, checkboxes).
+   *
+   * WCAG 1.4.11 (componentes de interfaz): el borde de un campo tiene que
+   * poder verse contra el fondo, con 3:1. Un borde decorativo de tarjeta
+   * puede ser sutil, pero el de un campo es lo UNICO que dice "escribi
+   * aca": si no se ve, el operador no sabe donde escribir. Medido con el
+   * test `tests/test_contraste.py`: #d4d4d4 daba 1.48:1, este da 3.19:1. */
+  --color-border-control: #909090;
   --color-border-focus: #3b82f6;          /* blue-500 */
 
   --color-text: #0f172a;                  /* slate-900 */
@@ -192,6 +200,8 @@
 
   --color-border: #333333;                /* neutral-800 */
   --color-border-strong: #404040;         /* neutral-700 */
+  /* El borde de los controles: 3:1 contra la superficie oscura (WCAG 1.4.11). */
+  --color-border-control: #6b6b6b;
   --color-border-focus: #60a5fa;          /* blue-400 */
 
   --color-text: #fafafa;                  /* neutral-50 */
@@ -246,6 +256,7 @@
 
   --color-border: #cccccc;
   --color-border-strong: #999999;
+  --color-border-control: #767676;        /* 3:1 o mas contra la superficie */
   --color-border-focus: #8b4513;           /* marrón alto contraste */
 
   --color-text: #000000;
@@ -643,7 +654,10 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   width: 100%;
   min-height: var(--toque);
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--borde-control);
+  /* El borde de un campo es la unica pista de que se puede escribir en el:
+   * por eso usa el token de contraste 3:1 (WCAG 1.4.11) y no el borde
+   * decorativo de las tarjetas. */
+  border: 1px solid var(--color-border-control);
   border-radius: var(--radio-sm);
   background: var(--superficie);
   color: var(--texto);
@@ -1822,7 +1836,40 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   padding-top: 0.15rem;
 }
 
-/* El chispoteo de "registrando", al lado de la camara. Va aca y no en la
+/* ---------------------------------------------------------------------------
+   La guia de encuadre se adapta al formato
+   ---------------------------------------------------------------------------
+   Un QR se encuadra en un CUADRADO. Un codigo de barras de 16 caracteres
+   tiene unos 130 modulos: se encuadra en una FRANJA, y necesita cuatro
+   veces mas ancho que un QR para ser legible (medido: se lee a 400 px de
+   ancho en el cuadro y deja de leerse a 300).
+
+   Con la guia cuadrada, el operador hace lo correcto (encuadrar la etiqueta)
+   y el codigo de barras NO SE LEE: la guia le dice que se acerque, y al
+   acercarse el QR se lee pero la franja no entra en el cuadrado.
+
+   La franja es la misma mira, con otra proporcion. */
+.escaner-mira {
+  transition: aspect-ratio 160ms ease-out, width 160ms ease-out, height 160ms ease-out;
+}
+
+.escaner-marco--lineal .escaner-mira {
+  /* La franja: ancha y baja. */
+  height: auto;
+  width: 92%;
+  aspect-ratio: 5 / 1;
+}
+
+.escaner-guia {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--texto-suave);
+}
+
+/* ---------------------------------------------------------------------------
+   El chispoteo de "registrando", al lado de la camara. Va aca y no en la
    zona de resultado, para no borrar el recibo mientras se registra el
    siguiente escaneo. */
 .escaner-registrando {
