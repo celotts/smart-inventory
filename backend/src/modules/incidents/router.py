@@ -1,0 +1,240 @@
+"""
+Router de incidencias. Montado en /api/incidents.
+
+QUE PERMITE HACER
+-----------------
+- Reportar una incidencia (cualquiera del equipo).
+- Ver las abiertas, filtradas por severidad, responsable, equipo o vencidas.
+- Cambiar el estado, asignar, comentar: todo queda en la linea de tiempo.
+- Ver el resumen del tablero: cuantas abiertas, cuantas vencidas, cuanto tarda
+  el taller.
+
+LOS PERMISOS
+------------
+- `incidents:read`: ver. Lo tiene el operador, el tecnico y el admin.
+- `incidents:create`: reportar. Lo tiene el operador (el que esta en el
+  deposito y ve el equipo roto) y el tecnico.
+- `incidents:manage`: cambiar el estado, asignar y cerrar. Es del tecnico y
+  del admin: reportar un problema es de cualquiera, resolverlo es del taller.
+
+REPARAR Y REABRIR
+-----------------
+Reabrir una incidencia resuelta es una transicion VALIDA (el problema
+volvio), y el trigger de la base lo permite. Un caso cerrado o cancelado no
+se reabre: para eso se abre uno nuevo. La razon esta en el trigger
+`incident_transicion_valida`.
+"""
+
+from __future__ import annotations
+
+import logging
+from uuid import UUID
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+
+from src.core.deps import exigir
+from src.core.permissions import Permiso
+from src.modules.incidents import service
+from src.modules.incidents.schemas import (
+    ActualizarIncidenciaRequest,
+    CambiarEstadoRequest,
+    ComentarRequest,
+    CrearIncidenciaRequest,
+    IncidenciaDetalle,
+    IncidenciaResumen,
+    ListaIncidenciasResponse,
+)
+from src.modules.users.models import UsuarioActual
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/incidents", tags=["incidencias"])
+
+
+def _errores(exc: Exception) -> HTTPException:
+    """Traduce las excepciones del service a HTTP."""
+    if isinstance(exc, service.IncidenciaNoEncontrada):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, service.ConflictoDeVersion):
+        # 409: el conflicto es con el ESTADO ACTUAL de la incidencia, no con
+        # la forma del pedido.
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    if isinstance(exc, service.IncidenciaInvalida):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+    # Un 500 NUNCA es silencioso: sin este log, un bug queda sin rastro y lo
+    # unico que se ve es "Error interno." en la pantalla del operador.
+    logger.exception("Error inesperado en incidencias: %s", exc)
+    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno.")
+
+
+@router.get(
+    "",
+    response_model=ListaIncidenciasResponse,
+    summary="Listar incidencias",
+)
+def listar(
+    estado: str | None = Query(None, description="Uno de: OPEN, IN_PROGRESS, WAITING, RESOLVED, CLOSED, CANCELLED."),
+    severidad: str | None = Query(None, description="Uno de: S1, S2, S3, S4."),
+    categoria: str | None = Query(None),
+    asignado_a: str | None = Query(None, description="UUID del responsable."),
+    device_id: int | None = Query(None, gt=0),
+    model_id: int | None = Query(None, gt=0),
+    location_id: int | None = Query(None, gt=0),
+    solo_vencidas: bool = Query(False, description="Solo las que ya pasaron su plazo de resolucion."),
+    busqueda: str | None = Query(None, max_length=100, description="Texto libre: codigo, titulo o descripcion."),
+    limite: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> ListaIncidenciasResponse:
+    """
+    Listado paginado, con filtros combinables.
+
+    El orden es el que un operador necesita: las VENCIDAS primero, y dentro de
+    cada grupo, las mas graves y las mas antiguas.
+    """
+    return service.listar_incidencias(
+        estado=estado,
+        severidad=severidad,
+        categoria=categoria,
+        asignado_a=asignado_a,
+        device_id=device_id,
+        model_id=model_id,
+        location_id=location_id,
+        solo_vencidas=solo_vencidas,
+        busqueda=busqueda,
+        limite=limite,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/metrics",
+    summary="Resumen de incidencias para el tablero",
+)
+def metricas(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> dict:
+    """
+    Cuantas abiertas, cuantas vencidas, y cuanto se demora el taller (MTTR).
+
+    El MTTR es el numero que le importa al responsable: no como hay many
+    tickets, sino cuanto tarda el taller en resolverlos.
+    """
+    return service.metricas()
+
+
+@router.get(
+    "/{incidencia_id}",
+    response_model=IncidenciaDetalle,
+    summary="Ver una incidencia con su linea de tiempo",
+)
+def obtener(
+    incidencia_id: UUID,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+) -> IncidenciaDetalle:
+    try:
+        return service.obtener_incidencia(incidencia_id)
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "",
+    response_model=IncidenciaDetalle,
+    status_code=status.HTTP_201_CREATED,
+    summary="Reportar una incidencia",
+)
+def crear(
+    pedido: CrearIncidenciaRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_CREAR)),
+) -> IncidenciaDetalle:
+    """
+    Alta de una incidencia.
+
+    IDEMPOTENTE: si viene `client_ref` y ya existe una incidencia con ese
+    ref, se devuelve LA MISMA. La app es una PWA con cobertura mala y el
+    mismo alta puede llegar dos veces; sin esto, un corte de conexion a mitad
+    del envio deja dos casos iguales.
+    """
+    try:
+        return service.crear_incidencia(
+            pedido.model_dump(),
+            user_id=usuario.id,
+            client_ref=pedido.client_ref,
+        )
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.patch(
+    "/{incidencia_id}",
+    response_model=IncidenciaDetalle,
+    summary="Editar una incidencia",
+)
+def actualizar(
+    incidencia_id: UUID,
+    pedido: ActualizarIncidenciaRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_GESTIONAR)),
+) -> IncidenciaDetalle:
+    """
+    Edicion parcial, con BLOQUEO OPTIMISTA.
+
+    El `version` que manda el cliente es la que leyo. Si otro operador guardo
+    antes, la base tiene otra version y el backend responde 409 con un
+    conflicto explicito, en vez de pisar su trabajo.
+    """
+    try:
+        return service.actualizar_incidencia(
+            incidencia_id,
+            pedido.model_dump(exclude_none=True),
+            user_id=usuario.id,
+        )
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "/{incidencia_id}/transitions",
+    response_model=IncidenciaDetalle,
+    summary="Cambiar el estado de una incidencia",
+)
+def cambiar_estado(
+    incidencia_id: UUID,
+    pedido: CambiarEstadoRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_GESTIONAR)),
+) -> IncidenciaDetalle:
+    """
+    Una transicion de estado.
+
+    Las transiciones validas las exige la BASE (trigger): si el par
+    actual -> nuevo no esta permitido, el UPDATE falla y se traduce a un 409
+    con el motivo. La API no reimplementa la maquina de estados: dos
+    implementaciones se desincronizan, y la que queda sin actualizar es la que
+    deja pasar lo imposible.
+    """
+    try:
+        return service.cambiar_estado(
+            incidencia_id,
+            pedido.estado,
+            user_id=usuario.id,
+            nota=pedido.nota,
+        )
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "/{incidencia_id}/comments",
+    response_model=IncidenciaDetalle,
+    summary="Agregar una nota a la linea de tiempo",
+)
+def comentar(
+    incidencia_id: UUID,
+    pedido: ComentarRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_GESTIONAR)),
+) -> IncidenciaDetalle:
+    try:
+        return service.comentar(incidencia_id, pedido.nota, user_id=usuario.id)
+    except Exception as exc:
+        raise _errores(exc) from exc

@@ -1,3 +1,38 @@
+# ===========================================================================
+# Stack de Smart Inventory.
+#
+# LA REGLA DEL PROYECTO
+# ---------------------
+# La app NO funciona sin el contenedor de la base. No es una preferencia: es
+# la condicion de que los datos sean consistentes. Todo el inventario, los
+# movimientos, la auditoria y las incidencias viven en Postgres, y un backend
+# arrancando contra una base que no esta es un backend que miente: acepta
+# escrituras y las pierde.
+#
+# COMO SE LOGRA, Y POR QUE CADA PARTE
+# ------------------------------------
+#   1. `depends_on` con `condition: service_healthy`: el backend no arranca
+#      hasta que la base responde un SELECT 1 de verdad, y el front no
+#      arranca hasta que la API esta sana.
+#
+#   2. La API VERIFICA LA BASE AL ARRANCAR y, si no la encuentra, MUERE
+#      (ver `src/main.py`): el contenedor queda en "restarting" y reintenta
+#      solo. Un backend vivo contra una base caida es peor que uno caido.
+#
+#   3. `/health` devuelve 503 cuando la base no responde: el healthcheck lo
+#      ve, el contenedor queda "unhealthy" y el front no se levanta contra el.
+#
+#   4. `restart: unless-stopped`: si se cae la base o el host se reinicia, el
+#      stack vuelve solo. Sin esto, un corte de luz deja el sistema caido
+#      hasta que alguien se acuerde de correr `make up`.
+#
+#   5. La base NO se publica en el puerto del host (ver `ports`): la unica
+#      forma de entrar a la base es desde la red interna de Docker. En
+#      desarrollo el overlay publica el 5432, porque `psql` desde el host es
+#      comodo; en produccion, exponerlo es deixar la base abierta a quien
+#      llegue al puerto.
+# ===========================================================================
+
 services:
   db:
     image: postgres:15-alpine
@@ -6,8 +41,18 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secretpassword
       POSTGRES_DB: smart_inventory
-    ports:
-      - '5432:5432'
+      # Checksums de pagina: el contenedor se apaga a la mitad de un cambio y
+      # Postgres puede dejar un "torn page" sin escribir. Con esto, detecta el
+      # cambio incompleto y reescribe la pagina al arrancar.
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    # `restart: unless-stopped`: si el host se apaga o se reinicia, la base
+    # vuelve sola. Sin esto, el operador tiene que acordarse de levantarla, y
+    # el sintoma es que la app no arranca y parece un bug de la app.
+    restart: unless-stopped
+    # Postgres necesita tiempo para el checkpoint final: sin esto, Docker le
+    # manda SIGKILL a los 10 segundos y la base se apaga "a la fuerza", con el
+    # riesgo de un recovery largo en el arranque siguiente.
+    stop_grace_period: 30s
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # OJO con el nombre: este archivo se llama `init.sql`. Estaba como
@@ -23,7 +68,9 @@ services:
       # creada desde cero y una migrada quedan IDENTICAS.
       #
       # Para una base ya existente, las migraciones se aplican con
-      # `make migrar` (scripts/migrar.sh), que corre el SQL desde el host.
+      # `make migrar` (scripts/migrar.sh), que corre el SQL DENTRO del
+      # contenedor de la base: por eso la base no necesita estar publicada en
+      # el puerto del host.
     healthcheck:
       # `pg_isready` dice "aceptando conexiones" cuando el postmaster levanta el
       # socket, que es ANTES de que corran los scripts de init. Green aqui no
@@ -56,12 +103,27 @@ services:
       # cambiar de proveedor sin tocar el repo.
       APP_ENV: ${APP_ENV:-production}
       DEBUG: ${DEBUG:-false}
+      # Cuanto espera la API a que la base este lista antes de rendirse. Con
+      # `restart: unless-stopped`, rendirse no es morir: es reintentar solo.
+      DB_ESPERA_SEGUNDOS: ${DB_ESPERA_SEGUNDOS:-60}
     depends_on:
       db:
         condition: service_healthy
+    # Si el contenedor muere (la base caido, un error de arranque), Docker lo
+    # vuelve a levantar. Con la espera de la base al arrancar, el reintento
+    # espera a que la base vuelva.
+    restart: unless-stopped
+    # Uvicorn cierra las conexiones abiertas con un SIGTERM. Postgres, en
+    # cambio, necesita margen para el checkpoint final.
+    stop_grace_period: 20s
     healthcheck:
       # urllib y no curl: la imagen es python:3.9-slim y no trae curl.
       # Instalarlo solo por el healthcheck agrega un apt-get a cada build.
+      #
+      # Se consulta `/health`, que devuelve 503 si la base NO responde: un
+      # backend con la base caida tiene que ser "unhealthy", no "sano". Si
+      # `/health` devolviera 200 con la base caida, el front levantaria contra
+      # una API que no puede guardar nada.
       test:
         - CMD
         - python
@@ -95,6 +157,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 10s
     healthcheck:
       # wget es busybox, ya esta en node:18-alpine. Se consulta la raiz y no un
       # asset de /src: el dev server transforma el modulo al vuelo y un 404 ahi

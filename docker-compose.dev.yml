@@ -5,7 +5,21 @@
 # Solo monta codigo y expone debug. NO cambia credenciales ni imagenes: una
 # base de dev con otro password que el de prod hace que "no me conecta" se
 # convierta en un bug de diez minutos.
+#
+# LA BASE SE PUBLICA EN EL 5432 DEL HOST
+# --------------------------------------
+# Es lo unico que este overlay agrega al compose base, y es a proposito: en
+# produccion la base NO esta publicada (ver `docker-compose.yml`), porque
+# dejarla en el puerto del host la abre a quien llegue al puerto.
+#
+# En desarrollo se publica porque `psql` desde el host es comodo. El
+# `scripts/migrar.sh` NO lo necesita (corre `psql` dentro del contenedor), asi
+# que esto es una comodidad, no una dependencia.
 services:
+  db:
+    ports:
+      - '5432:5432'
+
   backend:
     environment:
       - DATABASE_URL=postgresql://postgres:secretpassword@db:5432/smart_inventory
@@ -20,8 +34,8 @@ services:
       # busca a si mismo, no encuentra nada y /api/ai/health dice que el
       # proveedor esta caido — cuando el de la maquina esta andando perfecto.
       #
-      # `host.docker.internal` es el nombre que Docker le da al host desde
-      # adentro de un contenedor. Es el equivalente al `127.0.0.1` de la
+      # `host.docker.internal` es el nombre que Docker le da al host desde el
+      # adentro de un contenedor. Es el equivalente del `127.0.0.1` de la
       # laptop.
       #
       # Ojo en Linux: `host.docker.internal` requiere
@@ -51,7 +65,7 @@ services:
       - 0.0.0.0
       - --port
       - '5000'
-      # --reload lee los archivos del CONTEINEDOR, que es donde los monta el
+      # --reload lee los archivos del CONTENEDOR, que es donde los monta el
       # volumen de arriba. Sin el volumen, esto solo miraria el codigo viejo
       # que copio el build.
       - --reload
@@ -60,7 +74,7 @@ services:
     environment:
       - VITE_APP_ENV=dev
     volumes:
-      # Montar donde nginx sirve los archivos (no /app/src)
+      # Montar donde nginx sirve los archivos (no /app/node_modules)
       - ./frontend/src:/usr/share/nginx/html/src
       - ./frontend/index.html:/usr/share/nginx/html/index.html
       # /app/node_modules se anombra con un volumen anonimo: sin esto, el

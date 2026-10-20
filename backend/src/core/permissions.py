@@ -53,6 +53,15 @@ class Permiso(str, Enum):
     REPARACIONES_EDITAR = "repairs:edit"
     REPARACIONES_ASIGNAR = "repairs:assign"
 
+    # --- Incidencias ---
+    #
+    # Reportar un problema es de cualquiera (el operador ve el equipo roto en
+    # el deposito); resolverlo es del taller. Por eso hay TRES permisos y no
+    # uno: con un solo permiso, el operador podria cerrar casos que ni miro.
+    INCIDENCIAS_VER = "incidents:read"
+    INCIDENCIAS_CREAR = "incidents:create"
+    INCIDENCIAS_GESTIONAR = "incidents:manage"
+
     # --- IA ---
     IA_PREGUNTAR = "ai:query"
     IA_ANALIZAR = "ai:analyze"
@@ -74,6 +83,10 @@ PERMISOS_POR_ROL: dict[str, set[str]] = {
         Permiso.DISPOSITIVOS_VER,
         Permiso.REPARACIONES_VER,
         Permiso.REPARACIONES_EDITAR,
+        # Las incidencias son su trabajo: las ve, las reporta y las resuelve.
+        Permiso.INCIDENCIAS_VER,
+        Permiso.INCIDENCIAS_CREAR,
+        Permiso.INCIDENCIAS_GESTIONAR,
         Permiso.IA_PREGUNTAR,
         Permiso.IA_ANALIZAR,
         Permiso.IA_REPORTE,
@@ -84,6 +97,10 @@ PERMISOS_POR_ROL: dict[str, set[str]] = {
         Permiso.DISPOSITIVOS_VER,
         Permiso.MOVIMIENTOS_VER,
         Permiso.MOVIMIENTOS_CREAR,
+        # Reportar una incidencia es del operador: es el que ve el equipo roto.
+        # Resolverla NO: eso es del taller.
+        Permiso.INCIDENCIAS_VER,
+        Permiso.INCIDENCIAS_CREAR,
         Permiso.IA_PREGUNTAR,
         Permiso.IA_REPORTE,
     },

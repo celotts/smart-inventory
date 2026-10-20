@@ -348,7 +348,16 @@ export async function pedir(ruta, opciones = {}) {
       respuesta = await fetch(url, opcionesFetch);
     }
   } catch {
-    throw new ErrorDeApi('No hay conexion con el servidor.', 0, null);
+    // Sin red, o el servidor no esta. En un proyecto que vive 100% en
+    // Docker, el caso mas comun es que el contenedor de la API no este
+    // arriba: el mensaje dice eso, porque "no hay conexion" no le dice al
+    // operador que hacer.
+    throw new ErrorDeApi(
+      'No hay conexion con el servidor. Si el proyecto corre en Docker, ' +
+        'chequea que los contenedores esten arriba (`make estado`).',
+      0,
+      null,
+    );
   }
 
   // 401 con un token vencido: se renueva UNA vez y se reintenta.
@@ -455,12 +464,26 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ email, password }),
-    }).then(async (r) => {
-      const datos = await r.json().catch(() => null);
-      if (!r.ok) throw new ErrorDeApi(mensajeDeError(datos, r.status), r.status, datos);
-      guardarSesion(datos);
-      return datos;
-    }),
+    })
+      .then(async (r) => {
+        const datos = await r.json().catch(() => null);
+        if (!r.ok) throw new ErrorDeApi(mensajeDeError(datos, r.status), r.status, datos);
+        guardarSesion(datos);
+        return datos;
+      })
+      .catch((error) => {
+        // Un `fetch` que no llega al servidor tira un TypeError crudo
+        // ("Failed to fetch"), que en pantalla es un mensaje que no le dice
+        // nada al operador. En un proyecto que vive en Docker, casi siempre
+        // significa que el contenedor de la API no esta arriba.
+        if (error instanceof ErrorDeApi) throw error;
+        throw new ErrorDeApi(
+          'No hay conexion con el servidor. Si el proyecto corre en Docker, ' +
+            'chequea que los contenedores esten arriba (`make estado`).',
+          0,
+          null,
+        );
+      }),
 
   logout: () =>
     fetch(`${BASE}/auth/logout`, {

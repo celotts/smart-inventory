@@ -1,0 +1,197 @@
+"""
+Schemas del modulo de incidencias.
+
+POR QUE VALIDAR CON PYDANTIC Y NO EN EL SERVICE
+------------------------------------------------
+El `title` con dos letras, una severidad que no existe o un `client_ref` de
+cuatro kb tienen que rechazarse ANTES de tocar la base: si no, el error sale
+como un 500 del trigger, que no le dice al operador que paso.
+
+Los CHECK de la base siguen siendo la ultima linea de defensa (el que escribe
+con `psql` no pasa por Pydantic), pero la API falla con un 422 que explica el
+motivo.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Las severidades, en el orden de la tabla de politicas de SLA.
+SEVERIDADES = ("S1", "S2", "S3", "S4")
+
+# Los estados del ciclo de vida. Las TRANSICIONES validas las controla el
+# trigger de la base (`incident_transicion_valida`): aca solo se valida que el
+# estado exista, porque una transicion valida depende del estado ACTUAL, que
+# el cliente no manda.
+ESTADOS = ("OPEN", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED", "CANCELLED")
+
+CATEGORIAS = ("HARDWARE", "SOFTWARE", "NETWORK", "PERIPHERAL", "PHYSICAL", "ACCESS", "OTHER")
+
+
+class CrearIncidenciaRequest(BaseModel):
+    """
+    Alta de una incidencia.
+
+    `client_ref` es la idempotencia: la app es una PWA con cobertura mala, y
+    el mismo alta puede llegar dos veces. Con el mismo `client_ref`, el
+    backend devuelve LA MISMA incidencia en vez de crear dos.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    title: str = Field(..., min_length=5, max_length=200)
+    description: str | None = Field(None, max_length=4000)
+    severity: str = Field("S3")
+    category: str = Field("OTHER")
+    device_id: int | None = Field(None, gt=0)
+    model_id: int | None = Field(None, gt=0)
+    location_id: int | None = Field(None, gt=0)
+    assigned_to: str | None = Field(None, max_length=64)
+    client_ref: str | None = Field(None, max_length=64)
+    # Un costo estimado, en la moneda del sistema. El costo real se carga al
+    # cerrar.
+    cost: float | None = Field(None, ge=0)
+    downtime_minutes: int | None = Field(None, ge=0)
+
+    @field_validator("severity")
+    @classmethod
+    def _severidad_valida(cls, valor: str) -> str:
+        if valor not in SEVERIDADES:
+            raise ValueError(f"Severidad invalida. Validas: {', '.join(SEVERIDADES)}.")
+        return valor
+
+    @field_validator("category")
+    @classmethod
+    def _categoria_valida(cls, valor: str) -> str:
+        if valor not in CATEGORIAS:
+            raise ValueError(f"Categoria invalida. Validas: {', '.join(CATEGORIAS)}.")
+        return valor
+
+
+class ActualizarIncidenciaRequest(BaseModel):
+    """
+    Edicion parcial de una incidencia.
+
+    `version` es el BLOQUEO OPTIMISTA: es la version que el cliente leyo. Si
+    otro operador guardo antes, la version cambio y el backend responde 409
+    con un conflicto explicito, en vez de pisar el trabajo del otro.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    version: int = Field(..., gt=0)
+    title: str | None = Field(None, min_length=5, max_length=200)
+    description: str | None = Field(None, max_length=4000)
+    severity: str | None = None
+    category: str | None = None
+    assigned_to: str | None = Field(None, max_length=64)
+    location_id: int | None = Field(None, gt=0)
+    cost: float | None = Field(None, ge=0)
+    downtime_minutes: int | None = Field(None, ge=0)
+    root_cause: str | None = Field(None, max_length=4000)
+    resolution: str | None = Field(None, max_length=4000)
+
+    @field_validator("severity")
+    @classmethod
+    def _severidad_valida(cls, valor: str | None) -> str | None:
+        if valor is not None and valor not in SEVERIDADES:
+            raise ValueError(f"Severidad invalida. Validas: {', '.join(SEVERIDADES)}.")
+        return valor
+
+    @field_validator("category")
+    @classmethod
+    def _categoria_valida(cls, valor: str | None) -> str | None:
+        if valor is not None and valor not in CATEGORIAS:
+            raise ValueError(f"Categoria invalida. Validas: {', '.join(CATEGORIAS)}.")
+        return valor
+
+
+class CambiarEstadoRequest(BaseModel):
+    """Una transicion de estado. Las validas las exige la base."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    estado: str
+    nota: str | None = Field(None, max_length=2000)
+
+    @field_validator("estado")
+    @classmethod
+    def _estado_valido(cls, valor: str) -> str:
+        if valor not in ESTADOS:
+            raise ValueError(f"Estado invalido. Validos: {', '.join(ESTADOS)}.")
+        return valor
+
+
+class ComentarRequest(BaseModel):
+    """Una nota en la linea de tiempo."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    nota: str = Field(..., min_length=1, max_length=2000)
+
+
+class IncidenciaResumen(BaseModel):
+    """Una incidencia en la lista: lo minimo para identificarla."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    code: str
+    title: str
+    severity: str
+    status: str
+    category: str
+    device_id: int | None = None
+    model_id: int | None = None
+    location_id: int | None = None
+    reported_by: UUID
+    assigned_to: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+    response_due_at: datetime
+    resolution_due_at: datetime
+    first_response_at: datetime | None = None
+    resolved_at: datetime | None = None
+    closed_at: datetime | None = None
+    version: int
+    # Del join con la vista de SLA.
+    minutos_para_resolver: float | None = None
+    vencido: bool = False
+    fuera_de_sla: bool = False
+
+
+class EventoIncidencia(BaseModel):
+    """Una linea de la linea de tiempo."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    event_type: str
+    from_status: str | None = None
+    to_status: str | None = None
+    actor_id: UUID | None = None
+    note: str | None = None
+    payload: dict[str, Any] | None = None
+    created_at: datetime
+
+
+class IncidenciaDetalle(IncidenciaResumen):
+    """La incidencia completa, con su linea de tiempo."""
+
+    description: str | None = None
+    resolution: str | None = None
+    root_cause: str | None = None
+    cost: float | None = None
+    downtime_minutes: int | None = None
+    eventos: list[EventoIncidencia] = []
+
+
+class ListaIncidenciasResponse(BaseModel):
+    items: list[IncidenciaResumen]
+    total: int
+    limite: int
+    offset: int

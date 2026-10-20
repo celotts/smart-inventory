@@ -26,9 +26,12 @@ La separación es deliberada: el inventario no depende del modelo.
 """
 
 import os
+import sys
+import time
+from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -39,10 +42,79 @@ DATABASE_URL = os.getenv(
 
 _ES_PRODUCCION = os.getenv("APP_ENV", "production").lower() in ("production", "prod")
 
+# El pool es chico a proposito: el contenedor corre una sola instancia de
+# uvicorn y el healthcheck abre una conexion cada 10s. Un pool grande solo
+# desperdicia conexiones de Postgres, que es el recurso escaso aqui.
+engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=2, pool_pre_ping=True)
+
+# Cuanto espera la API a que la base este lista antes de rendirse.
+DB_ESPERA_SEGUNDOS = int(os.getenv("DB_ESPERA_SEGUNDOS", "60"))
+
+
+def esperar_base() -> None:
+    """
+    Espera a que la base responda, o se rinde.
+
+    POR QUE LA API MUERE SI NO HAY BASE
+    ------------------------------------
+    Un backend vivo contra una base caida es PEOR que un backend caido: acepta
+    escrituras, las responde con 500 a la mitad, y el operador cree que
+    guardo un movimiento que en realidad no existe. Ademas el healthcheck
+    marcaria el contenedor como sano y el front levantaria contra el.
+
+    Asi que al arrancar, la API verifica la base con un SELECT 1 de verdad. Si
+    no responde en `DB_ESPERA_SEGUNDOS`, el proceso MUERE: el contenedor queda
+    en "restarting" y Docker lo vuelve a levantar, y en el siguiente intento la
+    base puede estar arriba. Es un reintento con backoff, sin cron y sin que
+    nadie tenga que intervenir.
+
+    El mensaje va al log, que es donde lo mira el operador cuando el stack no
+    levanta.
+    """
+    limite = time.monotonic() + DB_ESPERA_SEGUNDOS
+    intento = 0
+
+    while True:
+        intento += 1
+        try:
+            with engine.connect() as conexion:
+                conexion.execute(text("SELECT 1"))
+            if intento > 1:
+                print(f"[arranque] Base conectada al intento {intento}.", flush=True)
+            return
+        except SQLAlchemyError as error:
+            if time.monotonic() >= limite:
+                print(
+                    f"[arranque] La base no respondio en {DB_ESPERA_SEGUNDOS}s "
+                    f"({intento} intentos). Ultimo error: {error}. "
+                    "El contenedor se reinicia para reintentar.",
+                    flush=True,
+                )
+                # `sys.exit` y no `raise`: el mensaje es para el log del
+                # contenedor, y el proceso tiene que terminar con codigo != 0
+                # para que Docker lo reinicie.
+                sys.exit(1)
+            time.sleep(2)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """
+    El ciclo de vida de la API.
+
+    La espera de la base va ACA y no en un `@app.on_event("startup")`: el
+    evento de startup es la API vieja de FastAPI, y el `lifespan` es la que
+    todos los frameworks de ASGI usan. Ademas, desde el lifespan se puede
+    levantar un error y DILE al proceso que muera, que es lo que se quiere.
+    """
+    esperar_base()
+    yield
+
 app = FastAPI(
     title="Smart Inventory B2B API",
     version="0.4.0",
     description="Gestion de inventario de dispositivos para empresas, con IA.",
+    lifespan=lifespan,
     # POR QUE /docs SE DESACTIVA EN PRODUCCION
     # --------------------------------------
     # Swagger UI no es un endpoint de negocio: es una pagina que lista TODA la
@@ -62,11 +134,6 @@ app = FastAPI(
     redoc_url=None if _ES_PRODUCCION else "/redoc",
     openapi_url=None if _ES_PRODUCCION else "/openapi.json",
 )
-
-# El pool es chico a proposito: el contenedor corre una sola instancia de
-# uvicorn y el healthcheck abre una conexion cada 10s. Un pool grande solo
-# desperdicia conexiones de Postgres, que es el recurso escaso aqui.
-engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=2, pool_pre_ping=True)
 
 # --- Routers ---------------------------------------------------------------
 # Se importan despues de crear `app` porque los modulos de la API usan
@@ -89,6 +156,7 @@ from src.modules.maintenance.router import router as maintenance_router
 from src.modules.purchasing.router import router as purchasing_router
 from src.modules.reporting.router import router as reporting_router
 from src.modules.locations.router import router as locations_router
+from src.modules.incidents.router import router as incidents_router
 from src.modules.export.router import router as export_router
 
 # Falla en el ARRANQUE y no en el primer login. Un deploy sin SECRET_KEY tiene
@@ -128,11 +196,12 @@ app.include_router(maintenance_router)
 app.include_router(purchasing_router)
 app.include_router(reporting_router)
 app.include_router(locations_router)
+app.include_router(incidents_router)
 app.include_router(export_router)
 
 
 @app.get("/health", tags=["operacion"])
-def health() -> dict:
+def health() -> Response:
     """
     Estado real del servicio: la API responde Y la base acepta queries.
 
@@ -140,14 +209,32 @@ def health() -> dict:
     tiene credenciales. Y NO consulta a la IA: si dependiera del proveedor de
     LLM, un Ollama lento haria que el orquestador reiniciara la API de
     inventario —que funciona sin IA— en loop.
+
+    EL 503 ES LA PARTE IMPORTANTE
+    ------------------------------
+    Con la base caida, esta respuesta es 503 y NO 200. El healthcheck del
+    contenedor mira el codigo: un 503 deja el contenedor "unhealthy", y el
+    frontend, que espera `service_healthy`, no se levanta contra una API que
+    no puede guardar nada.
     """
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
     except SQLAlchemyError as error:
-        return {"status": "degraded", "database": "unreachable", "detail": str(error)}
+        return Response(
+            content=(
+                '{"status": "degraded", "database": "unreachable", '
+                f'"detail": "{error}"}}'
+            ).encode("utf-8"),
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            media_type="application/json",
+        )
 
-    return {"status": "ok", "database": "reachable"}
+    return Response(
+        content=b'{"status": "ok", "database": "reachable"}',
+        status_code=status.HTTP_200_OK,
+        media_type="application/json",
+    )
 
 
 @app.get("/", tags=["operacion"])

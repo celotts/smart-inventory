@@ -23,6 +23,7 @@ porque se autenticó y le falta permiso: 403. Si no tiene quién es, 401.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.core.audit import registrar as audit_log
 from src.core.deps import exigir, exigir_admin, get_current_user
@@ -140,6 +141,21 @@ def login(datos: LoginRequest, request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except SQLAlchemyError as exc:
+        # La base no esta: NO es un error interno.
+        #
+        # Sin este caso, el `except Exception` de abajo lo convierte en un 500
+        # "Error interno", que le dice al operador que el programa esta roto.
+        # Lo que pasa es que el contenedor de la base no esta arriba.
+        logger.error("La base no esta disponible durante el login: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "La base de datos no esta disponible. Si el proyecto corre en "
+                "Docker, chequea que el contenedor de la base este arriba "
+                "(`make estado`)."
+            ),
         ) from exc
     except Exception as exc:
         logger.exception("Error inesperado en login")

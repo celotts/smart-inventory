@@ -114,18 +114,46 @@ ps:
 
 # estado responde a "¿ya puedo abrir el?". Imprime la salud real de cada
 # servicio, no solo que el contenedor existe.
+#
+# Y ADEMAS dice QUE FALTA cuando algo no esta en pie, porque un `ps` con tres
+# lineas y una en "unhealthy" no le dice al operador si tiene que levantar la
+# base, la API, o todo.
 estado:
 	@echo ""
 	@$(COMPOSE) $(COMPOSE_FILES) ps
+	@echo ""
+	@$(COMPOSE) $(COMPOSE_FILES) ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null | \
+		while read servicio estado salud; do \
+			case "$$servicio" in \
+				db) etiqueta="Base de datos" ;; \
+				backend) etiqueta="API" ;; \
+				frontend) etiqueta="Front" ;; \
+				ollama) etiqueta="IA (Ollama)" ;; \
+				*) etiqueta="$$servicio" ;; \
+			esac; \
+			if [ "$$estado" = "running" ] && { [ "$$salud" = "healthy" ] || [ "$$salud" = "" ]; }; then \
+				echo "  OK      $$etiqueta"; \
+			elif [ "$$estado" = "running" ]; then \
+				echo "  ESPERANDO $$etiqueta ($$salud)"; \
+			else \
+				echo "  CAIDO   $$etiqueta ($$estado)"; \
+			fi; \
+		done
 	@echo ""
 	@echo "  Ambiente .. $(ENV)"
 	@echo "  Front .... http://localhost:$(WEB_PORT)"
 	@echo "  API ...... http://localhost:$(API_PORT)"
 	@echo "  Docs ..... http://localhost:$(API_PORT)/docs"
 	@echo ""
+	@echo "  Si algo esta CAIDO o ESPERANDO: 'make up' lo levanta."
+	@echo "  Si la base no arranca, mirá: make logs-db"
+	@echo ""
 
 logs:
 	$(COMPOSE) $(COMPOSE_FILES) logs -f
+
+logs-db:
+	$(COMPOSE) $(COMPOSE_FILES) logs -f db
 
 logs-backend:
 	$(COMPOSE) $(COMPOSE_FILES) logs -f backend
