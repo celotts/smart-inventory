@@ -72,15 +72,53 @@ ALTER TABLE movement_history ADD CONSTRAINT fk_movement_history_type
 ALTER TABLE movement_history DROP COLUMN movement_type;
 
 -- ===========================================================================
--- 3. Actualizar constraint ck_movement_replacement
+-- 3. Actualizar validación de reemplazo
 -- ===========================================================================
+-- POR QUE NO ES UN CHECK
+-- ----------------------
+-- La version original era un CHECK con un SELECT adentro:
+--
+--     CHECK (CASE WHEN (SELECT name FROM movement_types WHERE id = movement_type_id)
+--                 = 'REPLACEMENT' THEN ... END)
+--
+-- Postgres RECHAZA eso con "cannot use subquery in check constraint": la regla
+-- es que un CHECK se evalua dentro de la misma fila y una subconsulta rompe esa
+-- garantia. La migracion fallaba entera y `movement_history` quedaba sin migrar.
+--
+-- La regla depende de OTRA tabla (el nombre del tipo vive en movement_types), asi
+-- que no se puede expresar como CHECK ni con una FK. Se hace con un trigger, que
+-- si puede consultar.
 ALTER TABLE movement_history DROP CONSTRAINT IF EXISTS ck_movement_replacement;
-ALTER TABLE movement_history ADD CONSTRAINT ck_movement_replacement CHECK (
-    CASE WHEN (SELECT name FROM movement_types WHERE id = movement_type_id) = 'REPLACEMENT'
-         THEN replaced_device_id IS NOT NULL AND replacement_reason IS NOT NULL
-         ELSE replaced_device_id IS NULL AND replacement_reason IS NULL
-    END
-);
+
+CREATE OR REPLACE FUNCTION validar_reemplazo_movimiento()
+RETURNS TRIGGER AS $$
+DECLARE
+    es_reemplazo BOOLEAN;
+BEGIN
+    SELECT (name = 'REPLACEMENT') INTO es_reemplazo
+    FROM movement_types
+    WHERE id = NEW.movement_type_id;
+
+    IF COALESCE(es_reemplazo, FALSE) THEN
+        IF NEW.replaced_device_id IS NULL OR NEW.replacement_reason IS NULL THEN
+            RAISE EXCEPTION
+                'Un movimiento REPLACEMENT requiere replaced_device_id y replacement_reason';
+        END IF;
+    ELSE
+        IF NEW.replaced_device_id IS NOT NULL OR NEW.replacement_reason IS NOT NULL THEN
+            RAISE EXCEPTION
+                'Solo un movimiento REPLACEMENT puede tener replaced_device_id/replacement_reason';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_movement_history_reemplazo ON movement_history;
+CREATE TRIGGER trigger_movement_history_reemplazo
+    BEFORE INSERT OR UPDATE ON movement_history
+    FOR EACH ROW EXECUTE FUNCTION validar_reemplazo_movimiento();
 
 -- ===========================================================================
 -- 4. Índices

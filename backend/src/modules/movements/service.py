@@ -42,6 +42,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from src.core.geo import CoordenadaInvalida, dentro_del_radio, normalizar_coordenada
+from src.core import audit
 from src.modules.ai.executor import get_ai_engine
 from src.modules.devices import service as devices_service
 
@@ -103,6 +104,182 @@ def _validar_uuid(valor: str, nombre: str) -> str:
         return str(uuid.UUID(str(valor)))
     except (ValueError, AttributeError, TypeError) as exc:
         raise ErrorDeEscaneo(f"El {nombre} no es un UUID valido.") from exc
+
+
+def mover_por_producto(
+    *,
+    model_id: int,
+    cantidad: int,
+    tipo_movimiento: str,
+    user_id: str,
+    ubicacion_id: int | None = None,
+    ubicacion_origen_id: int | None = None,
+    observations: str | None = None,
+) -> dict[str, Any]:
+    """
+    Mueve N unidades de un producto, eligiendo los equipos automaticamente.
+
+    QUE EQUIPOS SE ELIGEN, Y POR QUE EN ESE ORDEN
+    ---------------------------------------------
+    Se toma la lista de equipos del modelo en el estado de ORIGEN que el
+    movimiento necesita, y se mueven los `cantidad` primeros. El orden no es
+    arbitrario: se ordena por el movimiento mas viejo primero (`COALESCE` del
+    ultimo `movement_date`, y `id` como desempate), o sea FIFO. Un deposito que
+    rota por FIFO no deja equipos envejeciendo al fondo; si se eligiera al azar,
+    los ultimos en entrar serian los primeros en salir y habria equipos de tres
+    anos nunca tocados.
+
+    POR QUE REUSA `escanear` Y NO ESCRIBE SQL PROPIO
+    ------------------------------------------------
+    Porque la maquina de estados, la geo-validacion, la idempotencia y el
+    registro del historial ya viven ahi, y reescribirlas aca es la forma segura
+    de que las dos versiones se desincronicen. Este endpoint es una CAPA DE
+    SELECCION: elige los equipos y le pasa cada uno a la funcion que ya sabe
+    moverlos. Si el trigger rechaza un equipo (esta en taller, no puede saltar de
+    deposito a instalado), ese equipo falla y los demas siguen.
+    """
+    if tipo_movimiento not in ESTADO_POR_MOVIMIENTO:
+        raise ErrorDeEscaneo(
+            f"Tipo de movimiento desconocido: {tipo_movimiento!r}. "
+            f"Validos: {', '.join(sorted(ESTADO_POR_MOVIMIENTO))}."
+        )
+
+    user_id = _validar_uuid(user_id, "user_id")
+
+    # El estado del que hay que sacar los equipos lo define el movimiento. Un
+    # "salida a cliente" saca de deposito; una "instalacion" saca de transito;
+    # una "devolucion" (reingreso) saca de instalado o transito.
+    #
+    # `ORIGEN_POR_MOVIMIENTO` es la inversa de `ESTADO_POR_MOVIMIENTO`: dice
+    # desde donde tiene sentido sacar cada movimiento. Sin esto, se elegirian
+    # equipos en cualquier estado y la mayoria fallaria en el trigger.
+    ORIGEN_POR_MOVIMIENTO: dict[str, tuple[str, ...]] = {
+        "WAREHOUSE_ENTRY": ("IN_TRANSIT", "IN_WAREHOUSE"),
+        "WAREHOUSE_REENTRY": ("INSTALLED", "IN_TRANSIT", "IN_REPAIR"),
+        "OUT_TO_CLIENT": ("IN_WAREHOUSE",),
+        "INSTALLATION": ("IN_TRANSIT",),
+        "WITHDRAWAL_TO_WORKSHOP": ("IN_WAREHOUSE", "INSTALLED", "IN_TRANSIT"),
+        "DISPOSAL": ("IN_WAREHOUSE", "IN_TRANSIT", "INSTALLED", "IN_REPAIR"),
+        "REPLACEMENT": ("IN_WAREHOUSE",),
+    }
+
+    estados_origen = ORIGEN_POR_MOVIMIENTO.get(tipo_movimiento)
+    if not estados_origen:
+        raise ErrorDeEscaneo(
+            f"El movimiento {tipo_movimiento} no se puede aplicar por producto: "
+            "solo sirve para un equipo puntual."
+        )
+
+    engine = get_ai_engine()
+
+    with engine.connect() as conexion:
+        # Se arman los placeholders del IN a mano: SQLAlchemy no expande una
+        # tupla en un `IN` sin `bindparam(expanding=True)`, y con `text()` el
+        # camino mas simple y explicito es generar los nombres.
+        nombres_estado = [f":e{i}" for i in range(len(estados_origen))]
+        parametros: dict[str, Any] = {
+            "model_id": model_id,
+            "limite": cantidad,
+        }
+        for i, estado in enumerate(estados_origen):
+            parametros[f"e{i}"] = estado
+
+        condiciones = [
+            "d.model_id = :model_id",
+            "d.deleted_at IS NULL",
+            f"d.current_status IN ({', '.join(nombres_estado)})",
+        ]
+
+        # Si el operador dijo DE DONDE sacar, se respeta. Sin esto, una
+        # transferencia de Norte a Sur podria tomar equipos de Centro, que no es
+        # lo que se pidio.
+        if ubicacion_origen_id:
+            condiciones.append("d.current_location_id = :ubicacion_origen")
+            parametros["ubicacion_origen"] = ubicacion_origen_id
+
+        filas = conexion.execute(
+            text(
+                f"""
+                SELECT d.id, d.serial_number
+                FROM devices d
+                LEFT JOIN LATERAL (
+                    SELECT MAX(mh.movement_date) AS ultimo
+                    FROM movement_history mh
+                    WHERE mh.device_id = d.id
+                ) h ON TRUE
+                WHERE {' AND '.join(condiciones)}
+                ORDER BY COALESCE(h.ultimo, d.created_at) ASC, d.id ASC
+                LIMIT :limite
+                """
+            ),
+            parametros,
+        ).mappings().all()
+
+    if not filas:
+        ubicacion_texto = "en ninguna sede" if not ubicacion_origen_id else f"en la sede {ubicacion_origen_id}"
+        raise ErrorDeEscaneo(
+            f"No hay unidades de este producto en un estado que permita "
+            f"'{tipo_movimiento}' {ubicacion_texto}. Revisa el stock disponible "
+            "antes de mover."
+        )
+
+    # Cada equipo se mueve por separado, con su propio `client_scan_id`
+    # deterministico. Asi, si el operador reintenta el MISMO lote, cada equipo
+    # devuelve replay en vez de duplicar el movimiento.
+    lote_id = uuid.uuid4()
+    resultados: list[dict[str, Any]] = []
+
+    for indice, fila in enumerate(filas):
+        client_scan_id = str(uuid.uuid5(lote_id, str(indice)))
+        try:
+            resultado = escanear(
+                codigo=fila["serial_number"],
+                tipo_movimiento=tipo_movimiento,
+                client_scan_id=client_scan_id,
+                user_id=user_id,
+                ubicacion_id=ubicacion_id,
+                observations=observations,
+            )
+            resultados.append(
+                {
+                    "device_id": fila["id"],
+                    "serial_number": fila["serial_number"],
+                    "ok": True,
+                    "movement_id": resultado.get("movement_id"),
+                }
+            )
+        except (ErrorDeEscaneo, DispositivoNoEncontrado, TransicionInvalida) as exc:
+            resultados.append(
+                {
+                    "device_id": fila["id"],
+                    "serial_number": fila["serial_number"],
+                    "ok": False,
+                    "error": str(exc),
+                }
+            )
+
+    movidas = sum(1 for r in resultados if r["ok"])
+    fallidas = len(resultados) - movidas
+
+    if not filas:
+        mensaje = "No habia unidades para mover."
+    elif fallidas == 0:
+        mensaje = f"Se movieron {movidas} de {len(filas)} unidades."
+    elif movidas == 0:
+        mensaje = f"No se pudo mover ninguna de las {len(filas)} unidades."
+    else:
+        mensaje = (
+            f"Se movieron {movidas} de {len(filas)} unidades. "
+            f"{fallidas} fallaron: revisa el detalle."
+        )
+
+    return {
+        "movidas": movidas,
+        "fallidas": fallidas,
+        "total": len(filas),
+        "resultados": resultados,
+        "mensaje": mensaje,
+    }
 
 
 def escanear(
@@ -330,6 +507,31 @@ def escanear(
         if getattr(original, "pgcode", None) == "23514" or "23514" in str(original):
             raise TransicionInvalida(_mensaje_de_regla(original)) from exc
         raise
+
+    # --- 5. Bitacora formal ----------------------------------------------
+    #
+    # El movimiento YA esta confirmado en `movement_history`, que es la fuente
+    # de la trazabilidad del inventario. Esta linea agrega el evento a
+    # `audit_logs` para que la pantalla de auditoria pueda mostrar los
+    # movimientos y los eventos de cuentas en la MISMA lista.
+    #
+    # Va aca y no dentro de la transaccion de escritura por dos razones:
+    # `registrar` abre su propia conexion (no se puede anidar), y su contrato es
+    # no propagar la excepcion — si la bitacora falla, el movimiento ya
+    # registrado no se cae.
+    audit.registrar(
+        user_id=user_id,
+        action="MOVIMIENTO",
+        resource="movement_history",
+        metadata={
+            "accion": tipo_movimiento,
+            "device_id": device_id,
+            "serial_number": dispositivo.get("serial_number"),
+            "movement_id": movimiento_id,
+            "origen": origen,
+            "destino": ubicacion_id,
+        },
+    )
 
     # Obtener historial rico del dispositivo
     import logging

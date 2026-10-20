@@ -77,6 +77,8 @@ engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=2, pool_pre_ping=
 from src.core.exceptions import register_exception_handlers
 from src.core.security import verificar_configuracion_de_secreto
 from src.modules.ai.router import router as ai_router
+from src.modules.catalog.router import router as catalog_router
+from src.modules.audit.router import router as audit_router
 from src.modules.devices.router import router as devices_router
 from src.modules.movements.router import router as movements_router
 from src.modules.users.router import router as auth_router
@@ -115,6 +117,8 @@ app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(usuarios_router)
 app.include_router(ops_router)
+app.include_router(catalog_router)
+app.include_router(audit_router)
 app.include_router(devices_router)
 app.include_router(movements_router)
 app.include_router(stock_router)
@@ -173,3 +177,10 @@ if __name__ == "__main__":
     # 0.0.0.0 y no localhost: dentro del contenedor el bind por defecto es
     # solo loopback y el puerto publicado del host nunca llega.
     uvicorn.run("src.main:app", host="0.0.0.0", port=5000, reload=False)
+
+# Middleware de auditoría para trazabilidad completa
+try:
+    from src.core.audit_middleware import AuditMiddleware
+    app.add_middleware(AuditMiddleware)
+except Exception as e:
+    print(f"Warning: No se pudo cargar AuditMiddleware: {e}")

@@ -56,6 +56,11 @@ import { vistaLogin } from './vistas/login.js';
 import { vistaEscanear } from './vistas/escanear.js';
 import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
 import { vistaConsultas } from './vistas/consultas.js';
+import { vistaNuevo } from './vistas/nuevo.js';
+import { vistaProductos } from './vistas/productos.js';
+import { vistaCompras } from './vistas/compras.js';
+import { vistaMovimientos } from './vistas/movimientos.js';
+import { vistaAuditoria } from './vistas/auditoria.js';
 
 const contenido = document.getElementById('contenido');
 const cabecera = document.getElementById('cabecera');
@@ -103,7 +108,12 @@ function registrarServiceWorker() {
 const VISTAS = {
   escanear: { etiqueta: 'Escanear', construir: vistaEscanear },
   inventario: { etiqueta: 'Inventario', construir: vistaInventario },
+  movimientos: { etiqueta: 'Movimientos', construir: vistaMovimientos },
   consultas: { etiqueta: 'Consultas', construir: vistaConsultas },
+  productos: { etiqueta: 'Productos', construir: vistaProductos },
+  compras: { etiqueta: 'Compras', construir: vistaCompras },
+  auditoria: { etiqueta: 'Auditoría', construir: vistaAuditoria },
+  nuevo: { etiqueta: 'Nuevo', construir: vistaNuevo },
 };
 
 /** Que permisos tiene este usuario. Viene del login y del endpoint /auth/yo. */
@@ -155,6 +165,10 @@ function mostrarVista(nombre, opciones = {}) {
   if (nombre === 'dispositivo') {
     vistaActual = vistaDispositivo(opciones.deviceId, {
       alVolver: () => mostrarVista('inventario'),
+      // Editar y dar de baja son acciones de `devices:edit`. La ficha decide si
+      // muestra los botones con este dato; el backend los vuelve a exigir igual.
+      permisos: permisosDe(usuario),
+      alEliminar: () => mostrarVista('inventario'),
     });
   } else {
     const definicion = VISTAS[nombre];
@@ -224,13 +238,29 @@ async function cargarUsuario() {
     //
     // `roles()` puede fallar sin romper: un usuario que no tenga `roles:read`
     // (un Operador) sigue usando la app, solo sin la lista de roles.
-    const [perfil, permisos] = await Promise.all([
+    // `miPerfil()` devuelve `{ usuario, permisos, sesiones_activas }`. ANTES el
+    // codigo hacia `usuario = { ...usuario, ...perfil }`, que metia un campo
+    // `usuario` adentro de `usuario` y dejaba `role_name` sin actualizar; y
+    // encima pisaba `permisos` con `api.roles()`, que devuelve `{roles: [...]}`
+    // (los nombres de rol), NO la lista de permisos. Resultado: `usuario.permisos`
+    // era un objeto, `permisos.includes(...)` tiraba, y NINGUNA pestana que
+    // dependa de permisos se mostraba — el sintoma era "la pestana Nuevo nunca
+    // aparece" con el rol correcto.
+    const [perfil, roles] = await Promise.all([
       api.miPerfil(),
       api.roles().catch(() => null),
     ]);
 
-    usuario = { ...(usuario ?? {}), ...perfil };
-    if (permisos) usuario.permisos = permisos;
+    // El perfil trae el usuario y sus permisos reales, decididos por el servidor.
+    usuario = { ...(usuario ?? {}), ...(perfil?.usuario ?? {}), permisos: perfil?.permisos ?? [] };
+    // La lista de roles (nombres) es para selects de administracion, no permisos.
+    if (roles?.roles) usuario.roles = roles.roles;
+
+    // Sin esta llamada, las pestanas que dependen de permisos NO se refrescaban
+    // tras un login exitoso: el nombre de usuario se pintaba (eso lo hace el
+    // llamador), pero "Productos"/"Compras"/"Nuevo" seguian con el `hidden` del
+    // HTML. `actualizarCabeceraUsuario` solo se llamaba en el `catch`.
+    actualizarCabeceraUsuario();
   } catch (error) {
     // ANTES este `catch` era `catch {}` y se comia hasta los TypeError, que es
     // como paso lo de `api.pedir`: el modulo exportaba la funcion pero no el
@@ -266,6 +296,11 @@ function actualizarCabeceraUsuario() {
   const contenedor = document.getElementById('cabecera-usuario');
   const nombreEl = document.getElementById('cabecera-usuario-nombre');
   const rolEl = document.getElementById('cabecera-usuario-rol');
+  const pestanaNuevo = document.getElementById('pestana-nuevo');
+  const pestanaProductos = document.getElementById('pestana-productos');
+  const pestanaCompras = document.getElementById('pestana-compras');
+  const pestanaMovimientos = document.getElementById('pestana-movimientos');
+  const pestanaAuditoria = document.getElementById('pestana-auditoria');
 
   if (!contenedor || !nombreEl || !rolEl) return;
 
@@ -275,8 +310,30 @@ function actualizarCabeceraUsuario() {
     const rol = usuario.role_name || '—';
     rolEl.textContent = rol.charAt(0) + rol.slice(1).toLowerCase();
     contenedor.hidden = false;
+
+    // Las pestañas que dependen de permisos se muestran segun lo que el SERVIDOR
+    // devolvio. No se adivina por rol: una copia de la tabla de permisos en el
+    // cliente se desincroniza y deja botones visibles que dan 403.
+    const perms = usuario.permisos ?? [];
+    // "Nuevo" (alta de equipo) y "Productos" (maestro) piden devices:edit.
+    if (pestanaNuevo) pestanaNuevo.hidden = !perms.includes('devices:edit');
+    // Productos se ve con permiso de lectura de inventario (lo tiene el tecnico:
+    // necesita ver el catalogo aunque no lo edite).
+    if (pestanaProductos) pestanaProductos.hidden = !perms.includes('devices:read');
+    // Compras pide ver movimientos (ADMIN y OPERATOR).
+    if (pestanaCompras) pestanaCompras.hidden = !perms.includes('movements:read');
+    // Movimientos pide CREAR movimientos: quien solo puede leer (un técnico) no
+    // tiene por qué ver una pestaña llena de botones que le van a dar 403.
+    if (pestanaMovimientos) pestanaMovimientos.hidden = !perms.includes('movements:create');
+    // Auditoría es de ADMIN: muestra lo que hizo cada usuario.
+    if (pestanaAuditoria) pestanaAuditoria.hidden = !perms.includes('audit:read');
   } else {
     contenedor.hidden = true;
+    if (pestanaNuevo) pestanaNuevo.hidden = true;
+    if (pestanaProductos) pestanaProductos.hidden = true;
+    if (pestanaCompras) pestanaCompras.hidden = true;
+    if (pestanaMovimientos) pestanaMovimientos.hidden = true;
+    if (pestanaAuditoria) pestanaAuditoria.hidden = true;
   }
 }
 
@@ -461,6 +518,15 @@ for (const boton of cabecera.querySelectorAll('[data-vista]')) {
 }
 
 document.getElementById('btn-salir')?.addEventListener('click', cerrar);
+
+// La auditoría puede saltar a la ficha de un equipo. La vista dispara el evento
+// en vez de llamar a `mostrarVista` directamente: `mostrarVista` vive en este
+// archivo y las vistas lo importan de arriba hacia abajo — importarlo desde
+// `auditoria.js` cerraría un ciclo de módulos. Un evento de documento desacopla
+// las dos capas sin que la vista conozca la navegación.
+document.addEventListener('auditoria:abrir-equipo', (evento) => {
+  mostrarVista('dispositivo', { deviceId: evento.detail });
+});
 
 // Botón modo exterior / alto contraste (para sol directo, guantes, accesibilidad)
 const btnExterior = document.getElementById('btn-exterior');

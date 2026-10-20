@@ -104,6 +104,107 @@ class EscanearRequest(BaseModel):
             )
 
 
+class MovimientoPorProductoRequest(BaseModel):
+    """
+    Mover N unidades de un producto, eligiendo los equipos solo.
+
+    POR QUE POR CANTIDAD Y NO POR SERIAL
+    -------------------------------------
+    Quien mueve mercancia en depósito no tiene los seriales a mano: tiene una
+    caja con 5 laptops y una orden que dice "asignar 5 Dell Latitude 5520 a
+    Sucursal Norte". Pedirle que escanee una por una es pedirle trabajo que el
+    sistema puede hacer: con `model_id` + `cantidad`, el backend elige los
+    equipos que cumplen el movimiento y los mueve todos.
+
+    El serial sigue existiendo para el caso contrario: un equipo puntual que hay
+    que mover. Ese flujo es `/escanear`, con su QR.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    model_id: int = Field(..., gt=0, description="Producto del catalogo (SKU).")
+    cantidad: int = Field(
+        ..., gt=0, le=200, description="Cuantas unidades mover. Tope 200 por operacion."
+    )
+    tipo_movimiento: str = Field(
+        ...,
+        description=(
+            "Entrada a deposito, salida a cliente, instalacion, transferencia, "
+            "retiro a taller, baja o devolucion."
+        ),
+    )
+    ubicacion_id: int | None = Field(
+        None,
+        gt=0,
+        description="Destino del movimiento (sede o deposito). Obligatorio salvo en baja.",
+    )
+    ubicacion_origen_id: int | None = Field(
+        None,
+        gt=0,
+        description=(
+            "Sede de la que se sacan las unidades. Si no se manda, se toman de "
+            "donde esten disponibles."
+        ),
+    )
+    observations: str | None = Field(None, max_length=500)
+
+    @field_validator("tipo_movimiento")
+    @classmethod
+    def _tipo_valido(cls, valor: str) -> str:
+        if valor not in ESTADO_POR_MOVIMIENTO:
+            raise ValueError(
+                f"Tipo de movimiento desconocido: '{valor}'. "
+                f"Validos: {', '.join(sorted(ESTADO_POR_MOVIMIENTO))}."
+            )
+        return valor
+
+    @field_validator("ubicacion_id")
+    @classmethod
+    def _destino_segun_tipo(cls, valor: int | None, info) -> int | None:
+        """
+        La baja es el unico movimiento sin destino.
+
+        Un DISPOSAL manda el equipo a `PERMANENTLY_DISPOSED`: no hay sede a la
+        que llegue. Exigirle una ubicacion obliga al cliente a inventar un
+        deposito para poder dar de baja, y ese dato falso queda en el historial.
+        """
+        tipo = info.data.get("tipo_movimiento")
+        if tipo != "DISPOSAL" and valor is None:
+            raise ValueError("El destino (ubicacion_id) es obligatorio salvo en una baja.")
+        return valor
+
+
+class ResultadoUnidad(BaseModel):
+    """El resultado de mover UNA unidad. El lote devuelve una lista de estos."""
+
+    device_id: int | None = None
+    serial_number: str | None = None
+    ok: bool
+    error: str | None = None
+    movement_id: int | None = None
+
+
+class MovimientoPorProductoResponse(BaseModel):
+    """
+    Resultado del movimiento en lote.
+
+    `movidas` y `fallidas` van separadas de la lista porque la UI necesita el
+    resumen primero: "4 de 5 movidas" se muestra antes de la lista de detalles,
+    y calcularlo en el cliente obliga a recorrer el arreglo antes de pintar el
+    encabezado.
+
+    NO es un error que alguien falle: un lote de 5 en el que un equipo estaba en
+    taller falla para ese equipo y sigue con los otros 4. El detalle dice cual y
+    por que.
+    """
+
+    movidas: int
+    fallidas: int
+    total: int
+    resultados: list[ResultadoUnidad]
+    mensaje: str
+
+
 class ResultadoGeo(BaseModel):
     """El veredicto de la geo-validacion, con lo que el operador necesita ver."""
 

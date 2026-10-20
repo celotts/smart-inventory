@@ -20,53 +20,66 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
 -- Actualizar categorías existentes con códigos e iconos
+--
+-- POR QUE EL CASE MIRA LOS DOS IDIOMAS
+-- ------------------------------------
+-- La version original solo contemplaba nombres en INGLES ('Notebook',
+-- 'Networking', 'Server'...). La base real los tiene en ESPANOL ('Impresora',
+-- 'Red', 'Servidor', 'Periferico'), asi que caian todas en el `ELSE 'OT'` y el
+-- UPDATE moria con:
+--
+--     duplicate key value violates unique constraint "categories_code_key"
+--
+-- porque cuatro categorias distintas recibian el mismo codigo. Se agregan los
+-- alias en espanol y el `ELSE` deja de ser una constante: genera un codigo unico
+-- a partir del nombre para cualquier categoria que no este en la lista.
 UPDATE categories SET 
-    code = CASE name
-        WHEN 'Notebook' THEN 'NB'
-        WHEN 'Desktop' THEN 'DT'
-        WHEN 'Monitor' THEN 'MN'
-        WHEN 'Networking' THEN 'NW'
-        WHEN 'Server' THEN 'SV'
-        WHEN 'UPS' THEN 'UP'
-        WHEN 'Peripherals' THEN 'PF'
-        WHEN 'Printer' THEN 'PR'
-        WHEN 'Phone' THEN 'PH'
-        ELSE 'OT'
+    code = CASE
+        WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN 'NB'
+        WHEN name IN ('Desktop', 'Desktop / Workstation') THEN 'DT'
+        WHEN name IN ('Monitor', 'Monitor / Pantalla')  THEN 'MN'
+        WHEN name IN ('Networking', 'Red')              THEN 'NW'
+        WHEN name IN ('Server', 'Servidor', 'Servidor / Storage') THEN 'SV'
+        WHEN name IN ('UPS', 'UPS / Energía')           THEN 'UP'
+        WHEN name IN ('Peripherals', 'Periferico', 'Periférico') THEN 'PF'
+        WHEN name IN ('Printer', 'Impresora')           THEN 'PR'
+        WHEN name IN ('Phone', 'Telefono', 'Teléfono')  THEN 'PH'
+        ELSE UPPER(LEFT(REGEXP_REPLACE(name, '[^a-zA-Z0-9]', '', 'g'), 2)) || id
     END,
-    icon = CASE name
-        WHEN 'Notebook' THEN 'laptop'
-        WHEN 'Desktop' THEN 'desktop'
-        WHEN 'Monitor' THEN 'monitor'
-        WHEN 'Networking' THEN 'wifi'
-        WHEN 'Server' THEN 'server'
-        WHEN 'UPS' THEN 'battery'
-        WHEN 'Peripherals' THEN 'mouse'
-        WHEN 'Printer' THEN 'printer'
-        WHEN 'Phone' THEN 'phone'
+    icon = CASE
+        WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN 'laptop'
+        WHEN name IN ('Desktop', 'Desktop / Workstation') THEN 'desktop'
+        WHEN name IN ('Monitor', 'Monitor / Pantalla')  THEN 'monitor'
+        WHEN name IN ('Networking', 'Red')              THEN 'wifi'
+        WHEN name IN ('Server', 'Servidor', 'Servidor / Storage') THEN 'server'
+        WHEN name IN ('UPS', 'UPS / Energía')           THEN 'battery'
+        WHEN name IN ('Peripherals', 'Periferico', 'Periférico') THEN 'mouse'
+        WHEN name IN ('Printer', 'Impresora')           THEN 'printer'
+        WHEN name IN ('Phone', 'Telefono', 'Teléfono')  THEN 'phone'
         ELSE 'package'
     END,
-    color = CASE name
-        WHEN 'Notebook' THEN '#0277bd'
-        WHEN 'Desktop' THEN '#2e7d32'
-        WHEN 'Monitor' THEN '#b45309'
-        WHEN 'Networking' THEN '#6b4a86'
-        WHEN 'Server' THEN '#c62828'
-        WHEN 'UPS' THEN '#795548'
-        WHEN 'Peripherals' THEN '#37474f'
-        WHEN 'Printer' THEN '#5d4037'
-        WHEN 'Phone' THEN '#00695c'
+    color = CASE
+        WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN '#0277bd'
+        WHEN name IN ('Desktop', 'Desktop / Workstation') THEN '#2e7d32'
+        WHEN name IN ('Monitor', 'Monitor / Pantalla')  THEN '#b45309'
+        WHEN name IN ('Networking', 'Red')              THEN '#6b4a86'
+        WHEN name IN ('Server', 'Servidor', 'Servidor / Storage') THEN '#c62828'
+        WHEN name IN ('UPS', 'UPS / Energía')           THEN '#795548'
+        WHEN name IN ('Peripherals', 'Periferico', 'Periférico') THEN '#37474f'
+        WHEN name IN ('Printer', 'Impresora')           THEN '#5d4037'
+        WHEN name IN ('Phone', 'Telefono', 'Teléfono')  THEN '#00695c'
         ELSE '#616161'
     END,
-    sort_order = CASE name
-        WHEN 'Notebook' THEN 1
-        WHEN 'Desktop' THEN 2
-        WHEN 'Monitor' THEN 3
-        WHEN 'Networking' THEN 4
-        WHEN 'Server' THEN 5
-        WHEN 'UPS' THEN 6
-        WHEN 'Peripherals' THEN 7
-        WHEN 'Printer' THEN 8
-        WHEN 'Phone' THEN 9
+    sort_order = CASE
+        WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN 1
+        WHEN name IN ('Desktop', 'Desktop / Workstation') THEN 2
+        WHEN name IN ('Monitor', 'Monitor / Pantalla')  THEN 3
+        WHEN name IN ('Networking', 'Red')              THEN 4
+        WHEN name IN ('Server', 'Servidor', 'Servidor / Storage') THEN 5
+        WHEN name IN ('UPS', 'UPS / Energía')           THEN 6
+        WHEN name IN ('Peripherals', 'Periferico', 'Periférico') THEN 7
+        WHEN name IN ('Printer', 'Impresora')           THEN 8
+        WHEN name IN ('Phone', 'Telefono', 'Teléfono')  THEN 9
         ELSE 99
     END
 WHERE code IS NULL;
@@ -333,7 +346,7 @@ SELECT
     d.id AS device_id,
     d.serial_number,
     d.qr_code,
-    mo.name AS model_name,
+    mo.model AS model_name,
     mo.sku,
     mp.name AS plan_name,
     mp.type AS plan_type,
@@ -363,7 +376,7 @@ CREATE OR REPLACE VIEW v_low_stock AS
 SELECT 
     sl.model_id,
     mo.sku,
-    mo.name AS model_name,
+    mo.model AS model_name,
     mo.brand,
     mo.model,
     mo.min_stock,
@@ -395,7 +408,7 @@ CREATE OR REPLACE VIEW v_stock_summary AS
 SELECT 
     mo.id AS model_id,
     mo.sku,
-    mo.name AS model_name,
+    mo.model AS model_name,
     mo.brand,
     mo.model,
     c.name AS category_name,

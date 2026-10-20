@@ -38,6 +38,7 @@ _SELECT_DISPOSITIVO = """
         d.current_status,
         d.installation_date,
         d.current_location_id,
+        d.model_id,
         m.brand                AS marca,
         m.model                AS modelo,
         c.name                 AS categoria,
@@ -65,6 +66,58 @@ class CodigoDuplicado(ValueError):
     """El serial o el QR ya existen en otro componente."""
 
 
+class TransicionInvalida(ValueError):
+    """El cambio de estado pedido no es una transicion que el negocio reconozca."""
+
+
+# La MISMA matriz que valida el trigger `validar_transicion_estado` en la base.
+# Vive duplicada a proposito: el trigger es la red de seguridad (nada entra por
+# otro camino: importaciones, scripts, psql a mano), y esta copia es para que el
+# error llegue como un 409 con un mensaje util ANTES de tocar el motor, en vez de
+# un `check_violation` en ingles de Postgres.
+#
+# Si las dos se desincronizan, gana el trigger: una fila invalida es imposible
+# aunque esta tabla diga lo contrario. Por eso esta copia nunca es la ultima
+# palabra, solo la primera.
+TRANSICIONES_VALIDAS: dict[str, set[str]] = {
+    "IN_WAREHOUSE": {"IN_WAREHOUSE", "IN_TRANSIT", "IN_REPAIR"},
+    "IN_TRANSIT": {"IN_WAREHOUSE", "IN_REPAIR", "INSTALLED"},
+    "INSTALLED": {"IN_TRANSIT", "INSTALLED"},
+    "IN_REPAIR": {"IN_WAREHOUSE", "IN_TRANSIT", "INSTALLED", "IN_REPAIR"},
+    "PERMANENTLY_DISPOSED": {
+        "IN_WAREHOUSE",
+        "IN_TRANSIT",
+        "INSTALLED",
+        "IN_REPAIR",
+    },
+}
+
+
+def _validar_transicion(desde: str | None, hacia: str | None) -> None:
+    """
+    Rechaza un cambio de estado que el negocio no reconoce.
+
+    No valida nada si el estado no cambia: editar el serial de un equipo no tiene
+    por que pasar por la matriz, y exigir una transicion valida para un UPDATE
+    que no toca el estado haria que "corregir una tilde en la ubicacion" fallara
+    por un motivo que no tiene nada que ver.
+    """
+    if hacia is None or desde == hacia:
+        return
+    permitidos = TRANSICIONES_VALIDAS.get(hacia)
+    if permitidos is None:
+        raise TransicionInvalida(
+            f"'{hacia}' no es un estado valido del inventario. Los validos son: "
+            + ", ".join(TRANSICIONES_VALIDAS)
+            + "."
+        )
+    if desde not in permitidos:
+        raise TransicionInvalida(
+            f"Transicion de estado invalida: de {desde} a {hacia}. "
+            f"Desde {desde} solo se puede pasar a: {', '.join(sorted(permitidos))}."
+        )
+
+
 def _a_resumen(fila: dict[str, Any]) -> dict[str, Any]:
     """Normaliza los tipos que JSON no maneja."""
     fecha = fila.get("installation_date")
@@ -75,6 +128,7 @@ def _a_resumen(fila: dict[str, Any]) -> dict[str, Any]:
         "current_status": fila["current_status"],
         "marca": fila.get("marca"),
         "modelo": fila.get("modelo"),
+        "modelo_id": fila.get("model_id"),
         "categoria": fila.get("categoria"),
         "ubicacion_id": fila.get("current_location_id"),
         "ubicacion_nombre": fila.get("ubicacion_nombre"),
@@ -386,3 +440,164 @@ def crear_dispositivo(datos: dict[str, Any]) -> dict[str, Any]:
         raise
 
     return obtener_dispositivo(fila)
+
+
+def _existe_y_activo(conexion, device_id: int) -> dict[str, Any] | None:
+    """Lee el estado actual de un componente activo, o None si no aplica."""
+    return conexion.execute(
+        text(
+            """
+            SELECT id, current_status, model_id, current_location_id
+            FROM devices
+            WHERE id = :id AND deleted_at IS NULL
+            """
+        ),
+        {"id": device_id},
+    ).mappings().first()
+
+
+def actualizar_dispositivo(device_id: int, datos: dict[str, Any]) -> dict[str, Any]:
+    """
+    Edita un componente. Solo los campos que vienen en `datos`.
+
+    EL UPDATE SE ARMA DINAMICO Y ESO NO ES UN DESCUIDO
+    --------------------------------------------------
+    Un `PATCH` con todos los campos fijos obliga al frontend a reenviar el
+    registro entero para cambiar una tilde, y cualquier campo que la pantalla no
+    conozca se pisa con su valor por defecto. Con `exclude_unset` del lado del
+    schema, acá solo llega lo que el operador toco.
+
+    Los NOMBRES DE COLUMNA no vienen del cliente: la lista de abajo es la unica
+    fuente de verdad, y cada campo que llega se traduce a una de esas columnas. Un
+    `datos` con una clave desconocida se ignora en el filtro, no se interpola.
+    """
+    columnas_permitidas = {
+        "serial_number": "serial_number",
+        "qr_code": "qr_code",
+        "model_id": "model_id",
+        "location_id": "current_location_id",
+        "installation_date": "installation_date",
+    }
+
+    engine = get_ai_engine()
+
+    with engine.begin() as conexion:
+        actual = _existe_y_activo(conexion, device_id)
+        if not actual:
+            raise DispositivoNoEncontrado(f"No existe un componente con id {device_id}.")
+
+        asignaciones: list[str] = []
+        parametros: dict[str, Any] = {"id": device_id}
+
+        for campo, columna in columnas_permitidas.items():
+            if campo in datos:
+                asignaciones.append(f"{columna} = :{campo}")
+                parametros[campo] = datos[campo]
+
+        # El estado se valida contra la matriz antes de escribir. `is_warehouse`
+        # tiene que seguirlo: es la copia denormalizada que usan los reportes, y
+        # dejarla desactualizada hace que un equipo instalado cuente como
+        # disponible en el deposito.
+        if "current_status" in datos:
+            nuevo_estado = datos["current_status"]
+            _validar_transicion(actual["current_status"], nuevo_estado)
+            asignaciones.append("current_status = :current_status")
+            asignaciones.append("is_warehouse = :is_warehouse")
+            parametros["current_status"] = nuevo_estado
+            parametros["is_warehouse"] = nuevo_estado == "IN_WAREHOUSE"
+
+        if not asignaciones:
+            return obtener_dispositivo(device_id)
+
+        try:
+            conexion.execute(
+                text(
+                    f"UPDATE devices SET {', '.join(asignaciones)} WHERE id = :id"
+                ),
+                parametros,
+            )
+        except IntegrityError as exc:
+            detalle = str(getattr(exc, "orig", exc))
+            if "serial_number" in detalle:
+                raise CodigoDuplicado(
+                    f"Ya existe otro componente con el serial '{datos.get('serial_number')}'."
+                ) from exc
+            if "qr_code" in detalle:
+                raise CodigoDuplicado(
+                    f"Ya existe otro componente con el codigo QR '{datos.get('qr_code')}'."
+                ) from exc
+            raise
+
+    return obtener_dispositivo(device_id)
+
+
+def dar_de_baja(
+    device_id: int, *, usuario_id: str, motivo: str | None = None
+) -> dict[str, Any]:
+    """
+    Borrado LOGICO de un componente.
+
+    UN EQUIPO NO SE BORRA: SE MARCA
+    -------------------------------
+    El `DELETE` fisico rompe el historial de movimientos (FK) y deja el
+    inventario sin trazabilidad: no se puede auditar que paso con el equipo que
+    ocupaba ese lugar. `deleted_at` lo saca de todas las consultas —`listar`,
+    `resolver`, `obtener` filtran por `deleted_at IS NULL`— y conserva el
+    historial para el reporte.
+
+    El estado pasa a `PERMANENTLY_DISPOSED` en el mismo paso, porque un
+    componente "borrado" que sigue contando como `IN_WAREHOUSE` en los KPIs es
+    peor que no borrarlo: hay dos verdades sobre el mismo equipo.
+
+    `usuario_id` es obligatorio porque `disposal_certificates.authorized_by` es
+    NOT NULL: una baja sin responsable no es un dato, es un hueco en la cadena de
+    custodia.
+    """
+    engine = get_ai_engine()
+
+    with engine.begin() as conexion:
+        actual = _existe_y_activo(conexion, device_id)
+        if not actual:
+            raise DispositivoNoEncontrado(f"No existe un componente con id {device_id}.")
+
+        conexion.execute(
+            text(
+                """
+                UPDATE devices
+                SET deleted_at = NOW(),
+                    current_status = 'PERMANENTLY_DISPOSED',
+                    is_warehouse = FALSE
+                WHERE id = :id
+                """
+            ),
+            {"id": device_id},
+        )
+
+        # El certificado de baja. La tabla es la que sostiene la trazabilidad
+        # legal: dice quien dio de baja, cuando y por que. `resolver_codigo` ya
+        # lee de acá para explicarle al operador por que una etiqueta no resuelve.
+        #
+        # `device_id` es UNIQUE en esta tabla, asi que un componente re-dado de
+        # baja (baja, reactivacion manual y baja de nuevo) chocaria con la
+        # primera fila. El `ON CONFLICT` actualiza la baja vigente en lugar de
+        # reventar contra un registro historico que ya no describe la situacion.
+        conexion.execute(
+            text(
+                """
+                INSERT INTO disposal_certificates
+                    (device_id, disposal_date, disposal_reason, authorized_by)
+                VALUES (:id, NOW(), :motivo, :autorizado_por)
+                ON CONFLICT (device_id) DO UPDATE
+                SET disposal_date = NOW(),
+                    disposal_reason = EXCLUDED.disposal_reason,
+                    authorized_by = EXCLUDED.authorized_by
+                """
+            ),
+            {
+                "id": device_id,
+                "motivo": (motivo or "Baja desde el panel de inventario")[:500],
+                "autorizado_por": usuario_id,
+            },
+        )
+
+    return {"id": device_id, "eliminado": True, "motivo": motivo}

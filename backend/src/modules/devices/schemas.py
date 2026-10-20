@@ -70,6 +70,53 @@ class CrearDispositivoRequest(BaseModel):
         return valor.strip() if valor else valor
 
 
+class ActualizarDispositivoRequest(BaseModel):
+    """
+    Edicion parcial de un componente.
+
+    TODOS LOS CAMPOS SON OPCIONALES, Y ESO NO ES COMODIDAD
+    -----------------------------------------------------
+    Con `exclude_unset=True` en el service, un campo ausente NO se toca. Si
+    `model_id` viniera con valor por defecto, cada vez que alguien corrige un
+    serial el equipo cambiaria de modelo. Editar un campo no puede alterar los
+    demas.
+
+    `current_status` es opcional pero se valida contra la matriz de transiciones
+    en el service: pasar de `IN_WAREHOUSE` a `INSTALLED` en un solo salto es un
+    dato que nadie vivio, y el trigger de la base lo rechazaria igual.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    serial_number: str | None = Field(None, pattern=_SERIAL_RE)
+    model_id: int | None = Field(None, gt=0)
+    location_id: int | None = Field(None, gt=0)
+    qr_code: str | None = Field(None, max_length=128)
+    installation_date: date | None = None
+    current_status: str | None = Field(
+        None,
+        description="Uno de: IN_WAREHOUSE, IN_TRANSIT, INSTALLED, IN_REPAIR, PERMANENTLY_DISPOSED.",
+    )
+
+    @field_validator("qr_code")
+    @classmethod
+    def _qr_sin_espacios(cls, valor: str | None) -> str | None:
+        return valor.strip() if valor else valor
+
+
+class BajaDispositivoRequest(BaseModel):
+    """Baja logica de un componente. El motivo queda en el certificado."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    motivo: str | None = Field(
+        None,
+        max_length=500,
+        description="Por que se da de baja. Queda en el certificado de baja.",
+        examples=["Fin de contrato con el cliente."],
+    )
+
+
 class DispositivoResumen(BaseModel):
     """Lo que devuelve el escaner: lo minimo para confirmar en pantalla."""
 
@@ -81,6 +128,7 @@ class DispositivoResumen(BaseModel):
     current_status: str
     marca: str | None = None
     modelo: str | None = None
+    modelo_id: int | None = None
     categoria: str | None = None
     ubicacion_id: int | None = None
     ubicacion_nombre: str | None = None

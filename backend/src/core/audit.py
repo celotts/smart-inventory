@@ -115,8 +115,8 @@ def registrar(
                     "action": normalizada,
                     "tabla": (resource or "desconocido")[:100],
                     "detalle": json.dumps(detalle, default=str),
-                    # `user_id` es TEXT sin FK: un id de usuario es un dato
-                    # del request, y un id invalido no debe romper la
+                    # `audit_logs.user_id` es UUID y sin FK: un id de usuario es
+                    # un dato del request, y un id invalido no debe romper la
                     # escritura de la bitacora. `None` viaja como NULL.
                     "user_id": user_id,
                     "ip": ip_address,

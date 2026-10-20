@@ -15,6 +15,7 @@
 import { api } from '../api.js';
 import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
 import { avisar } from '../avisos.js';
+import { abrirDialogo } from '../dialogo.js';
 
 const ESTADOS_FILTRO = [
   { valor: '', texto: 'Todos' },
@@ -221,6 +222,18 @@ export function vistaInventario({ alAbrirDispositivo }) {
     cargar();
   });
 
+  // Recargar lista cuando se crea un componente nuevo
+  const handleRecargar = () => {
+    pagina = 0;
+    cargar();
+  };
+  document.addEventListener('inventario:recargar', handleRecargar);
+
+  // Limpieza al destruir la vista
+  const destruir = () => {
+    document.removeEventListener('inventario:recargar', handleRecargar);
+  };
+
   cargar();
   return { elemento: raiz };
 }
@@ -231,8 +244,10 @@ export function vistaInventario({ alAbrirDispositivo }) {
  * @param {number} deviceId
  * @param {{alVolver: Function}} opciones
  */
-export function vistaDispositivo(deviceId, { alVolver } = {}) {
+export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar } = {}) {
   const raiz = crear('div');
+
+  const puedeEditar = permisos.includes('devices:edit');
 
   const cabecera = crear('div', {
     clase: 'flex-entre',
@@ -250,10 +265,34 @@ export function vistaDispositivo(deviceId, { alVolver } = {}) {
 
   cabecera.append(botonVolver);
 
+  // Las acciones de escritura van en la ficha y no en la lista: editar o dar de
+  // baja un equipo es una decision que se toma DESPUES de ver su historial, no
+  // desde una fila con el serial a medias.
+  const botonEditar = crear('button', {
+    clase: 'boton',
+    texto: 'Editar',
+    atributos: { type: 'button', onclick: () => abrirEdicion() },
+  });
+
+  const botonBaja = crear('button', {
+    clase: 'boton boton--peligro',
+    texto: 'Dar de baja',
+    atributos: { type: 'button', onclick: () => abrirBaja() },
+  });
+
+  if (puedeEditar) {
+    cabecera.append(crear('div', { clase: 'fila-botones', hijos: [botonEditar, botonBaja] }));
+  }
+
   const zona = crear('div');
   zona.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando ficha…' }));
 
   raiz.append(cabecera, zona);
+
+  // La ficha vive en una variable porque los modales la necesitan para
+  // prellenar el formulario sin volver a pedirla (y sin riesgo de mostrar un
+  // dato viejo si la peticion de prellenado vuelve despues de la de la ficha).
+  let fichaActual = null;
 
   cargar();
 
@@ -264,6 +303,7 @@ export function vistaDispositivo(deviceId, { alVolver } = {}) {
         api.historial(deviceId, { limite: 50 }),
       ]);
 
+      fichaActual = ficha;
       zona.replaceChildren(tarjetaFicha(ficha), tarjetaHistorial(historial));
     } catch (error) {
       zona.replaceChildren(
@@ -271,6 +311,239 @@ export function vistaDispositivo(deviceId, { alVolver } = {}) {
       );
       avisar(error.message, 'error');
     }
+  }
+
+  /**
+   * Formulario de edicion.
+   *
+   * Solo manda los campos que CAMBIARON. El backend acepta un PATCH parcial, y
+   * mandar todo lo que muestra la pantalla es la via por la que se pisan datos:
+   * la pantalla no conoce todos los campos del equipo (no ve, por ejemplo, el
+   * `is_warehouse` denormalizado), asi que un "guardar todo" borra lo que no ve.
+   */
+  async function abrirEdicion() {
+    console.log('[QA] abrirEdicion, ficha=', JSON.stringify(fichaActual));
+    const ficha = fichaActual;
+    if (!ficha) { console.log('[QA] salida: sin ficha'); return; }
+
+    let productos = [];
+    let ubicaciones = [];
+    try {
+      [productos, ubicaciones] = await Promise.all([
+        api.productos(),
+        api.ubicaciones(),
+      ]);
+    } catch (error) {
+      avisar(`No se pudo cargar el catalogo: ${error.message}`, 'error');
+      return;
+    }
+
+    const campoSerial = campoTexto(ficha.serial_number, 'Serial', { mono: true });
+    const campoQR = campoTexto(ficha.qr_code, 'Codigo QR', { mono: true });
+
+    const selectProducto = crear('select', { clase: 'campo__control' });
+    for (const p of productos) {
+      const opcion = crear('option', {
+        texto: `${p.brand} ${p.model} (${p.sku})`,
+        atributos: { value: p.id },
+      });
+      if (p.id === ficha.modelo_id) opcion.selected = true;
+      selectProducto.append(opcion);
+    }
+
+    const selectUbicacion = crear('select', { clase: 'campo__control' });
+    selectUbicacion.append(crear('option', { texto: 'Sin ubicacion', atributos: { value: '' } }));
+    for (const u of ubicaciones.items ?? []) {
+      const opcion = crear('option', { texto: u.nombre, atributos: { value: u.id } });
+      if (u.id === ficha.ubicacion_id) opcion.selected = true;
+      selectUbicacion.append(opcion);
+    }
+
+    // Solo las transiciones que el backend acepta desde el estado actual. Un
+    // select con todas las opciones es una trampa: el operador elige una que el
+    // servidor rechaza y el error se ve como un fallo de la app, no como una
+    // regla del negocio.
+    const TRANSICIONES = {
+      IN_WAREHOUSE: ['IN_WAREHOUSE', 'IN_TRANSIT', 'IN_REPAIR'],
+      IN_TRANSIT: ['IN_WAREHOUSE', 'IN_TRANSIT', 'IN_REPAIR', 'INSTALLED'],
+      INSTALLED: ['INSTALLED', 'IN_TRANSIT'],
+      IN_REPAIR: ['IN_REPAIR', 'IN_WAREHOUSE', 'IN_TRANSIT', 'INSTALLED'],
+    };
+    const selectEstado = crear('select', { clase: 'campo__control' });
+    for (const estado of TRANSICIONES[ficha.current_status] ?? [ficha.current_status]) {
+      const info = ESTADOS[estado] ?? { texto: estado };
+      const opcion = crear('option', { texto: info.texto, atributos: { value: estado } });
+      if (estado === ficha.current_status) opcion.selected = true;
+      selectEstado.append(opcion);
+    }
+
+    const campoInstalacion = campoTexto(
+      (ficha.installation_date ?? '').slice(0, 10),
+      'Fecha de instalacion (AAAA-MM-DD)',
+      { type: 'date' },
+    );
+
+    const form = crear('form', {
+      clase: 'apilado',
+      atributos: {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await enviar();
+        },
+      },
+    });
+
+    form.append(
+      campoSerial.campo,
+      campoQR.campo,
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Producto' }), selectProducto],
+      }),
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Ubicacion' }), selectUbicacion],
+      }),
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Estado' }), selectEstado],
+      }),
+      campoInstalacion.campo,
+    );
+
+    const btnGuardar = crear('button', {
+      clase: 'boton boton--bloque',
+      texto: 'Guardar cambios',
+      atributos: { type: 'submit' },
+    });
+    form.append(btnGuardar);
+
+    let cerrarModal = () => {};
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
+    async function enviar() {
+      const cambios = {};
+      const serial = campoSerial.input.value.trim();
+      const qr = campoQR.input.value.trim();
+      const ubicacion = selectUbicacion.value;
+      const fecha = campoInstalacion.input.value;
+
+      if (serial && serial !== ficha.serial_number) cambios.serial_number = serial;
+      if (qr && qr !== ficha.qr_code) cambios.qr_code = qr;
+      if (selectProducto.value && parseInt(selectProducto.value, 10) !== ficha.modelo_id) {
+        cambios.model_id = parseInt(selectProducto.value, 10);
+      }
+      if (ubicacion && parseInt(ubicacion, 10) !== ficha.ubicacion_id) {
+        cambios.location_id = parseInt(ubicacion, 10);
+      }
+      if (selectEstado.value !== ficha.current_status) cambios.current_status = selectEstado.value;
+      if (fecha && fecha !== (ficha.installation_date ?? '').slice(0, 10)) {
+        cambios.installation_date = fecha;
+      }
+
+      if (!Object.keys(cambios).length) {
+        cerrarModal();
+        return;
+      }
+
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = 'Guardando…';
+      try {
+        await api.actualizarDispositivo(deviceId, cambios);
+        avisar('Componente actualizado', 'exito', 2500);
+        cerrarModal();
+        cargar();
+      } catch (error) {
+        avisar(error.message, 'error');
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = 'Guardar cambios';
+      }
+    }
+
+    cerrarModal = abrirDialogo({
+      titulo: 'Editar componente',
+      nota: 'Solo se aplican los campos que cambiaste.',
+      cuerpo: [form],
+      clase: 'modal--formulario',
+      acciones: [btnCancelar],
+      alAbrir: (_modal, cerrar) => {
+        cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
+      },
+    });
+  }
+
+  /**
+   * Confirmacion de baja.
+   *
+   * El modal dice explicitamente que el historial SE CONSERVA, porque "borrar"
+   * en cualquier otra app significa que el dato desaparece, y aca no: el equipo
+   * sale del inventario activo pero el registro queda para la auditoria. Si no
+   * se dice, el operador asume lo peor y no usa la funcion.
+   */
+  function abrirBaja() {
+    const ficha = fichaActual;
+    if (!ficha) return;
+
+    const campoMotivo = campoTexto('Ej: Fin de contrato con el cliente', 'Motivo (opcional)');
+
+    const form = crear('form', {
+      clase: 'apilado',
+      atributos: {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await enviar();
+        },
+      },
+    });
+    form.append(campoMotivo.campo);
+
+    const btnConfirmar = crear('button', {
+      clase: 'boton boton--peligro boton--bloque',
+      texto: 'Confirmar baja',
+      atributos: { type: 'submit' },
+    });
+    form.append(btnConfirmar);
+
+    let cerrarModal = () => {};
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
+    async function enviar() {
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent = 'Dando de baja…';
+      try {
+        await api.darDeBajaDispositivo(deviceId, {
+          motivo: campoMotivo.input.value.trim() || undefined,
+        });
+        avisar('Componente dado de baja', 'exito', 3000);
+        cerrarModal();
+        alEliminar?.();
+      } catch (error) {
+        avisar(error.message, 'error');
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = 'Confirmar baja';
+      }
+    }
+
+    cerrarModal = abrirDialogo({
+      titulo: `Dar de baja ${ficha.serial_number}`,
+      mensaje: 'El equipo deja de aparecer en el inventario y no se puede volver a usar la etiqueta. El historial de movimientos SE CONSERVA para la auditoria.',
+      cuerpo: [form],
+      clase: 'modal--formulario',
+      acciones: [btnCancelar],
+      alAbrir: (_modal, cerrar) => {
+        cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
+      },
+    });
   }
 
   function tarjetaFicha(ficha) {

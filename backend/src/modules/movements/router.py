@@ -30,6 +30,8 @@ from src.modules.movements.schemas import (
     EscanearResponse,
     HistorialMovimiento,
     ListaMovimientosResponse,
+    MovimientoPorProductoRequest,
+    MovimientoPorProductoResponse,
     MovimientoTipoResponse,
 )
 from src.modules.users.models import UsuarioActual
@@ -49,8 +51,8 @@ METADATOS_MOVIMIENTO = {
         "requiere_reemplazo": False,
     },
     "WAREHOUSE_REENTRY": {
-        "texto": "Reingreso a depósito",
-        "descripcion": "El equipo vuelve al depósito desde cliente",
+        "texto": "Devolución a depósito",
+        "descripcion": "El equipo vuelve al depósito desde el cliente",
         "icono": "refrescar",
         "estado_destino": "IN_WAREHOUSE",
         "requiere_reemplazo": False,
@@ -266,6 +268,43 @@ def escanear_lote(
         "lote_id": str(lote_id),
         "resultados": resultados,
     }
+
+
+@router.post(
+    "/por-producto",
+    response_model=MovimientoPorProductoResponse,
+    summary="Mover N unidades de un producto (entrada, salida, transferencia, baja…)",
+)
+def mover_por_producto(
+    pedido: MovimientoPorProductoRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
+) -> MovimientoPorProductoResponse:
+    """
+    Mueve mercancia por producto y cantidad, sin escanear serial por serial.
+
+    Es el endpoint que usa la vista "Movimientos": el operador elige un producto
+    del maestro, una cantidad y la operacion (entrada, salida a cliente,
+    instalacion, transferencia entre sedes, retiro a taller, devolucion o baja),
+    y el backend elige los equipos y los mueve.
+
+    Un equipo que no se pueda mover NO frena el lote: se registra su error y los
+    demas siguen. Un conteo de 20 en el que uno esta en taller tiene que mover
+    los otros 19.
+    """
+    try:
+        return service.mover_por_producto(
+            model_id=pedido.model_id,
+            cantidad=pedido.cantidad,
+            tipo_movimiento=pedido.tipo_movimiento,
+            user_id=str(usuario.id),
+            ubicacion_id=pedido.ubicacion_id,
+            ubicacion_origen_id=pedido.ubicacion_origen_id,
+            observations=pedido.observations,
+        )
+    except service.ErrorDeEscaneo as exc:
+        # No hay stock en el estado de origen, o el movimiento no aplica por
+        # producto. Es una regla de negocio: 409 con el motivo.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.get(

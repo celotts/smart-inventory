@@ -5,7 +5,7 @@ Montado en /api/purchase-orders.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Path, Body
+from fastapi import APIRouter, Depends, Query, Path, Body, HTTPException, status
 
 from src.core.deps import exigir
 from src.core.permissions import Permiso
@@ -13,6 +13,16 @@ from src.modules.purchasing import service
 from src.modules.users.models import UsuarioActual
 
 router = APIRouter(prefix="/api/purchase-orders", tags=["purchasing"])
+
+
+def _error_de_negocio(exc: ValueError) -> HTTPException:
+    """Un `ValueError` del servicio es una regla de negocio, no un 500.
+
+    Sin esto, "cantidad excede pendiente" o "no hay depósito" salían como
+    `internal_error` y el operador veía un error genérico que no decía qué
+    corregir. El mensaje del servicio ya está escrito para el usuario.
+    """
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
 @router.post(
@@ -34,13 +44,16 @@ def crear_orden(
       "observations": "Urgente para proyecto X"
     }
     """
-    return service.crear_orden(
-        vendor_id=body["vendor_id"],
-        lineas=body["lineas"],
-        expected_date=body.get("expected_date"),
-        observations=body.get("observations"),
-        user_id=str(_usuario.id),
-    )
+    try:
+        return service.crear_orden(
+            vendor_id=body["vendor_id"],
+            lineas=body["lineas"],
+            expected_date=body.get("expected_date"),
+            observations=body.get("observations"),
+            user_id=str(_usuario.id),
+        )
+    except ValueError as exc:
+        raise _error_de_negocio(exc) from exc
 
 
 @router.get(
@@ -55,6 +68,20 @@ def listar_ordenes(
     _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
 ) -> list[dict]:
     return service.listar_ordenes(estado=estado, vendor_id=vendor_id, desde=desde, hasta=hasta)
+
+
+@router.get(
+    "/{po_id}",
+    summary="Ver una orden de compra con sus líneas y pendientes",
+)
+def obtener_orden(
+    po_id: int = Path(..., gt=0),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
+) -> dict:
+    try:
+        return service.obtener_orden(po_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.post(
@@ -75,12 +102,15 @@ def recibir_orden(
       "observations": "Recibido en buen estado"
     }
     """
-    return service.recibir_orden(
-        po_id=po_id,
-        lineas=body["lineas"],
-        observations=body.get("observations"),
-        user_id=str(_usuario.id),
-    )
+    try:
+        return service.recibir_orden(
+            po_id=po_id,
+            lineas=body["lineas"],
+            observations=body.get("observations"),
+            user_id=str(_usuario.id),
+        )
+    except ValueError as exc:
+        raise _error_de_negocio(exc) from exc
 
 
 @router.post(

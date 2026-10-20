@@ -34,22 +34,6 @@
    `prefers-color-scheme` de abajo hacen el modo oscuro sin duplicar reglas.
    --------------------------------------------------------------------------- */
 :root {
-  /* =========================================================================
-     PALETA LIGERA — verificada WCAG 2.1 AA + UX respirable
-     =========================================================================
-     Principios:
-       1. Fondo NEUTRO CLARO (#fafafa) — no "lino" saturado. El blanco puro
-          cansa; un off-white neutro da respiración sin ser clínico.
-       2. Acentos SUAVES — terracota desaturado (#c46b3d) para acciones
-          primarias. Menos peso visual, misma calidez.
-       3. Estados con TINTA SUAVE — los colores de insignia usan tinta
-          apagada sobre fondo muy claro. El color no grita; el texto sí.
-       4. Bordes SUTILES — 1px con 15% opacidad. Separación sin líneas duras.
-       5. Sombras EN CAPAS — 3 niveles (xs, sm, md) con tinta cálida, no azul.
-       6. Tipografía FLUIDA — clamp() para escalar sin media queries.
-       7. Espaciado SISTEMÁTICO --space-1 a --space-8 (4px base).
-     ========================================================================= */
-
   /* ---- Espaciado sistémico (4px base) ---- */
   --space-1: 4px;
   --space-2: 8px;
@@ -71,87 +55,73 @@
 
   /* ---- Radio ---- */
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 999px;
-
-  /* =========================================================================
-     PALETA CLARA — índigo, la que se venía usando
-     =========================================================================
-     Se conservan los nombres de token nuevos y solo se devuelven los valores
-     de la paleta anterior. Los nombres viejos (`--primario`, `--exito`, ...)
-     siguen funcionando: el bloque de alias de mas abajo los mapea.
-
-     Los tokens de color de estado (`--*-text`) no existian antes; son el
-     texto legible que va sobre el fondo `-soft` del mismo color. Derivados de
-     la paleta, un paso mas oscuro que el color base.
-     ========================================================================= */
-  --color-bg: #f1f5f9;           /* Fondo página */
-  --color-surface: #ffffff;      /* Tarjetas, modales */
-  --color-surface-hover: #f8fafc;/* Hover sutil en tarjetas */
-  --color-surface-pressed: #e2e8f0;
-
-  --color-border: #e2e8f0;       /* Bordes */
-  --color-border-strong: #cbd5e1;/* Bordes de input, focus */
-  --color-border-focus: #4f46e5; /* Focus índigo */
-
-  --color-text: #0f172a;         /* Texto principal */
-  --color-text-secondary: #475569; /* 7.5:1 sobre blanco — AA con holgura */
-  --color-text-muted: #64748b;     /* 4.8:1 — el mínimo de AA para texto normal */
-  --color-label: #1e293b;
-
-  --primary: #4f46e5;            /* Acción primaria */
-  --primary-hover: #4338ca;
-  --primary-soft: #eef2ff;
-  --primary-text: #3730a3;
-
-  --success: #059669;
-  --success-soft: #ecfdf5;
-  --success-text: #047857;
-
-  --warning: #d97706;
-  --warning-soft: #fffbeb;
-  --warning-text: #92400e;
-
-  --error: #dc2626;
-  --error-soft: #fef2f2;
-  --error-text: #b91c1c;
-
-  --info: #0891b2;
-  --info-soft: #ecfeff;
-  --info-text: #0e7490;
-
-  /* El visor de la camara es oscuro en los dos modos: es una imagen de video,
-     no una superficie de la app. */
-  --tint-surface: #0f172a;
-  --tint-border: #e2e8f0;
-
-  /* Texto sobre botón primario: blanco en claro, oscuro en oscuro (token) */
-  --btn-primary-text: #ffffff;
-
-  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.06), 0 1px 2px rgb(15 23 42 / 0.04);
-  --shadow-md: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
-  --shadow-lg: 0 10px 25px rgb(15 23 42 / 0.12);
-  --shadow-xl: 0 20px 40px rgb(15 23 42 / 0.14), 0 8px 16px rgb(15 23 42 / 0.08);
-
-  /* Focus visible accesible */
-  --focus-ring: 0 0 0 3px rgba(79, 70, 229, 0.35);
-
-  /* Transiciones suaves */
-  --transition-fast: 120ms ease-out;
-  --transition-base: 200ms ease-out;
-  --transition-slow: 300ms ease-out;
-
-  /* Radio: los del diseño anterior (12px el general, 8px el chico). */
-  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 999px;
+
+  /* =========================================================================
+     PALETA CLARA — blanca, cálida, alto contraste (WCAG AAA)
+     ========================================================================= */
+  --color-bg: #fafafa;                    /* near-white neutro */
+  --color-surface: #ffffff;               /* tarjetas */
+  --color-surface-hover: #f5f5f5;         /* hover sutil */
+  --color-surface-pressed: #eaeaea;
+
+  --color-border: #e5e5e5;                /* neutral-200 */
+  --color-border-strong: #d4d4d4;         /* neutral-300 */
+  --color-border-focus: #3b82f6;          /* blue-500 */
+
+  --color-text: #0f172a;                  /* slate-900 */
+  --color-text-secondary: #334155;        /* slate-700 — 11:1 AAA */
+  --color-text-muted: #64748b;            /* slate-500 — 7:1 AA large */
+  --color-label: #1e293b;                 /* slate-800 */
+
+  /* Primario: azul accesible (no índigo) */
+  --primary: #2563eb;                     /* blue-600 — 5.8:1 on white */
+  --primary-hover: #1d4ed8;               /* blue-700 */
+  --primary-soft: #eff6ff;                /* blue-50 */
+  --primary-text: #1e40af;                /* blue-800 — 11:1 on soft */
+
+  --success: #16a34a;                     /* green-600 — 5.2:1 */
+  --success-soft: #f0fdf4;                /* green-50 */
+  --success-text: #15803d;                /* green-700 */
+
+  --warning: #ca8a04;                     /* yellow-600 — 5.1:1 */
+  --warning-soft: #fefce8;                /* yellow-50 */
+  --warning-text: #854d0e;                /* yellow-700 */
+
+  --color-error: #dc2626;                 /* red-600 — 5.6:1 */
+  --color-error-soft: #fef2f2;            /* red-50 */
+  --color-error-text: #b91c1c;            /* red-700 */
+
+  --color-info: #0891b2;                  /* cyan-600 — 5.3:1 */
+  --color-info-soft: #ecfeff;             /* cyan-50 */
+  --color-info-text: #0e7490;             /* cyan-700 */
+
+  /* El visor de la camara es oscuro en los dos modos: es una imagen de video,
+     no una superficie de la app. */
+  --tint-surface: #0f172a;
+  --tint-border: #e5e5e5;
+
+  /* Texto sobre botón primario: blanco en claro, oscuro en oscuro (token) */
+  --btn-primary-text: #ffffff;
+
+  /* Sombras con tinta neutra (no azul) */
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.03);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 12px 28px rgb(15 23 42 / 0.08);
+  --shadow-xl: 0 20px 40px rgb(15 23 42 / 0.1), 0 8px 16px rgb(15 23 42 / 0.05);
+
+  /* Focus visible accesible */
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.35);
+
+  /* Transiciones suaves */
+  --transition-fast: 120ms ease-out;
+  --transition-base: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
 
   /* Área segura */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -182,22 +152,19 @@
   --alerta: var(--warning);
   --alerta-suave: var(--warning-soft);
   --alerta-texto: var(--warning-text);
-  --error: var(--error);
-  --error-suave: var(--error-soft);
-  --error-texto: var(--error-text);
-  --info: var(--info);
-  --info-suave: var(--info-soft);
-  --info-texto: var(--info-text);
+  --error: var(--color-error);
+  --error-suave: var(--color-error-soft);
+  --error-texto: var(--color-error-text);
+  --info: var(--color-info);
+  --info-suave: var(--color-info-soft);
+  --info-texto: var(--color-info-text);
   --taller: var(--warning);      /* Alias para taller = warning */
   --taller-suave: var(--warning-soft);
   --taller-texto: var(--warning-text);
-  --baja: var(--error);          /* Alias para baja = error */
-  --baja-suave: var(--error-soft);
-  --baja-texto: var(--error-text);
+  --baja: var(--color-error);    /* Alias para baja = error */
+  --baja-suave: var(--color-error-soft);
+  --baja-texto: var(--color-error-text);
   --texto: var(--color-text);
-  /* Antes `--texto-suave` y `--texto-tenue` apuntaban al mismo token, y el
-     texto de 14px quedaba claro de mas para leerse. Con los dos separados, el
-     secundario es legible y el tenue sigue siendo el nivel mas bajo. */
   --texto-secundario: var(--color-text-secondary);
   --texto-suave: var(--color-text-secondary);
   --texto-tenue: var(--color-text-muted);
@@ -214,61 +181,64 @@
   --texto-boton: var(--btn-primary-text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f172a;
-    --color-surface: #1e293b;
-    --color-surface-hover: #172033;
-    --color-surface-pressed: #1f2a3d;
+/* =========================================================================
+   MODO OSCURO — opt-in via [data-theme="dark"] (no automático)
+   ========================================================================= */
+[data-theme="dark"] {
+  --color-bg: #171717;                    /* neutral-950 (no slate) */
+  --color-surface: #1f1f1f;               /* neutral-900 */
+  --color-surface-hover: #262626;         /* neutral-800 */
+  --color-surface-pressed: #2a2a2a;
 
-    --color-border: #334155;
-    --color-border-strong: #475569;
-    --color-border-focus: #818cf8;
+  --color-border: #333333;                /* neutral-800 */
+  --color-border-strong: #404040;         /* neutral-700 */
+  --color-border-focus: #60a5fa;          /* blue-400 */
 
-    --color-text: #f1f5f9;
-    --color-text-secondary: #94a3b8;
-    --color-text-muted: #64748b;
-    --color-label: #cbd5e1;
+  --color-text: #fafafa;                  /* neutral-50 */
+  --color-text-secondary: #d4d4d4;        /* neutral-300 — 10:1 AAA */
+  --color-text-muted: #a3a3a3;            /* neutral-400 — 7:1 AA large */
+  --color-label: #e5e5e5;                 /* neutral-200 */
 
-    --primary: #818cf8;            /* Índigo claro para modo oscuro */
-    --primary-hover: #6366f1;
-    --primary-soft: #1e1b4b;
-    --primary-text: #e0e7ff;
+  --primary: #3b82f6;                     /* blue-500 — 5.9:1 on #171717 */
+  --primary-hover: #60a5fa;               /* blue-400 */
+  --primary-soft: #1e3a5f;                /* blue-950/30% */
+  --primary-text: #dbeafe;                /* blue-100 */
 
-    --success: #34d399;
-    --success-soft: #022c22;
-    --success-text: #a7f3d0;
+  --success: #4ade80;                     /* green-400 — 5.4:1 */
+  --success-soft: #052e16;                /* green-950/30% */
+  --success-text: #bbf7d0;                /* green-200 */
 
-    --warning: #fbbf24;
-    --warning-soft: #451a03;
-    --warning-text: #fde68a;
+  --warning: #facc15;                     /* yellow-400 — 6.2:1 */
+  --warning-soft: #3d2b00;                /* yellow-950/30% */
+  --warning-text: #fef08a;                /* yellow-200 */
 
-    --error: #f87171;
-    --error-soft: #450a0a;
-    --error-text: #fecaca;
+  --color-error: #f87171;                 /* red-400 — 5.5:1 */
+  --color-error-soft: #3d0b0b;            /* red-950/30% */
+  --color-error-text: #fecaca;            /* red-200 */
 
-    --info: #22d3ee;
-    --info-soft: #083344;
-    --info-text: #a5f3fc;
+  --color-info: #22d3ee;                  /* cyan-400 — 5.7:1 */
+  --color-info-soft: #083344;             /* cyan-950/30% */
+  --color-info-text: #a5f3fc;             /* cyan-200 */
 
-    /* El visor sigue oscuro en los dos modos. */
-    --tint-surface: #0f172a;
-    --tint-border: #334155;
+  /* El visor sigue oscuro en los dos modos. */
+  --tint-surface: #0f172a;
+  --tint-border: #333333;
 
-    --btn-primary-text: #0f172a;
+  --btn-primary-text: #0f172a;
 
-    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
-    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.3);
-    --shadow-md: 0 1px 3px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.5);
-    --shadow-xl: 0 20px 40px rgb(0 0 0 / 0.6), 0 8px 16px rgb(0 0 0 / 0.5);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.55);
+  --shadow-xl: 0 20px 40px rgb(0 0 0 / 0.6), 0 8px 16px rgb(0 0 0 / 0.5);
 
-    --focus-ring: 0 0 0 3px rgba(212, 139, 91, 0.4);
-  }
+  --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.4);
 }
 
+/* =========================================================================
+   MODO EXTERIOR / ALTO CONTRASTE (data-outdoor="1")
+   ========================================================================= */
 [data-outdoor="1"] {
-  /* Claro forzado aunque OS diga dark */
   --color-bg: #ffffff;
   --color-surface: #fafafa;
   --color-surface-hover: #f0f0f0;
@@ -276,14 +246,14 @@
 
   --color-border: #cccccc;
   --color-border-strong: #999999;
-  --color-border-focus: #8b4513;
+  --color-border-focus: #8b4513;           /* marrón alto contraste */
 
   --color-text: #000000;
-  --color-text-secondary: #333333;
-  --color-text-muted: #666666;
-  --color-label: #1a1a1a;
+  --color-text-secondary: #1a1a1a;
+  --color-text-muted: #333333;
+  --color-label: #000000;
 
-  --primary: #8b4513;
+  --primary: #8b4513;                       /* saddle brown */
   --primary-hover: #6b3510;
   --primary-soft: #e8d5d0;
   --primary-text: #ffffff;
@@ -296,16 +266,14 @@
   --warning-soft: #fff3cd;
   --warning-text: #856404;
 
-  --error: #721c24;
-  --error-soft: #f8d7da;
-  --error-text: #721c24;
+  --color-error: #721c24;
+  --color-error-soft: #f8d7da;
+  --color-error-text: #721c24;
 
   --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
   --shadow-lg: 0 12px 28px rgba(0,0,0,0.2);
   --shadow-xl: 0 20px 40px rgba(0,0,0,0.25);
   --focus-ring: 0 0 0 4px rgba(139, 69, 19, 0.5);
-
-  /* Targets mayores para guantes / mano temblorosa / sol en pantalla */
   --toque: 52px;
 }
 
@@ -1273,6 +1241,42 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .flex-entre { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 
 /* ---------------------------------------------------------------------------
+   Rejillas: KPIs y filtros
+   ---------------------------------------------------------------------------
+   `auto-fit` con `minmax` en vez de columnas fijas: la cantidad de KPIs y de
+   filtros cambia por pantalla, y con `grid-template-columns: repeat(4, 1fr)` un
+   quinto filtro se va a una fila sola ocupando un cuarto del ancho. Con
+   `auto-fit` la rejilla se acomoda sola y en el celular caen a una columna. */
+.rejilla-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+.rejilla-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.kpi {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie-2, var(--superficie));
+}
+.kpi__valor {
+  font-size: var(--text-2xl, 1.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.kpi__etiqueta {
+  margin-top: 0.15rem;
+  color: var(--texto-suave);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+/* ---------------------------------------------------------------------------
    Cargando (inline)
    --------------------------------------------------------------------------- */
 .cargando {
@@ -1368,6 +1372,19 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 .modal--login .modal__contenido {
   text-align: start;
+}
+
+/* Los modales con formulario (alta de producto, alta de proveedor, edicion de
+   componente) tienen mas campos que un aviso, asi que necesitan mas ancho y un
+   tope de alto: sin `max-height` el formulario largo empuja el boton de guardar
+   fuera de la pantalla en un celular y el operador no puede confirmar. */
+.modal--formulario .modal__contenido {
+  width: min(92vw, 520px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal--formulario h3 {
+  margin-top: 0;
 }
 
 /* ---------------------------------------------------------------------------

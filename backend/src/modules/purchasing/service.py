@@ -106,6 +106,55 @@ def listar_ordenes(
         db.close()
 
 
+def obtener_orden(po_id: int) -> dict[str, Any]:
+    """
+    Una orden con sus líneas y lo que queda pendiente de recibir.
+
+    `pendiente` es la resta `cantidad - cantidad_recibida`. El frontend la usa
+    para no ofrecer "recibir 5" cuando solo faltan 3: mostrar la cuenta que el
+    operador tendría que hacer a mano es pedirle que se equivoque.
+    """
+    db = get_db_session()
+    try:
+        orden = db.execute(
+            text(
+                """
+                SELECT po.id, po.vendor_id, v.name AS vendor_name,
+                       po.status, po.expected_date, po.observations,
+                       po.created_at, po.created_by
+                FROM purchase_orders po
+                LEFT JOIN vendors v ON v.id = po.vendor_id
+                WHERE po.id = :po_id
+                """
+            ),
+            {"po_id": po_id},
+        ).mappings().first()
+        if not orden:
+            raise ValueError(f"La orden de compra {po_id} no existe.")
+
+        lineas = db.execute(
+            text(
+                """
+                SELECT pol.id, pol.model_id, pol.cantidad, pol.cantidad_recibida,
+                       (pol.cantidad - pol.cantidad_recibida) AS pendiente,
+                       pol.unit_cost,
+                       m.sku, m.brand, m.model AS model_name
+                FROM purchase_order_lines pol
+                JOIN models m ON m.id = pol.model_id
+                WHERE pol.po_id = :po_id
+                ORDER BY pol.sort_order, pol.id
+                """
+            ),
+            {"po_id": po_id},
+        ).mappings().all()
+
+        resultado = dict(orden)
+        resultado["lineas"] = [dict(l) for l in lineas]
+        return resultado
+    finally:
+        db.close()
+
+
 def recibir_orden(
     po_id: int,
     lineas: list[dict],
@@ -123,6 +172,20 @@ def recibir_orden(
     try:
         user_uuid = UUID(user_id) if user_id else None
         devices_creados = 0
+
+        # Ubicación de destino: el depósito. Se resuelve por la primera ubicación
+        # activa en vez de hardcodear `1`. El `1` original asumía que el depósito
+        # era siempre la primera fila, y en esta base las ubicaciones arrancan en
+        # id=4: la recepción fallaba con FK violation contra una ubicación que no
+        # existía.
+        deposito = db.execute(
+            text("SELECT id FROM locations WHERE is_active = TRUE ORDER BY id LIMIT 1")
+        ).scalar()
+        if deposito is None:
+            raise ValueError(
+                "No hay ninguna ubicación activa para recibir la mercancía. "
+                "Creá una ubicación (depósito) antes de recibir una orden."
+            )
 
         for linea in lineas:
             po_line_id = linea["po_line_id"]
@@ -156,21 +219,35 @@ def recibir_orden(
                 # Crear device
                 q_dev = """
                     INSERT INTO devices (serial_number, qr_code, model_id, current_status, current_location_id, is_warehouse, warehouse_entry_date)
-                    VALUES (:serial, :qr, :model_id, 'IN_WAREHOUSE', 1, TRUE, NOW())
+                    VALUES (:serial, :qr, :model_id, 'IN_WAREHOUSE', :destino, TRUE, NOW())
                     RETURNING id
                 """
-                # Location_id = 1 (Depósito Central) - en producción obtener de config
-                dev_id = db.execute(text(q_dev), {"serial": serial, "qr": qr, "model_id": pol["model_id"]}).scalar()
+                dev_id = db.execute(
+                    text(q_dev),
+                    {"serial": serial, "qr": qr, "model_id": pol["model_id"], "destino": deposito},
+                ).scalar()
 
-                # Movimiento WAREHOUSE_ENTRY
+                # Movimiento WAREHOUSE_ENTRY.
+                #
+                # Las columnas son las REALES de movement_history: `user_id` (UUID),
+                # no `registered_by`, y `movement_type` (el ENUM), no una FK. El
+                # INSERT original nombraba columnas que no existen en la tabla.
                 q_mov = """
-                    INSERT INTO movement_history (device_id, movement_type, movement_date, origin_location_id, destination_location_id, scan_latitude, scan_longitude, is_valid_location, registered_by, client_scan_id)
-                    VALUES (:dev_id, 'WAREHOUSE_ENTRY', NOW(), NULL, 1, NULL, NULL, TRUE, :user_id, :client_scan_id)
+                    INSERT INTO movement_history (
+                        device_id, movement_type, movement_date,
+                        origin_location_id, destination_location_id,
+                        scan_latitude, scan_longitude, is_valid_location, user_id
+                    )
+                    VALUES (
+                        :dev_id, 'WAREHOUSE_ENTRY', NOW(),
+                        NULL, :destino,
+                        NULL, NULL, TRUE, :user_id
+                    )
                 """
                 db.execute(text(q_mov), {
                     "dev_id": dev_id,
+                    "destino": deposito,
                     "user_id": UUID(user_id) if user_id else None,
-                    "client_scan_id": uuid4(),
                 })
                 devices_creados += 1
 

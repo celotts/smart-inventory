@@ -477,6 +477,16 @@ export const api = {
 
   obtenerDispositivo: (id, params) => pedir(`/devices/${id}`, { params }),
 
+  // PATCH y no PUT: se manda SOLO lo que el operador tocó. El backend ignora
+  // las claves ausentes, asi que editar el serial no pisa el modelo ni la
+  // ubicacion con los valores de la pantalla que quedaron viejos.
+  actualizarDispositivo: (id, datos) =>
+    pedir(`/devices/${id}`, { metodo: 'PATCH', cuerpo: datos }),
+
+  // DELETE en la API, baja LOGICA en la base: el historial se conserva.
+  darDeBajaDispositivo: (id, datos) =>
+    pedir(`/devices/${id}`, { metodo: 'DELETE', cuerpo: datos }),
+
   historial: (id, params) => pedir(`/movements/dispositivo/${id}`, { params }),
 
   preguntar: (pregunta) => pedir('/ai/preguntar', { metodo: 'POST', cuerpo: { pregunta }, timeoutMs: 300000 }),
@@ -495,4 +505,44 @@ export const api = {
   miPerfil: () => pedir('/auth/yo'),
   roles: () => pedir('/users/roles'),
   logoutTodas: () => pedir('/auth/logout-all', { metodo: 'POST' }),
+
+  // --- Catalogo (maestro de productos) -------------------------------------
+  categorias: () => pedir('/catalog/categories'),
+  productos: (params) => pedir('/catalog/products', { params }),
+  crearProducto: (datos) => pedir('/catalog/products', { metodo: 'POST', cuerpo: datos }),
+  proveedores: () => pedir('/catalog/vendors'),
+  crearProveedor: (datos) => pedir('/catalog/vendors', { metodo: 'POST', cuerpo: datos }),
+
+  // --- Stock agregado -------------------------------------------------------
+  resumenStock: (params) => pedir('/stock/summary', { params }),
+  stockBajo: () => pedir('/stock/low'),
+
+  // --- Compras (ordenes y recepcion) ---------------------------------------
+  ordenesCompra: (params) => pedir('/purchase-orders', { params }),
+  obtenerOrden: (id) => pedir(`/purchase-orders/${id}`),
+  crearOrden: (datos) => pedir('/purchase-orders', { metodo: 'POST', cuerpo: datos }),
+  recibirOrden: (id, datos) => pedir(`/purchase-orders/${id}/receive`, { metodo: 'POST', cuerpo: datos }),
+  sugerirReorden: () => pedir('/purchase-orders/suggest', { metodo: 'POST', cuerpo: {} }),
+
+  // --- Ubicaciones ----------------------------------------------------------
+  ubicaciones: () => pedir('/devices/locations'),
+
+  // --- Movimientos por producto ---------------------------------------------
+  // Un movimiento por cantidad: el operador elige producto y cuantas unidades,
+  // y el backend elige los equipos (FIFO) y los mueve. Es la operacion de
+  // deposito real: nadie tiene los seriales a mano cuando llega una caja.
+  moverPorProducto: (datos) =>
+    pedir('/movements/por-producto', { metodo: 'POST', cuerpo: datos }),
+
+  // --- Auditoria ------------------------------------------------------------
+  // `auditoria` une movimientos de inventario y eventos de cuentas en una sola
+  // linea de tiempo (ver el service del backend).
+  auditoria: (params) => pedir('/audit/timeline', { params }),
+  auditoriaResumen: () => pedir('/audit/resumen'),
+
+  // Auditoría completa - trazabilidad CRUD con INSERT/UPDATE/DELETE
+  auditoriaTrazabilidad: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return pedir('/audit/trazabilidad' + (qs ? '?' + qs : ''));
+  },
 };

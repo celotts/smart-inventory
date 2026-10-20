@@ -56,9 +56,10 @@ services:
     environment:
       - VITE_APP_ENV=dev
     volumes:
+      # Montar donde nginx sirve los archivos (no /app/src)
+      - ./frontend/src:/usr/share/nginx/html/src
+      - ./frontend/index.html:/usr/share/nginx/html/index.html
       # /app/node_modules se anombra con un volumen anonimo: sin esto, el
       # node_modules del host (o su ausencia) tapa el del build y vite deja de
       # encontrar sus propias dependencias. Es el error clasico de este montaje.
-      - ./frontend/src:/app/src
-      - ./frontend/index.html:/app/index.html
       - /app/node_modules

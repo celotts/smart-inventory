@@ -35,6 +35,8 @@ from src.core.deps import exigir
 from src.core.permissions import Permiso
 from src.modules.devices import service
 from src.modules.devices.schemas import (
+    ActualizarDispositivoRequest,
+    BajaDispositivoRequest,
     CrearDispositivoRequest,
     DispositivoDetalle,
     ListaDispositivosResponse,
@@ -158,6 +160,25 @@ def listar(
 
 
 @router.get(
+    "/locations",
+    summary="Listar ubicaciones (para selects en alta de dispositivo)",
+)
+def listar_ubicaciones(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> dict:
+    """Ubicaciones activas para selects. Sin paginación: son pocas."""
+    from sqlalchemy import text
+    from src.db.session import get_engine
+
+    with get_engine().connect() as conexion:
+        filas = conexion.execute(
+            text("SELECT id, store_name AS nombre FROM locations WHERE is_active = TRUE ORDER BY store_name")
+        ).mappings().all()
+
+    return {"items": [{**dict(f), "id": f["id"]} for f in filas]}
+
+
+@router.get(
     "/{device_id}",
     response_model=DispositivoDetalle,
     summary="Ficha de un componente",
@@ -187,3 +208,64 @@ def obtener(
         ficha["movimientos"] = movimientos.historial_dispositivo(device_id, limite=25)
 
     return ficha
+
+
+@router.patch(
+    "/{device_id}",
+    response_model=DispositivoDetalle,
+    summary="Editar un componente",
+)
+def actualizar(
+    device_id: int,
+    pedido: ActualizarDispositivoRequest,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> DispositivoDetalle:
+    """
+    Edicion parcial. Solo se toca lo que viene en el cuerpo.
+
+    `exclude_unset` es la clave: un campo que el cliente no mando no viaja al
+    service y por lo tanto no se escribe. Sin esto, cada `PATCH` de un campo
+    pisaria los demas con `None`.
+    """
+    try:
+        return service.actualizar_dispositivo(device_id, pedido.model_dump(exclude_unset=True))
+    except service.DispositivoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except service.CodigoDuplicado as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except service.TransicionInvalida as exc:
+        # 409 y no 422: el cuerpo de la peticion es sintacticamente correcto, el
+        # problema es que la operacion choca con el estado actual del recurso.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except KeyError as exc:
+        campo = "model_id" if "model_id" in str(exc) else "location_id"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El {campo} no corresponde a ningun registro del catalogo.",
+        ) from exc
+
+
+@router.delete(
+    "/{device_id}",
+    summary="Dar de baja un componente (borrado logico)",
+)
+def eliminar(
+    device_id: int,
+    pedido: BajaDispositivoRequest | None = None,
+    usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Baja logica: el equipo desaparece del inventario activo y queda auditado.
+
+    NO se borra la fila. Un `DELETE` fisico se lleva puesto el historial de
+    movimientos y deja el inventario sin trazabilidad. `deleted_at` lo saca de
+    las consultas y el `disposal_certificates` guarda el motivo y el responsable.
+    """
+    try:
+        return service.dar_de_baja(
+            device_id,
+            usuario_id=usuario.id,
+            motivo=(pedido.motivo if pedido else None),
+        )
+    except service.DispositivoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
