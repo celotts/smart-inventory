@@ -167,6 +167,8 @@ export function campoTexto({
   mono = false,
   maxlength,
   name,
+  valor = '',
+  paso,
 }) {
   const atributos = {
     type: tipo,
@@ -179,11 +181,20 @@ export function campoTexto({
   if (inputmode) atributos.inputmode = inputmode;
   if (maxlength) atributos.maxlength = String(maxlength);
   if (name) atributos.name = name;
+  // El `step` de los numeros: sin el, el navegador no sube ni baja con las
+  // flechas del teclado y el operador escribe el numero a mano.
+  if (paso) atributos.step = String(paso);
 
   const control = crear('input', {
     clase: `campo__control${mono ? ' mono' : ''}`,
     atributos,
   });
+
+  // El valor inicial. Va DESPUES de crear el control porque `crear` pone los
+  // atributos, y el `value` es una PROPIEDAD del input, no un atributo.
+  if (valor !== '' && valor !== undefined && valor !== null) {
+    control.value = String(valor);
+  }
 
   return construirCampo({ etiqueta, control, ayuda, requerido, descripcion });
 }

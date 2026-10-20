@@ -29,10 +29,15 @@
 // el navegador guarda megabytes de versiones que ya no existen y sirve la
 // primera que encuentra.
 //
-// v4: el esqueleto incluye los modulos de la version 0.4.0 (el tablero de
-// Inicio, que es la pantalla de inicio, y los dos modulos nuevos). Sin
-// ellos, la app abria OFFLINE sin poder pintar la primera pantalla.
-const VERSION = 'si-v4';
+// v5: el esqueleto incluye los modulos de la version 0.5.0 (el tablero de
+// Inicio, que es la pantalla de inicio, los dos modulos nuevos y la vista de
+// Incidencias). Sin ellos, la app abria OFFLINE sin poder pintar la primera
+// pantalla.
+//
+// El esqueleto ahora incluye tambien `vistas/incidencias.js` y
+// `vistas/consultas.js`: son las dos pantallas que el operador usa sin
+// conexion, porque el deposito muchas veces no tiene señal.
+const VERSION = 'si-v5';
 const CACHE_ESTATICO = `${VERSION}-estatico`;
 const CACHE_ESTABLE = `${VERSION}-estable`;
 
@@ -59,6 +64,7 @@ const ESQUELETO = [
   '/src/vistas/inicio.js',
   '/src/vistas/inventario.js',
   '/src/vistas/consultas.js',
+  '/src/vistas/incidencias.js',
   '/icons/icon.svg',
 ];
 

@@ -1,0 +1,124 @@
+/**
+ * La navegacion entre vistas.
+ *
+ * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
+ * ---------------------------------------
+ * `main.js` mezclaba el arranque, la sesion, la cabecera y la navegacion. Con
+ * el modulo de incidencias y el de mantenimiento, la navegacion dejo de ser
+ * "cambiar el texto de la pestana": cada vista tiene su ciclo de vida (la
+ * camara del escaner, el polling de la campana, el timer del recibo). Eso es
+ * un TEMA con sus propias reglas, y mezclarlo con el arranque hace que
+ * cualquiera de los dos crezca hasta ser inmanejable.
+ *
+ * EL CICLO DE VIDA DE UNA VISTA
+ * ----------------------------
+ * Al cambiar de vista, la anterior se DESTRUYE: sin eso, la camara del
+ * escaner sigue encendida, el polling de la campana sigue preguntando y el
+ * timer del recibo sigue corriendo. Cada vista devuelve `{ elemento,
+ * destruir? }` y el `destruir` es donde suelta lo que tiene.
+ */
+
+import { vistaAuditoria } from './vistas/auditoria.js';
+import { vistaCompras } from './vistas/compras.js';
+import { vistaConsultas } from './vistas/consultas.js';
+import { vistaEscanear } from './vistas/escanear.js';
+import { vistaIncidencias } from './vistas/incidencias.js';
+import { vistaInicio } from './vistas/inicio.js';
+import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
+import { vistaMovimientos } from './vistas/movimientos.js';
+import { vistaNuevo } from './vistas/nuevo.js';
+import { vistaProductos } from './vistas/productos.js';
+import { reemplazar } from './dom.js';
+import { permisosDe, setVistaActual, estado } from './estado.js';
+
+/** El registro de vistas. La clave es la que viaja en el hash de la URL. */
+export const VISTAS = {
+  inicio: { etiqueta: 'Inicio', construir: vistaInicio },
+  escanear: { etiqueta: 'Escanear', construir: vistaEscanear },
+  inventario: { etiqueta: 'Inventario', construir: vistaInventario },
+  movimientos: { etiqueta: 'Movimientos', construir: vistaMovimientos },
+  incidencias: { etiqueta: 'Incidencias', construir: vistaIncidencias },
+  consultas: { etiqueta: 'Consultas', construir: vistaConsultas },
+  productos: { etiqueta: 'Productos', construir: vistaProductos },
+  compras: { etiqueta: 'Compras', construir: vistaCompras },
+  auditoria: { etiqueta: 'Auditoría', construir: vistaAuditoria },
+  nuevo: { etiqueta: 'Nuevo', construir: vistaNuevo },
+};
+
+const contenido = document.getElementById('contenido');
+const cabecera = document.getElementById('cabecera');
+
+/**
+ * Muestra una vista.
+ *
+ * @param {string} nombre    La clave de la vista.
+ * @param {object} [opciones]
+ * @param {number} [opciones.deviceId]  Para la ficha de un equipo.
+ */
+export function mostrarVista(nombre, opciones = {}) {
+  // Si se cambia de vista, la anterior se destruye. Una vista puede tener
+  // recursos que no se limpian solos: la camara del escaner, por ejemplo, que
+  // sigue encendida si no se apaga explicitamente.
+  if (estado.vistaActual?.destruir) {
+    try {
+      estado.vistaActual.destruir();
+    } catch (error) {
+      // Que un fallo al limpiar no impida mostrar la vista siguiente: el
+      // operador necesita trabajar aunque la camara no se haya podido apagar.
+      console.error('No se pudo limpiar la vista anterior:', error);
+    }
+  }
+
+  if (nombre === 'dispositivo') {
+    const vista = vistaDispositivo(opciones.deviceId, {
+      alVolver: () => mostrarVista('inventario'),
+      // Editar y dar de baja son acciones de `devices:edit`. La ficha decide si
+      // muestra los botones con este dato; el backend los vuelve a exigir igual.
+      permisos: permisosDe(),
+      alEliminar: () => mostrarVista('inventario'),
+    });
+    setVistaActual(vista, nombre);
+  } else {
+    const definicion = VISTAS[nombre];
+    if (!definicion) return;
+    const vista = definicion.construir({
+      alAbrirDispositivo: (id) => mostrarVista('dispositivo', { deviceId: id }),
+      permisos: permisosDe(),
+    });
+    setVistaActual(vista, nombre);
+  }
+
+  // Toda vista devuelve `{ elemento, destruir? }`. Aceptar tambien un elemento
+  // suelto evita que una vista nueva rompa por no conocer el contrato, pero el
+  // contrato nuevo es el que se escribe.
+  const elemento = estado.vistaActual?.elemento ?? estado.vistaActual;
+
+  reemplazar(contenido, elemento);
+
+  // La app YA ARRANCO. El vigilante de `arranque.js` mira esta marca para no
+  // pisar una app que ya esta pintada: sin ella, un arranque lento (celular
+  // con 4G de segundo plano, o un contenedor que tarda en servir los modulos)
+  // agotaba el limite de 12 segundos y reemplazaba la pantalla por "La app no
+  // pudo arrancar" cuando la app estaba funcionando.
+  document.body.dataset.appLista = '1';
+
+  // `aria-current` en la pestana activa, y el estado del historial del
+  // navegador para que el boton "atras" del celular funcione.
+  for (const boton of cabecera.querySelectorAll('[data-vista]')) {
+    if (boton.dataset.vista === nombre) boton.setAttribute('aria-current', 'page');
+    else boton.removeAttribute('aria-current');
+  }
+
+  if (window.location.hash !== `#${nombre}`) {
+    history.pushState({ vista: nombre }, '', `#${nombre}`);
+  }
+}
+
+/**
+ * La vista de la ficha de un equipo.
+ *
+ * Vive aca (y no en `VISTAS`) porque NO es una pestana: es el destino de
+ * "Ver la ficha" desde el inventario o desde un escaneo. Va aparte para que
+ * el `hash` de la URL no la confunda con una seccion.
+ */
+export const VISTA_DISPOSITIVO = 'dispositivo';

@@ -1,6 +1,7 @@
 # Smart Inventory B2B
 
-Inventario de dispositivos para empresas, con IA integrada para análisis y
+Control de activos para empresas: inventario de dispositivos con escáner de
+códigos, incidencias con SLA y mantenimiento, con IA integrada para análisis y
 respuesta de preguntas en lenguaje natural.
 
 ```

@@ -238,7 +238,11 @@ class TestRateLimit:
         """
         c = TestClient(app)
         for _ in range(50):
-            assert c.get("/health").status_code == 200
+            codigo = c.get("/health").status_code
+            # 503 significa "la base no esta disponible" (que es lo que pasa
+            # cuando los tests corren en el host, sin base). Lo que NO puede
+            # ser es 429: el healthcheck no se rate-limitea.
+            assert codigo in (200, 503), f"/health devolvio {codigo}"
 
     def test_el_bucket_esta_acotado(self):
         """

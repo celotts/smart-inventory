@@ -161,9 +161,9 @@ async def lifespan(_app: FastAPI):
             await tarea_sla
 
 app = FastAPI(
-    title="Smart Inventory B2B API",
-    version="0.4.0",
-    description="Gestion de inventario de dispositivos para empresas, con IA.",
+    title="Smart Inventory B2B API — Activos e incidencias",
+    version="0.5.0",
+    description="Gestion de activos, inventario e incidencias para empresas, con IA.",
     lifespan=lifespan,
     # POR QUE /docs SE DESACTIVA EN PRODUCCION
     # --------------------------------------

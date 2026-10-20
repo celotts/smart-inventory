@@ -1,7 +1,7 @@
 {
-  "name": "Smart Inventory — Escáner",
-  "short_name": "Inventory",
-  "description": "Inventario de equipos con escáner de códigos QR y barras.",
+  "name": "Smart Inventory — Activos e incidencias",
+  "short_name": "Inventario",
+  "description": "Inventario de activos con escáner de códigos QR y barras, incidencias con SLA y mantenimiento.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

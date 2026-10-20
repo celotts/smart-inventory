@@ -31,7 +31,7 @@ export function vistaLogin({ alEntrar }) {
   marca.append(
     logo,
     crear('h1', { clase: 'login__titulo', texto: 'Smart Inventory' }),
-    crear('p', { clase: 'tenue pequeno', texto: 'Inventario de equipos' }),
+    crear('p', { clase: 'tenue pequeno', texto: 'Activos, inventario e incidencias' }),
   );
 
   const tarjeta = crear('div', { clase: 'tarjeta' });
