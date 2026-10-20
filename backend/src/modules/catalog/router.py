@@ -41,6 +41,158 @@ def listar_categorias(
     return service.listar_categorias()
 
 
+@router.get(
+    "/categories/tree",
+    summary="Categorias en arbol (con subcategorias)",
+)
+def arbol_categorias(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> list[dict]:
+    return service.arbol_categorias()
+
+
+@router.post(
+    "/categories",
+    status_code=status.HTTP_201_CREATED,
+    summary="Dar de alta una categoria (con categoria padre opcional)",
+)
+def crear_categoria(
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Body:
+    {
+      "name": "Notebooks",
+      "code": "NB",
+      "parent_id": 12,
+      "icon": "laptop",
+      "color": "#0277bd"
+    }
+    """
+    try:
+        return service.crear_categoria(body)
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+@router.put(
+    "/categories/{categoria_id}",
+    summary="Editar una categoria",
+)
+def actualizar_categoria(
+    categoria_id: int,
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Body (todo opcional):
+    { "name": "Notebooks", "parent_id": 12, "is_active": true }
+    """
+    try:
+        return service.actualizar_categoria(categoria_id, body)
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+@router.delete(
+    "/categories/{categoria_id}",
+    summary="Eliminar una categoria (borrado logico)",
+)
+def eliminar_categoria(
+    categoria_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    No se puede eliminar una categoria con productos o con subcategorias: se
+    descontinua (is_active = FALSE) para no perder el historial.
+    """
+    try:
+        service.eliminar_categoria(categoria_id)
+        return {"ok": True}
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+# --- Atributos de categoria -------------------------------------------------
+
+
+@router.get(
+    "/categories/{categoria_id}/attributes",
+    summary="Atributos definidos para una categoria",
+)
+def listar_atributos(
+    categoria_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> list[dict]:
+    return service.listar_atributos(categoria_id)
+
+
+@router.post(
+    "/categories/{categoria_id}/attributes",
+    status_code=status.HTTP_201_CREATED,
+    summary="Definir un atributo para una categoria",
+)
+def crear_atributo(
+    categoria_id: int,
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Body:
+    {
+      "key": "caducidad",
+      "label": "Fecha de caducidad",
+      "data_type": "date",
+      "unit": null,
+      "is_required": false,
+      "applies_to": "product"
+    }
+
+    Para `data_type: "select"`, `options` es la lista de valores:
+    { "key": "estado", "label": "Estado", "data_type": "select",
+      "options": ["Nuevo", "Reacondicionado"] }
+    """
+    try:
+        return service.crear_atributo(categoria_id, body)
+    except service.AtributoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.put(
+    "/attributes/{atributo_id}",
+    summary="Editar la definicion de un atributo",
+)
+def actualizar_atributo(
+    atributo_id: int,
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    try:
+        return service.actualizar_atributo(atributo_id, body)
+    except service.AtributoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/attributes/{atributo_id}",
+    summary="Desactivar un atributo de categoria",
+)
+def eliminar_atributo(
+    atributo_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Los valores ya cargados en los productos NO se borran: quedan en el JSONB.
+    Un valor huerfano es informacion que el operador escribio.
+    """
+    try:
+        service.eliminar_atributo(atributo_id)
+        return {"ok": True}
+    except service.AtributoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
 # --- Productos (modelos) ----------------------------------------------------
 
 
@@ -93,6 +245,10 @@ def crear_producto(
             )
     try:
         return service.crear_producto(body)
+    except service.AtributoInvalido as exc:
+        # Un atributo con un valor que no corresponde a su tipo, o un atributo
+        # que la categoria no define: es un 409 con el motivo, no un 500.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except service.ProductoInvalido as exc:
         raise _error_de_negocio(exc) from exc
 
@@ -127,6 +283,8 @@ def actualizar_producto(
             )
     try:
         return service.actualizar_producto(producto_id, body)
+    except service.AtributoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except service.ProductoInvalido as exc:
         raise _error_de_negocio(exc) from exc
 

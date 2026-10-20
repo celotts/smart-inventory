@@ -28,6 +28,7 @@ import { api } from '../api.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
+import { descargarCsv } from '../descargas.js';
 
 /**
  * Las operaciones de movimiento, con todo lo que la UI necesita para ofrecerlas.
@@ -127,7 +128,18 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => cargar() },
   });
-  encabezado.append(btnActualizar);
+
+  const btnExportar = crear('button', {
+    clase: 'boton boton--suave',
+    texto: 'Exportar CSV',
+    atributos: {
+      type: 'button',
+      title: 'Descargar el historial de movimientos en CSV',
+      onclick: () => descargarCsv('/export/movimientos.csv', 'movimientos.csv'),
+    },
+  });
+
+  encabezado.append(btnExportar, btnActualizar);
 
   tarjetaCabecera.append(encabezado);
 

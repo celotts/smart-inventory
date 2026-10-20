@@ -53,6 +53,7 @@ import { avisar, marcarPendientes } from './avisos.js';
 const SELLO_BUILD = '2619-1';
 
 import { vistaLogin } from './vistas/login.js';
+import { vistaInicio } from './vistas/inicio.js';
 import { vistaEscanear } from './vistas/escanear.js';
 import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
 import { vistaConsultas } from './vistas/consultas.js';
@@ -198,6 +199,7 @@ async function verificarVersionDelServidor() {
 // ---------------------------------------------------------------------------
 
 const VISTAS = {
+  inicio: { etiqueta: 'Inicio', construir: vistaInicio },
   escanear: { etiqueta: 'Escanear', construir: vistaEscanear },
   inventario: { etiqueta: 'Inventario', construir: vistaInventario },
   movimientos: { etiqueta: 'Movimientos', construir: vistaMovimientos },
@@ -316,7 +318,10 @@ function pintarLogin() {
       // permisos.
       await cargarUsuario();
       cabecera.hidden = false;
-      mostrarVista('escanear');
+      // La pantalla de inicio es el tablero: el operador ve el estado del
+      // inventario antes de hacer nada. El escaner queda a un toque, en la
+      // primera pestana de la izquierda.
+      mostrarVista('inicio');
       actualizarEstadoIA();
       avisar(`Hola, ${usuario.full_name ?? usuario.email ?? ''}`.trim(), 'exito', 2500);
       // Reanudar operación pendiente (si venía de expiración con refresh token válido)
@@ -609,7 +614,7 @@ async function arrancar() {
     await cargarUsuario();
     cabecera.hidden = false;
     const destino = window.location.hash.replace('#', '');
-    mostrarVista(VISTAS[destino] ? destino : 'escanear');
+    mostrarVista(VISTAS[destino] ? destino : 'inicio');
   } else {
     pintarLogin();
   }

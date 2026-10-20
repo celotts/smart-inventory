@@ -17,6 +17,7 @@ import { ESTADOS, ICONOS, MOVIMIENTOS, crear, etiquetaProducto, icono } from '..
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { imagenQr } from '../qr.js';
+import { descargarCsv } from '../descargas.js';
 
 const ESTADOS_FILTRO = [
   { valor: '', texto: 'Todos' },
@@ -72,7 +73,7 @@ export function vistaInventario({ alAbrirDispositivo }) {
     clase: 'campo__control',
     atributos: {
       type: 'search',
-      placeholder: 'Buscar por serial o codigo QR',
+      placeholder: 'Buscar por serial, QR, SKU o modelo',
       autocomplete: 'off',
       autocapitalize: 'characters',
       spellcheck: 'false',
@@ -86,6 +87,15 @@ export function vistaInventario({ alAbrirDispositivo }) {
     );
   }
 
+  // Categoria y ubicacion: filtros COMBINABLES, que bajan a las subcategorias
+  // y a los pasillos. Filtrar por "Deposito Central" tiene que traer lo que
+  // esta en sus estantes: el operador pregunta por la bodega.
+  const selectCategoria = crear('select', { clase: 'campo__control' });
+  selectCategoria.append(crear('option', { texto: 'Todas las categorias', atributos: { value: '' } }));
+
+  const selectUbicacion = crear('select', { clase: 'campo__control' });
+  selectUbicacion.append(crear('option', { texto: 'Todas las ubicaciones', atributos: { value: '' } }));
+
   const etiquetaBusqueda = crear('label', { clase: 'campo' });
   etiquetaBusqueda.append(
     crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' }),
@@ -98,10 +108,34 @@ export function vistaInventario({ alAbrirDispositivo }) {
     selectEstado,
   );
 
+  const etiquetaCategoria = crear('label', { clase: 'campo' });
+  etiquetaCategoria.append(
+    crear('span', { clase: 'campo__etiqueta', texto: 'Categoria' }),
+    selectCategoria,
+  );
+
+  const etiquetaUbicacion = crear('label', { clase: 'campo' });
+  etiquetaUbicacion.append(
+    crear('span', { clase: 'campo__etiqueta', texto: 'Ubicacion' }),
+    selectUbicacion,
+  );
+
+  const btnExportar = crear('button', {
+    clase: 'boton boton--suave',
+    texto: 'Exportar CSV',
+    atributos: { type: 'button', title: 'Descargar el inventario en CSV' },
+  });
+
+  const filaBotones = crear('div', { clase: 'fila-botones' });
+  filaBotones.append(btnExportar);
+
+  const rejillaFiltros = crear('div', { clase: 'rejilla-filtros' });
+  rejillaFiltros.append(etiquetaBusqueda, etiquetaEstado, etiquetaCategoria, etiquetaUbicacion);
+
   tarjetaFiltros.append(
     crear('h2', { clase: 'tarjeta__titulo', texto: 'Inventario' }),
-    etiquetaBusqueda,
-    etiquetaEstado,
+    rejillaFiltros,
+    filaBotones,
   );
 
   // --- Resultados -----------------------------------------------------------
@@ -137,6 +171,8 @@ export function vistaInventario({ alAbrirDispositivo }) {
       const datos = await api.listarDispositivos({
         busqueda: inputBuscar.value.trim(),
         estado: selectEstado.value || undefined,
+        categoria_id: selectCategoria.value || undefined,
+        ubicacion_id: selectUbicacion.value || undefined,
         limite: POR_PAGINA,
         offset: pagina * POR_PAGINA,
       });
@@ -258,6 +294,60 @@ export function vistaInventario({ alAbrirDispositivo }) {
     cargar();
   });
 
+  selectCategoria.addEventListener('change', () => {
+    pagina = 0;
+    cargar();
+  });
+
+  selectUbicacion.addEventListener('change', () => {
+    pagina = 0;
+    cargar();
+  });
+
+  btnExportar.addEventListener('click', () => {
+    descargarCsv('/export/inventario.csv', 'inventario.csv');
+  });
+
+  /**
+   * Carga los filtros de categoria y ubicacion.
+   *
+   * Las dos listas se piden juntas con `Promise.all`: son la misma pantalla y
+   * una tras otra seria dos esperas.
+   */
+  async function cargarFiltros() {
+    try {
+      const [categorias, ubicaciones] = await Promise.all([
+        api.categorias(),
+        api.pedir('/locations'),
+      ]);
+
+      for (const c of categorias) {
+        // La ruta completa ("Notebook > Notebooks 14\"") y no el nombre solo:
+        // con subcategorias hay dos "Impresora" y el operador tiene que ver
+        // de que rama sale cada una.
+        selectCategoria.append(
+          crear('option', {
+            texto: c.ruta || c.name,
+            atributos: { value: c.id },
+          }),
+        );
+      }
+
+      for (const u of ubicaciones) {
+        selectUbicacion.append(
+          crear('option', {
+            texto: u.ruta || u.store_name,
+            atributos: { value: u.id },
+          }),
+        );
+      }
+    } catch (error) {
+      // Los filtros son una ayuda: si no se pueden cargar, la lista igual
+      // tiene que andar. El error se deja pasar en silencio a proposito.
+      console.warn('No se pudieron cargar los filtros:', error);
+    }
+  }
+
   // Recargar lista cuando se crea un componente nuevo
   const handleRecargar = () => {
     pagina = 0;
@@ -271,6 +361,7 @@ export function vistaInventario({ alAbrirDispositivo }) {
   };
 
   cargar();
+  cargarFiltros();
   return { elemento: raiz };
 }
 

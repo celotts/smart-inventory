@@ -27,6 +27,22 @@ def reporte_operativo(
 
 
 @router.get(
+    "/dashboard",
+    summary="Dashboard: KPIs, alertas, ultimos movimientos y productos criticos",
+)
+def dashboard(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> dict:
+    """
+    Todo lo de la pantalla de inicio en UNA llamada.
+
+    La pantalla hace varias consultas: si cada una fuera un endpoint distinto,
+    abrirla haria seis pedidos, y en un celular con 4G eso son seis esperas.
+    """
+    return service.dashboard()
+
+
+@router.get(
     "/inventory-stats",
     summary="KPIs de inventario: total, por estado, por ubicación, valor, rotación",
 )

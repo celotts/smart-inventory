@@ -2049,3 +2049,75 @@ CREATE TRIGGER audit_purchase_orders
 CREATE TRIGGER audit_users
     AFTER INSERT OR DELETE OR UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION audit_soft_delete();
+
+-- ===========================================================================
+-- JERARQUIA DE CATEGORIAS Y UBICACIONES, ATRIBUTOS POR CATEGORIA Y
+-- BUSQUEDA DE TEXTO COMPLETO
+-- ===========================================================================
+-- Esto replica la migracion 0015. `init.sql` es la fuente de verdad de una
+-- base nueva: si un requerimiento vive solo en una migracion, una instalacion
+-- limpia queda sin el. Ver el comentario de la migracion para el POR QUE de
+-- cada decision.
+
+-- --- Jerarquia de categorias ------------------------------------------------
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES categories(id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
+
+-- --- Jerarquia de ubicaciones -----------------------------------------------
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES locations(id) ON DELETE RESTRICT;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE';
+CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id);
+
+ALTER TABLE locations DROP CONSTRAINT IF EXISTS ck_locations_type;
+ALTER TABLE locations ADD CONSTRAINT ck_locations_type CHECK (
+    location_type IN ('WAREHOUSE', 'AISLE', 'SHELF', 'BIN', 'CLIENT')
+);
+
+-- --- Atributos personalizados por categoria ---------------------------------
+CREATE TABLE IF NOT EXISTS category_attributes (
+    id SERIAL PRIMARY KEY,
+    category_id INT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    key VARCHAR(60) NOT NULL,
+    label VARCHAR(120) NOT NULL,
+    data_type VARCHAR(20) NOT NULL DEFAULT 'text',
+    options JSONB,
+    unit VARCHAR(20),
+    is_required BOOLEAN DEFAULT FALSE,
+    applies_to VARCHAR(20) NOT NULL DEFAULT 'product',
+    sort_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT uq_category_attributes UNIQUE (category_id, key),
+    CONSTRAINT ck_category_attributes_type CHECK (
+        data_type IN ('text', 'number', 'date', 'boolean', 'select')
+    ),
+    CONSTRAINT ck_category_attributes_applies CHECK (
+        applies_to IN ('product', 'device')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_category_attributes_category ON category_attributes(category_id);
+
+-- --- Busqueda de texto completo ---------------------------------------------
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS search_vector tsvector
+    GENERATED ALWAYS AS (
+        to_tsvector('spanish', coalesce(serial_number, '') || ' ' || coalesce(qr_code, ''))
+    ) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_devices_search ON devices USING GIN (search_vector);
+
+ALTER TABLE models ADD COLUMN IF NOT EXISTS search_vector tsvector
+    GENERATED ALWAYS AS (
+        to_tsvector(
+            'spanish',
+            coalesce(sku, '') || ' ' ||
+            coalesce(brand, '') || ' ' ||
+            coalesce(model, '') || ' ' ||
+            coalesce(variant, '') || ' ' ||
+            coalesce(qr_code, '') || ' ' ||
+            coalesce(barcode, '')
+        )
+    ) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_models_search ON models USING GIN (search_vector);

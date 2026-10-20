@@ -88,6 +88,8 @@ from src.modules.stock.router import router as stock_router
 from src.modules.maintenance.router import router as maintenance_router
 from src.modules.purchasing.router import router as purchasing_router
 from src.modules.reporting.router import router as reporting_router
+from src.modules.locations.router import router as locations_router
+from src.modules.export.router import router as export_router
 
 # Falla en el ARRANQUE y no en el primer login. Un deploy sin SECRET_KEY tiene
 # que caerse en el pipeline, no un martes a la tarde en produccion.
@@ -125,6 +127,8 @@ app.include_router(stock_router)
 app.include_router(maintenance_router)
 app.include_router(purchasing_router)
 app.include_router(reporting_router)
+app.include_router(locations_router)
+app.include_router(export_router)
 
 
 @app.get("/health", tags=["operacion"])

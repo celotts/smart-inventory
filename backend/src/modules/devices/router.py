@@ -124,15 +124,28 @@ def crear(
 )
 def listar(
     estado: str | None = Query(None, description="Uno de: " + ", ".join(ESTADOS)),
-    ubicacion_id: int | None = Query(None, gt=0),
-    categoria: str | None = Query(None, max_length=100),
-    busqueda: str | None = Query(None, max_length=100, description="Serial o QR."),
+    ubicacion_id: int | None = Query(
+        None,
+        gt=0,
+        description="Ubicacion. Incluye sus pasillos, estantes y bins.",
+    ),
+    categoria: str | None = Query(None, max_length=100, description="Nombre exacto de la categoria."),
+    categoria_id: int | None = Query(
+        None,
+        gt=0,
+        description="Categoria. Incluye sus subcategorias.",
+    ),
+    busqueda: str | None = Query(
+        None,
+        max_length=100,
+        description="Texto libre: serial, QR, SKU, marca o modelo. Es de texto completo.",
+    ),
     limite: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> ListaDispositivosResponse:
     """
-    Listado paginado.
+    Listado paginado, con filtros combinables.
 
     `limite` con tope de 200: sin tope, un cliente puede pedir un solo POST con
     `limite=100000` y la consulta trae la tabla entera. El tope no es
@@ -153,6 +166,7 @@ def listar(
         estado=estado,
         ubicacion_id=ubicacion_id,
         categoria=categoria,
+        categoria_id=categoria_id,
         busqueda=busqueda,
         limite=limite,
         offset=offset,

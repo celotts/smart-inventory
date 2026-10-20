@@ -67,7 +67,16 @@ export function vistaProductos({ permisos = [] }) {
       texto: 'Nuevo producto',
       atributos: { type: 'button', onclick: abrirAlta },
     });
-    encabezado.append(btnNuevo);
+    const btnCategorias = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Categorias',
+      atributos: {
+        type: 'button',
+        title: 'Administrar categorias, subcategorias y atributos',
+        onclick: () => abrirCategorias(),
+      },
+    });
+    encabezado.append(btnCategorias, btnNuevo);
   }
 
   tarjetaCabecera.append(encabezado, etiquetaBusqueda);
@@ -126,7 +135,7 @@ export function vistaProductos({ permisos = [] }) {
         crear('div', { clase: 'lista__meta mono', texto: p.sku }),
         crear('div', {
           clase: 'lista__meta',
-          texto: [p.categoria, p.variant].filter(Boolean).join(' · '),
+          texto: [p.categoria_ruta || p.categoria, p.variant].filter(Boolean).join(' · '),
         }),
         crear('div', {
           clase: 'lista__meta tabular',
@@ -302,6 +311,344 @@ export function vistaProductos({ permisos = [] }) {
     ventana.print();
   }
 
+  // --- Categorias y atributos ------------------------------------------------
+  //
+  // La jerarquia y los atributos se administran desde la MISMA vista de
+  // productos: son parte del maestro. Uma pantalla aparte obligaria al
+  // operador a saltar de una pestana a otra para agregar un campo de
+  // "caducidad" a la categoria de consumibles.
+  async function abrirCategorias() {
+    const cuerpo = crear('div', { clase: 'apilado' });
+    const zonaLista = crear('div');
+    cuerpo.append(zonaLista);
+
+    async function pintar() {
+      zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando categorias…' }));
+      try {
+        const categorias = await api.categorias();
+        zonaLista.replaceChildren();
+
+        if (!categorias.length) {
+          zonaLista.append(crear('p', { clase: 'tenue', texto: 'No hay categorias.' }));
+          return;
+        }
+
+        const lista = crear('ul', { clase: 'lista' });
+        for (const c of categorias) {
+          const item = crear('li', { clase: 'lista__item' });
+          const cuerpoItem = crear('div', { clase: 'lista__cuerpo' });
+          cuerpoItem.append(
+            crear('div', { clase: 'lista__titulo', texto: c.name }),
+            crear('div', { clase: 'lista__meta', texto: c.ruta || c.name }),
+          );
+
+          const btnAtributos = crear('button', {
+            clase: 'boton boton--suave boton--chico',
+            texto: 'Atributos',
+            atributos: { type: 'button', onclick: () => abrirAtributos(c) },
+          });
+
+          const btnEditar = crear('button', {
+            clase: 'boton boton--suave boton--chico',
+            texto: 'Editar',
+            atributos: { type: 'button', onclick: () => abrirEdicionCategoria(c, pintar) },
+          });
+
+          item.append(cuerpoItem, btnAtributos, btnEditar);
+          lista.append(item);
+        }
+        zonaLista.append(lista);
+      } catch (error) {
+        zonaLista.replaceChildren(
+          crear('div', { clase: 'resultado resultado--error', texto: error.message }),
+        );
+      }
+    }
+
+    const btnNueva = crear('button', {
+      clase: 'boton',
+      texto: 'Nueva categoria',
+      atributos: { type: 'button', onclick: () => abrirEdicionCategoria(null, pintar) },
+    });
+
+    const btnCerrar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cerrar',
+      atributos: { type: 'button' },
+    });
+
+    abrirDialogo({
+      titulo: 'Categorias y atributos',
+      nota: 'Una categoria puede colgar de otra (subcategoria) y definir sus propios atributos.',
+      cuerpo: [cuerpo],
+      clase: 'modal--formulario',
+      acciones: [btnCerrar, btnNueva],
+      alAbrir: (_modal, cerrar) => {
+        btnCerrar.addEventListener('click', cerrar);
+      },
+    });
+
+    await pintar();
+  }
+
+  /**
+   * Alta o edicion de una categoria.
+   *
+   * @param {object|null} categoria  La categoria a editar, o null para una nueva.
+   * @param {Function} alGuardar     Se llama despues de guardar, para repintar.
+   */
+  async function abrirEdicionCategoria(categoria, alGuardar) {
+    let categorias = [];
+    try {
+      categorias = await api.categorias();
+    } catch (error) {
+      avisar(`No se pudieron cargar las categorias: ${error.message}`, 'error');
+      return;
+    }
+
+    const campoNombre = campoTexto('Ej: Notebooks 14"', 'Nombre *');
+    if (categoria) campoNombre.input.value = categoria.name || '';
+
+    const campoCodigo = campoTexto('Ej: NB14', 'Codigo corto', { mono: true });
+    if (categoria) campoCodigo.input.value = categoria.code || '';
+
+    // La ruta de la categoria editada: sus descendientes no pueden ser su padre.
+    const rutaPadre = categoria?.ruta ?? '';
+    const selectPadre = crear('select', { clase: 'campo__control' });
+    selectPadre.append(crear('option', { texto: 'Sin categoria padre', atributos: { value: '' } }));
+    for (const c of categorias) {
+      // Una categoria no puede colgar de si misma, y tampoco de una de sus
+      // hijas: el backend lo rechaza, pero es mejor no ofrecerlo.
+      if (categoria && (c.id === categoria.id || (rutaPadre && c.ruta?.startsWith(rutaPadre)))) continue;
+      selectPadre.append(crear('option', { texto: c.ruta || c.name, atributos: { value: c.id } }));
+    }
+    if (categoria?.parent_id) selectPadre.value = String(categoria.parent_id);
+
+    const form = crear('form', {
+      clase: 'apilado',
+      atributos: {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await guardar();
+        },
+      },
+    });
+
+    form.append(
+      campoNombre.campo,
+      campoCodigo.campo,
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria padre' }), selectPadre],
+      }),
+    );
+
+    const btnGuardar = crear('button', {
+      clase: 'boton boton--bloque',
+      texto: categoria ? 'Guardar cambios' : 'Crear categoria',
+      atributos: { type: 'submit' },
+    });
+    form.append(btnGuardar);
+
+    let cerrarModal = () => {};
+
+    async function guardar() {
+      const name = campoNombre.input.value.trim();
+      if (!name) return avisar('El nombre es obligatorio', 'alerta');
+
+      const cuerpoPeticion = {
+        name,
+        code: campoCodigo.input.value.trim() || undefined,
+        parent_id: selectPadre.value ? parseInt(selectPadre.value, 10) : null,
+      };
+
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = 'Guardando…';
+      try {
+        if (categoria) {
+          await api.pedir(`/catalog/categories/${categoria.id}`, {
+            metodo: 'PUT',
+            cuerpo: cuerpoPeticion,
+          });
+        } else {
+          await api.pedir('/catalog/categories', { metodo: 'POST', cuerpo: cuerpoPeticion });
+        }
+        avisar(categoria ? 'Categoria actualizada' : 'Categoria creada', 'exito', 2500);
+        cerrarModal();
+        alGuardar?.();
+      } catch (error) {
+        avisar(error.message, 'error');
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = categoria ? 'Guardar cambios' : 'Crear categoria';
+      }
+    }
+
+    cerrarModal = abrirDialogo({
+      titulo: categoria ? `Editar ${categoria.name}` : 'Nueva categoria',
+      cuerpo: [form],
+      clase: 'modal--formulario',
+      acciones: [],
+      alAbrir: (_modal, cerrar) => {
+        cerrarModal = cerrar;
+      },
+    });
+  }
+
+  /**
+   * Los atributos de una categoria: los que tiene y los que se le pueden
+   * agregar.
+   */
+  async function abrirAtributos(categoria) {
+    const cuerpo = crear('div', { clase: 'apilado' });
+    const zonaLista = crear('div');
+    cuerpo.append(zonaLista);
+
+    async function pintar() {
+      zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando atributos…' }));
+      try {
+        const atributos = await api.pedir(`/catalog/categories/${categoria.id}/attributes`);
+        zonaLista.replaceChildren();
+
+        if (!atributos.length) {
+          zonaLista.append(
+            crear('p', {
+              clase: 'tenue',
+              texto: 'Esta categoria no define atributos. Un producto de esta categoria no tendra campos extra.',
+            }),
+          );
+          return;
+        }
+
+        const lista = crear('ul', { clase: 'lista' });
+        for (const a of atributos) {
+          const item = crear('li', { clase: 'lista__item' });
+          const cuerpoItem = crear('div', { clase: 'lista__cuerpo' });
+          cuerpoItem.append(
+            crear('div', { clase: 'lista__titulo', texto: a.label }),
+            crear('div', {
+              clase: 'lista__meta mono',
+              texto: `${a.key} · ${a.data_type}${a.is_required ? ' · obligatorio' : ''}`,
+            }),
+          );
+          item.append(cuerpoItem);
+          lista.append(item);
+        }
+        zonaLista.append(lista);
+      } catch (error) {
+        zonaLista.replaceChildren(
+          crear('div', { clase: 'resultado resultado--error', texto: error.message }),
+        );
+      }
+    }
+
+    const campoNombre = campoTexto('Ej: caducidad', 'Clave *', { mono: true });
+    const campoEtiqueta = campoTexto('Ej: Fecha de caducidad', 'Etiqueta *');
+    const campoUnidad = campoTexto('Ej: kg', 'Unidad');
+
+    const selectTipo = crear('select', { clase: 'campo__control' });
+    for (const [valor, texto] of [
+      ['text', 'Texto'],
+      ['number', 'Numero'],
+      ['date', 'Fecha'],
+      ['boolean', 'Si / No'],
+      ['select', 'Lista de opciones'],
+    ]) {
+      selectTipo.append(crear('option', { texto, atributos: { value: valor } }));
+    }
+
+    const campoOpciones = campoTexto('Ej: Nuevo, Reacondicionado', 'Opciones (separadas por coma)');
+    campoOpciones.campo.hidden = true;
+    selectTipo.addEventListener('change', () => {
+      campoOpciones.campo.hidden = selectTipo.value !== 'select';
+    });
+
+    const form = crear('form', {
+      clase: 'apilado',
+      atributos: {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await guardar();
+        },
+      },
+    });
+
+    form.append(
+      campoNombre.campo,
+      campoEtiqueta.campo,
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Tipo' }), selectTipo],
+      }),
+      campoUnidad.campo,
+      campoOpciones.campo,
+    );
+
+    const btnAgregar = crear('button', {
+      clase: 'boton boton--bloque',
+      texto: 'Agregar atributo',
+      atributos: { type: 'submit' },
+    });
+    form.append(btnAgregar);
+
+    async function guardar() {
+      const key = campoNombre.input.value.trim().toLowerCase().replace(/\s+/g, '_');
+      const label = campoEtiqueta.input.value.trim();
+      if (!key || !label) return avisar('La clave y la etiqueta son obligatorias', 'alerta');
+
+      const opciones = campoOpciones.input.value
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+
+      if (selectTipo.value === 'select' && !opciones.length) {
+        return avisar('Un atributo de tipo lista necesita sus opciones', 'alerta');
+      }
+
+      btnAgregar.disabled = true;
+      btnAgregar.textContent = 'Agregando…';
+      try {
+        await api.pedir(`/catalog/categories/${categoria.id}/attributes`, {
+          metodo: 'POST',
+          cuerpo: {
+            key,
+            label,
+            data_type: selectTipo.value,
+            unit: campoUnidad.input.value.trim() || undefined,
+            options: opciones.length ? opciones : undefined,
+          },
+        });
+        avisar('Atributo agregado', 'exito', 2500);
+        campoNombre.input.value = '';
+        campoEtiqueta.input.value = '';
+        await pintar();
+      } catch (error) {
+        avisar(error.message, 'error');
+      } finally {
+        btnAgregar.disabled = false;
+        btnAgregar.textContent = 'Agregar atributo';
+      }
+    }
+
+    const btnCerrar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cerrar',
+      atributos: { type: 'button' },
+    });
+
+    abrirDialogo({
+      titulo: `Atributos de ${categoria.name}`,
+      nota: 'Los atributos son los campos extra que pide un producto de esta categoria.',
+      cuerpo: [cuerpo, form],
+      clase: 'modal--formulario',
+      acciones: [btnCerrar],
+      alAbrir: (_modal, cerrar) => {
+        btnCerrar.addEventListener('click', cerrar);
+      },
+    });
+
+    await pintar();
+  }
+
   // --- Alta de producto -----------------------------------------------------
   async function abrirAlta() {
     let categorias = [];
@@ -324,7 +671,10 @@ export function vistaProductos({ permisos = [] }) {
       crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }),
     );
     for (const c of categorias) {
-      selectCategoria.append(crear('option', { texto: c.name, atributos: { value: c.id } }));
+      // La ruta completa ("Notebook > Notebooks 14\""), no el nombre solo: con
+      // subcategorias hay dos "Impresora" y el operador tiene que ver de que
+      // rama sale cada una.
+      selectCategoria.append(crear('option', { texto: c.ruta || c.name, atributos: { value: c.id } }));
     }
 
     const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01' });
@@ -341,6 +691,11 @@ export function vistaProductos({ permisos = [] }) {
       },
     });
 
+    // Los atributos de la CATEGORIA elegida (caducidad, lote, dimensiones...).
+    // El backend los valida contra la definicion de la categoria, asi que
+    // solo se mandan los que el operador lleno.
+    const zonaAtributos = crear('div', { clase: 'apilado' });
+
     form.append(
       campoMarca.campo,
       campoModelo.campo,
@@ -350,12 +705,17 @@ export function vistaProductos({ permisos = [] }) {
         clase: 'campo',
         hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria *' }), selectCategoria],
       }),
+      zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
       campoMax.campo,
       campoQR.campo,
       campoBarras.campo,
     );
+
+    selectCategoria.addEventListener('change', () => {
+      pintarAtributos(zonaAtributos, selectCategoria.value, {});
+    });
 
     const btnGuardar = crear('button', {
       clase: 'boton boton--bloque',
@@ -403,6 +763,7 @@ export function vistaProductos({ permisos = [] }) {
           max_stock: parseInt(campoMax.input.value || '100', 10),
           qr_code: campoQR.input.value.trim() || undefined,
           barcode: campoBarras.input.value.trim() || undefined,
+          atributos: leerAtributos(),
         });
         avisar('Producto creado correctamente', 'exito', 2500);
         cerrarModal();
@@ -456,7 +817,10 @@ export function vistaProductos({ permisos = [] }) {
       crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true } }),
     );
     for (const c of categorias) {
-      selectCategoria.append(crear('option', { texto: c.name, atributos: { value: c.id } }));
+      // La ruta completa ("Notebook > Notebooks 14\""), no el nombre solo: con
+      // subcategorias hay dos "Impresora" y el operador tiene que ver de que
+      // rama sale cada una.
+      selectCategoria.append(crear('option', { texto: c.ruta || c.name, atributos: { value: c.id } }));
     }
     selectCategoria.value = String(p.category_id || '');
 
@@ -477,6 +841,8 @@ export function vistaProductos({ permisos = [] }) {
       },
     });
 
+    const zonaAtributos = crear('div', { clase: 'apilado' });
+
     form.append(
       campoMarca.campo,
       campoModelo.campo,
@@ -486,12 +852,19 @@ export function vistaProductos({ permisos = [] }) {
         clase: 'campo',
         hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria *' }), selectCategoria],
       }),
+      zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
       campoMax.campo,
       campoQR.campo,
       campoBarras.campo,
     );
+
+    selectCategoria.addEventListener('change', () => {
+      pintarAtributos(zonaAtributos, selectCategoria.value, {});
+    });
+    // Los atributos que ya tenia el producto, con los valores cargados.
+    pintarAtributos(zonaAtributos, selectCategoria.value, p.atributos || {});
 
     const btnGuardar = crear('button', {
       clase: 'boton boton--bloque',
@@ -535,6 +908,7 @@ export function vistaProductos({ permisos = [] }) {
           max_stock: parseInt(campoMax.input.value || '100', 10),
           qr_code: campoQR.input.value.trim() || undefined,
           barcode: campoBarras.input.value.trim() || undefined,
+          atributos: leerAtributos(),
         });
         avisar('Producto actualizado correctamente', 'exito', 2500);
         cerrarModal();
@@ -659,4 +1033,111 @@ function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mo
     hijos: [crear('span', { clase: 'campo__etiqueta', texto: etiqueta }), input],
   });
   return { campo, input };
+}
+
+/**
+ * Los controles de los atributos de la categoria.
+ *
+ * Un Map de clave -> control. El Map es global al modulo porque el formulario
+ * de alta y el de edicion existen a la vez en algunos momentos, y cada uno
+ * pinta sus propios campos: con un Map por formulario habria que acordarse de
+ * cual se esta leyendo al mandar.
+ */
+const controlesAtributos = new Map();
+
+/**
+ * Pinta los campos de los atributos de una categoria.
+ *
+ * QUE SON
+ * -------
+ * Cada categoria define sus propios campos: una de monitores tiene "alto" y
+ * "ancho", una de consumibles tiene "caducidad" y "lote". El backend valida
+ * los valores contra esa definicion, asi que el frontend no decide nada: solo
+ * pide la definicion y arma el control que corresponde.
+ *
+ * @param {HTMLElement} zona      Donde se pintan los campos.
+ * @param {string|number} categoriaId
+ * @param {object} valores        Valores ya cargados (edicion).
+ */
+async function pintarAtributos(zona, categoriaId, valores = {}) {
+  controlesAtributos.clear();
+  zona.replaceChildren();
+
+  if (!categoriaId) return;
+
+  let atributos;
+  try {
+    atributos = await api.pedir(`/catalog/categories/${categoriaId}/attributes`);
+  } catch (error) {
+    // Los atributos son un extra: si no se pueden cargar, el producto se
+    // guarda igual, sin sus atributos.
+    console.warn('No se pudieron cargar los atributos:', error);
+    return;
+  }
+
+  if (!atributos.length) return;
+
+  const titulo = crear('p', { clase: 'campo__ayuda', texto: 'Atributos de la categoria' });
+  zona.append(titulo);
+
+  for (const atributo of atributos) {
+    const valor = valores[atributo.key] ?? '';
+
+    let control;
+    if (atributo.data_type === 'select') {
+      const opciones = Array.isArray(atributo.options)
+        ? atributo.options
+        : (atributo.options ? JSON.parse(atributo.options) : []);
+      control = crear('select', { clase: 'campo__control' });
+      control.append(
+        crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true } }),
+      );
+      for (const opcion of opciones) {
+        control.append(crear('option', { texto: String(opcion), atributos: { value: opcion } }));
+      }
+      if (valor !== '') control.value = String(valor);
+    } else if (atributo.data_type === 'boolean') {
+      control = crear('input', {
+        clase: 'campo__control',
+        atributos: { type: 'checkbox' },
+      });
+      control.checked = valor === true || String(valor).toLowerCase() === 'true';
+    } else {
+      control = crear('input', {
+        clase: 'campo__control',
+        atributos: {
+          type: atributo.data_type === 'number' ? 'number' : atributo.data_type === 'date' ? 'date' : 'text',
+          autocomplete: 'off',
+          ...(valor !== '' && valor !== null ? { value: String(valor) } : {}),
+        },
+      });
+    }
+
+    const etiqueta = crear('span', {
+      clase: 'campo__etiqueta',
+      texto: atributo.label + (atributo.is_required ? ' *' : '') + (atributo.unit ? ` (${atributo.unit})` : ''),
+    });
+
+    zona.append(crear('label', { clase: 'campo', hijos: [etiqueta, control] }));
+    controlesAtributos.set(atributo.key, control);
+  }
+}
+
+/**
+ * Los valores de los atributos que el operador lleno.
+ *
+ * Un control vacio NO se manda: el backend lo tomaria como "borrar el valor"
+ * en la edicion, y en el alta seria un atributo sin valor.
+ */
+function leerAtributos() {
+  const valores = {};
+  for (const [clave, control] of controlesAtributos) {
+    if (control.type === 'checkbox') {
+      if (control.checked) valores[clave] = true;
+      continue;
+    }
+    const valor = (control.value ?? '').toString().trim();
+    if (valor !== '') valores[clave] = valor;
+  }
+  return valores;
 }

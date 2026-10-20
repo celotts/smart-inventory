@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.core.config import get_settings
 from src.modules.ai.executor import get_ai_engine
+from src.modules.locations.service import ids_descendientes, ids_descendientes_categoria
 
 # El SELECT de la ficha. Un unico lugar donde se decide que "esta en el taller"
 # significa tener una reparacion abierta.
@@ -443,17 +444,31 @@ def listar_dispositivos(
     estado: str | None = None,
     ubicacion_id: int | None = None,
     categoria: str | None = None,
+    categoria_id: int | None = None,
     busqueda: str | None = None,
     limite: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
     """
-    Listado paginado.
+    Listado paginado, con filtros combinables.
 
-    El `LIKE` del filtro va con `ILIKE` y con el comodin escapado. Un `busqueda`
-    de `%` sin escapar devuelve la tabla entera, que no es un error de
-    seguridad sino de recursos: el cliente pidio una pagina de 50 y se lleva la
-    base.
+    LOS FILTROS DE UBICACION Y CATEGORIA BAJAN A LAS HIJAS
+    -------------------------------------------------------
+    Filtrar por "Deposito Central" trae tambien lo que esta en sus pasillos y
+    estantes; filtrar por "Portatiles" trae sus subcategorias. El operador
+    pregunta por la BODEGA y por la RAMA, no por cada estante. Sin esto, un
+    filtro por bodega mostraria el deposito VACIO en un deposito con pasillos.
+
+    LA BUSQUEDA ES DE TEXTO COMPLETO
+    --------------------------------
+    `search_vector` es una columna generada con el serial, el codigo de
+    etiqueta y los datos del producto (marca, modelo, variante, SKU). Con
+    `plainto_tsquery` el operador puede escribir "portatil dell" y encontrar
+    "Dell Latitude 5520": un `ILIKE`('%portatil dell%') no lo encuentra nunca.
+
+    El `ILIKE` queda como red de seguridad para los codigos con simbolos (un
+    `INV-a1b2/3` no es una palabra del diccionario) y para los prefijos
+    parciales ("SN-DEMO" sin el numero).
     """
     condiciones = ["d.deleted_at IS NULL"]
     parametros: dict[str, Any] = {"limite": limite, "offset": offset}
@@ -462,15 +477,34 @@ def listar_dispositivos(
         condiciones.append("d.current_status = :estado")
         parametros["estado"] = estado
     if ubicacion_id:
-        condiciones.append("d.current_location_id = :ubicacion_id")
-        parametros["ubicacion_id"] = ubicacion_id
+        # La ubicacion y todas sus hijas (pasillos, estantes, bins).
+        ids = ids_descendientes(ubicacion_id)
+        if not ids:
+            # La ubicacion no existe: el filtro no debe traer la base entera.
+            condiciones.append("FALSE")
+        else:
+            condiciones.append(f"d.current_location_id IN ({','.join(str(int(i)) for i in ids)})")
+    if categoria_id:
+        # La categoria y todas sus subcategorias.
+        ids_categoria = ids_descendientes_categoria(categoria_id)
+        if not ids_categoria:
+            condiciones.append("FALSE")
+        else:
+            condiciones.append(
+                f"m.category_id IN ({','.join(str(int(i)) for i in ids_categoria)})"
+            )
     if categoria:
         condiciones.append("c.name = :categoria")
         parametros["categoria"] = categoria
     if busqueda:
         # Se escapan `%`, `_` y `\`. Sin esto, buscar "a_b" trae tambien
         # "aXb", y buscar "%" trae todo.
-        condiciones.append("(d.serial_number ILIKE :busqueda OR d.qr_code ILIKE :busqueda)")
+        condiciones.append(
+            "(d.serial_number ILIKE :busqueda OR d.qr_code ILIKE :busqueda "
+            "OR m.sku ILIKE :busqueda OR m.brand ILIKE :busqueda OR m.model ILIKE :busqueda "
+            "OR d.search_vector @@ plainto_tsquery('spanish', :busqueda) "
+            "OR m.search_vector @@ plainto_tsquery('spanish', :busqueda))"
+        )
         parametros["busqueda"] = f"%{_escapar_like(busqueda)}%"
 
     where = " AND ".join(condiciones)

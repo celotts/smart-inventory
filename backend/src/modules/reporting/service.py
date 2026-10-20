@@ -184,6 +184,92 @@ def _get_pos_pendientes(db: Session) -> list[dict]:
     return [dict(r) for r in db.execute(text(query)).mappings().all()]
 
 
+def dashboard() -> dict[str, Any]:
+    """
+    La pantalla de inicio: lo que hay que mirar primero.
+
+    UNA SOLA LLAMADA
+    ----------------
+    El dashboard hace varias consultas. Si cada una fuera un endpoint
+    distinto, la pantalla de inicio haria seis pedidos al abrirse, y en un
+    celular con 4G eso son seis esperas: la pantalla tarda medio minuto en
+    aparecer, o aparece a medias.
+
+    QUE TIENE
+    ---------
+    - Los KPIs: quantos equipos hay, cuantos estan en deposito, el valor.
+    - El stock por estado, para ver de un vistazo como esta repartido.
+    - Las alertas: stock bajo y mantenimiento vencido.
+    - Los ultimos movimientos: lo que paso hace un rato.
+    - Los productos criticos: los que estan por quedarse sin stock.
+    """
+    db = get_db_session()
+    try:
+        return {
+            "kpis": _get_kpis_principales(db),
+            "stock_por_estado": _get_stock_por_estado(db),
+            "alertas": _get_alertas_criticas(db),
+            "movimientos_recientes": _get_ultimos_movimientos(db, limite=8),
+            "productos_criticos": _get_productos_criticos(db, limite=8),
+            "mantenimientos_overdue": _get_mantenimientos_overdue(db),
+        }
+    finally:
+        db.close()
+
+
+def _get_ultimos_movimientos(db: Session, limite: int = 8) -> list[dict]:
+    """Los ultimos movimientos, con el equipo y de donde a donde."""
+    query = """
+        SELECT
+            mh.movement_date,
+            mt.label AS movimiento,
+            d.serial_number,
+            mo.sku,
+            mo.brand,
+            mo.model,
+            lo.store_name AS origen,
+            ld.store_name AS destino
+        FROM movement_history mh
+        JOIN devices d ON d.id = mh.device_id
+        JOIN models mo ON mo.id = d.model_id
+        JOIN movement_types mt ON mt.id = mh.movement_type_id
+        LEFT JOIN locations lo ON lo.id = mh.origin_location_id
+        LEFT JOIN locations ld ON ld.id = mh.destination_location_id
+        ORDER BY mh.movement_date DESC
+        LIMIT :limite
+    """
+    return [dict(r) for r in db.execute(text(query), {"limite": limite}).mappings().all()]
+
+
+def _get_productos_criticos(db: Session, limite: int = 8) -> list[dict]:
+    """
+    Los productos que estan por quedarse sin stock.
+
+    "Critico" es "por debajo del minimo" o "sin unidades en deposito": un
+    producto con stock 0 en el deposito y 5 instalados no es un problema de
+    reposicion, es un producto que no se puede entregar.
+    """
+    query = """
+        SELECT
+            m.sku,
+            m.brand,
+            m.model,
+            m.min_stock,
+            m.max_stock,
+            COALESCE(SUM(sl.available_count), 0) AS disponibles,
+            GREATEST(m.min_stock - COALESCE(SUM(sl.available_count), 0), 0) AS faltante,
+            m.lead_time_days
+        FROM models m
+        LEFT JOIN stock_levels sl ON sl.model_id = m.id
+        WHERE m.deleted_at IS NULL AND m.is_active
+        GROUP BY m.id
+        HAVING COALESCE(SUM(sl.available_count), 0) <= m.min_stock
+        ORDER BY COALESCE(SUM(sl.available_count), 0) ASC
+        LIMIT :limite
+    """
+    return [dict(r) for r in db.execute(text(query), {"limite": limite}).mappings().all()]
+
+
 def estadisticas_inventario() -> dict[str, Any]:
     """KPIs numéricos puros para dashboards."""
     db = get_db_session()
