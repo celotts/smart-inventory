@@ -29,11 +29,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from src.core.deps import exigir
 from src.core.permissions import Permiso
-from src.modules.devices import service
+from src.modules.devices import qr, service
 from src.modules.devices.schemas import (
     ActualizarDispositivoRequest,
     BajaDispositivoRequest,
@@ -156,6 +156,53 @@ def listar(
         busqueda=busqueda,
         limite=limite,
         offset=offset,
+    )
+
+
+@router.get(
+    "/{device_id}/qr",
+    summary="QR de la etiqueta del equipo (SVG)",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {}}, "description": "QR en SVG."},
+    },
+)
+def qr_de_etiqueta(
+    device_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> Response:
+    """
+    El QR de la etiqueta del equipo, listo para escanear o imprimir.
+
+    QUE CODIFICA
+    ------------
+    El `qr_code`, que es el codigo de la ETIQUETA fisica. El escaner resuelve
+    las dos cosas (`qr_code` y `serial_number`), asi que cualquiera de las dos
+    serviria, pero la etiqueta es lo que esta pegado al equipo: lo que el
+    operador tiene en la mano es eso.
+
+    POR QUE ES UN SVG
+    ----------------
+    Son unos pocos KB de texto y se ve nitido a cualquier tamaño, sin pixeles.
+    Para una etiqueta que se mira de cerca en un deposito, o que se imprime, el
+    vector gana al raster.
+
+    El permiso es el de VER inventario, no el de editar: mostrar el QR de un
+    equipo es una lectura, como el resto de la ficha.
+    """
+    try:
+        etiqueta = service.obtener_qr_equipo(device_id)
+    except service.DispositivoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return Response(
+        content=qr.qr_como_svg(etiqueta),
+        media_type="image/svg+xml",
+        headers={
+            # La etiqueta de un equipo no cambia: el QR se puede cachear.
+            # Un equipo dado de baja conserva su etiqueta historica.
+            "Cache-Control": "private, max-age=3600",
+        },
     )
 
 

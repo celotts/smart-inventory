@@ -6,9 +6,9 @@
  */
 
 import { api } from '../api.js';
-import { crear, icono, ICONOS } from '../dom.js';
+import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
 
 export function vistaNuevo({ permisos = [] }) {
   const raiz = crear('div');
@@ -33,6 +33,20 @@ export function vistaNuevo({ permisos = [] }) {
     clase: 'apilado',
     estilo: 'max-width: 520px; margin: 0 auto; gap: 1rem',
     atributos: {
+      // `novalidate` APAGA la validacion nativa del navegador.
+      //
+      // POR QUE
+      // -----
+      // Sin esto, el navegador intercepta el submit cuando falta un campo
+      // obligatorio y muestra SU burbuja ("Completa este campo"), en el
+      // idioma del navegador y sin decir cual es el problema de la app. La
+      // validacion de esta vista —que esta escrita en castellano, explica
+      // que falta y lleva el foco al campo— nunca llega a correr: el submit
+      // muere antes de `enviarFormulario()`.
+      //
+      // El sintoma para el operador es "no me deja crear componente": el
+      // boton no hace nada y no hay ningun mensaje de la app.
+      novalidate: true,
       onsubmit: async (e) => {
         e.preventDefault();
         await enviarFormulario();
@@ -119,7 +133,7 @@ export function vistaNuevo({ permisos = [] }) {
       }
       for (const p of productos) {
         campoProducto.append(
-          crear('option', { texto: `${p.brand} ${p.model} (${p.sku})`, atributos: { value: p.id } }),
+          crear('option', { texto: etiquetaProducto(p), atributos: { value: p.id } }),
         );
       }
     } catch (error) {
@@ -167,6 +181,13 @@ export function vistaNuevo({ permisos = [] }) {
       campoUbicacion.focus({ preventScroll: true });
       return;
     }
+
+    const ok = await confirmar({
+      titulo: 'Crear componente',
+      mensaje: `¿Dar de alta el equipo con serial ${serial}? Queda registrado en el inventario desde este momento.`,
+      textoConfirmar: 'Crear componente',
+    });
+    if (!ok) return;
 
     btnSubmit.disabled = true;
     btnSubmit.textContent = 'Creando…';

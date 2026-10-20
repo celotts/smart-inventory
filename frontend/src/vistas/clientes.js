@@ -10,7 +10,7 @@
 import { api } from '../api.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
 
 export function vistaClientes({ permisos = [] }) {
   const raiz = crear('div');
@@ -217,6 +217,13 @@ export function vistaClientes({ permisos = [] }) {
       if (!commercial_name) return avisar('El nombre comercial es obligatorio', 'alerta');
       if (!tax_id) return avisar('El tax_id es obligatorio', 'alerta');
 
+      const ok = await confirmar({
+        titulo: 'Guardar cliente',
+        mensaje: `¿Guardar el cliente "${commercial_name}" con el tax_id ${tax_id}?`,
+        textoConfirmar: 'Guardar',
+      });
+      if (!ok) return;
+
       btnGuardar.disabled = true;
       btnGuardar.textContent = 'Guardando…';
       try {
@@ -302,6 +309,13 @@ export function vistaClientes({ permisos = [] }) {
       if (!commercial_name) return avisar('El nombre comercial es obligatorio', 'alerta');
       if (!tax_id) return avisar('El tax_id es obligatorio', 'alerta');
 
+      const ok = await confirmar({
+        titulo: 'Guardar cambios',
+        mensaje: `¿Guardar los cambios del cliente "${commercial_name}"?`,
+        textoConfirmar: 'Guardar cambios',
+      });
+      if (!ok) return;
+
       btnGuardar.disabled = true;
       btnGuardar.textContent = 'Guardando…';
       try {
@@ -336,15 +350,42 @@ export function vistaClientes({ permisos = [] }) {
   }
 
   // --- Eliminar cliente -----------------------------------------------------
-  async function eliminar(c) {
-    if (!confirm(`¿Eliminar al cliente "${c.commercial_name}"?`)) return;
-    try {
-      await api.eliminarCliente(c.id);
-      avisar('Cliente eliminado', 'exito', 2500);
-      cargar();
-    } catch (error) {
-      avisar(error.message, 'error');
-    }
+  function eliminar(c) {
+    abrirDialogo({
+      titulo: 'Eliminar cliente',
+      mensaje: `¿Eliminar al cliente "${c.commercial_name}"? Esta acción no se puede deshacer.`,
+      clase: 'modal--confirmacion modal--peligro',
+      acciones: [
+        crear('button', {
+          clase: 'boton boton--suave',
+          texto: 'Cancelar',
+          atributos: { type: 'button' },
+        }),
+        crear('button', {
+          clase: 'boton boton--peligro',
+          texto: 'Eliminar',
+          atributos: { type: 'button' },
+        }),
+      ],
+      alAbrir: (modal, cerrar) => {
+        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .boton');
+        btnCancelar.addEventListener('click', cerrar);
+        btnConfirmar.addEventListener('click', async () => {
+          btnConfirmar.disabled = true;
+          btnConfirmar.textContent = 'Eliminando…';
+          try {
+            await api.eliminarCliente(c.id);
+            avisar('Cliente eliminado', 'exito', 2500);
+            cerrar();
+            cargar();
+          } catch (error) {
+            avisar(error.message, 'error');
+            btnConfirmar.disabled = false;
+            btnConfirmar.textContent = 'Eliminar';
+          }
+        });
+      },
+    });
   }
 
   inputBuscar.addEventListener('input', () => pintarLista(todosLosClientes));

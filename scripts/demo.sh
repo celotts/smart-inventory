@@ -43,15 +43,19 @@ SQL
 say "2/3  Modelos"
 
 psql_db -t -A <<'SQL'
-INSERT INTO models (category_id, brand, model, warranty_months)
-SELECT c.id, v.brand, v.model, v.warranty
+-- El SKU va SIEMPRE: es la clave con la que se compra y se cuenta el stock, y
+-- sin el los desplegables de la app lo muestran como "(null)" —que es lo que
+-- veia el operador en el alta de componentes—. `gen_random_uuid()` no sirve
+-- aca porque el SKU tiene que ser legible, no un UUID.
+INSERT INTO models (category_id, brand, model, sku, warranty_months)
+SELECT c.id, v.brand, v.model, v.sku, v.warranty
 FROM (VALUES
-  ('Dell',       'Latitude 5440', 36),
-  ('Lenovo',     'ThinkPad T14',  36),
-  ('HP',         'EliteBook 840', 36),
-  ('Samsung',    'Galaxy A10',    24),
-  ('Cisco',      'Catalyst 1000', 60)
-) AS v(brand, model, warranty)
+  ('Dell',       'Latitude 5440',  'DEMO-DELL-5440',  36),
+  ('Lenovo',     'ThinkPad T14',   'DEMO-LEN-T14',    36),
+  ('HP',         'EliteBook 840',  'DEMO-HP-840',     36),
+  ('Samsung',    'Galaxy A10',     'DEMO-SAM-A10',    24),
+  ('Cisco',      'Catalyst 1000',  'DEMO-CIS-1000',   60)
+) AS v(brand, model, sku, warranty)
 JOIN categories c ON c.name = 'Notebook' OR v.brand = 'Cisco'
 ON CONFLICT DO NOTHING;
 SQL

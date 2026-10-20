@@ -21,7 +21,7 @@
 import { api } from '../api.js';
 import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
 import { LectorQR, normalizarCodigo } from '../escaner.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
 import { avisar } from '../avisos.js';
 
 /** Tipos de movimiento - se cargan dinámicamente desde /api/movement-types */
@@ -638,6 +638,27 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     botonCamara.disabled = true;
     zonaResultado.replaceChildren(crear('p', { clase: 'cargando', texto: 'Registrando…' }));
 
+    // La baja definitiva no tiene vuelta atras: el equipo sale del inventario.
+    // Pide confirmacion. El resto de los movimientos NO la pide —el escaneo
+    // es un flujo rapido, con una mano ocupada y a veces con guantes, y un
+    // cartel en cada lectura lo volveria inservible—.
+    if (tipoSeleccionado === 'DISPOSAL') {
+      const ok = await confirmar({
+        titulo: 'Confirmar baja definitiva',
+        mensaje: `¿Dar de baja el equipo con el codigo ${codigo}? Deja de estar disponible en el inventario.`,
+        textoConfirmar: 'Dar de baja',
+        peligro: true,
+      });
+      if (!ok) {
+        envioEnCurso = false;
+        botonManual.disabled = false;
+        botonCamara.disabled = false;
+        zonaResultado.replaceChildren();
+        inputCodigo.focus({ preventScroll: true });
+        return;
+      }
+    }
+
     // El UUID se genera UNA vez por intento de escaneo.
     // Si la petición falla por red y el operador reintenta con el mismo código,
     // se reutiliza este y el backend lo reconoce como el mismo envío.
@@ -666,6 +687,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // operador pueda corregir y mandar una petición nueva.
       if (error.status >= 400 && error.status < 500) scanIdPendiente = null;
 
+      // Un codigo que NO existe en el inventario.
+      //
       // Un 404 NO es un fallo del sistema: es una etiqueta que no está dada de
       // alta. Es el caso más común en un depósito —el operador escanea un equipo
       // de otra empresa, o uno dado de baja sin certificado nuevo— y con un
@@ -675,6 +698,19 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // operador, no para un developers.
       if (error.status === 404) {
         mostrarCodigoDesconocido(error.message, codigo, rearmarCamara);
+        return;
+      }
+
+      // La etiqueta de la CAJA: el codigo existe, pero es la de un PRODUCTO del
+      // maestro y no la de un equipo. El backend responde 409 con el producto
+      // y sus unidades; acá se las muestra al operador para que elija con
+      // cual registrar el movimiento.
+      const producto = productoDelError(error);
+      if (producto) {
+        mostrarCodigoDeProducto(producto, codigo, {
+          alRegistrar: (unidad) => registrarUnidad(unidad),
+          alCerrar: rearmarCamara,
+        });
         return;
       }
 
@@ -715,6 +751,136 @@ function mostrarCodigoDesconocido(motivo, codigo, alCerrar) {
       });
       // Escape cierra el modal, y la cámara tiene que volver igual: el modal
       // no es el evento, es una de las dos formas de cerrarlo.
+      _modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') alCerrar?.();
+      });
+    },
+  });
+}
+
+/**
+ * Saca el producto de un error 409 del backend.
+ *
+ * El backend responde con `detail: { mensaje, producto }`: el `detalle` es un
+ * objeto, no un string, y es lo unico en la API que devuelve algo asi. Por eso
+ * se busca por `detalle.producto` y no por el texto: un 409 de transicion
+ * invalida (que si es un string) tiene que seguir siendo un error comun.
+ *
+ * @param {Error} error
+ * @returns {object|null} El producto, o null si el error no es de este tipo.
+ */
+function productoDelError(error) {
+  const detalle = error?.detalle?.detail ?? error?.detalle ?? null;
+  return detalle?.producto ?? null;
+}
+
+/**
+ * La etiqueta leida es la de un PRODUCTO del maestro, no la de un equipo.
+ *
+ * QUE SE MUESTRA
+ * --------------
+ * Los datos del producto y la lista de sus unidades, cada una con su serial,
+ * su estado y donde esta, y un boton para registrar el movimiento sobre esa.
+ *
+ * POR QUE NO ES UN ERROR
+ * ----------------------
+ * El operador leyo bien: el codigo existe. Lo que pasa es que la etiqueta es
+ * de la CAJA, y un movimiento se registra sobre un EQUIPO. Decirle "error"
+ * lo haria buscar un problema donde no lo hay.
+ *
+ * @param {object}   producto
+ * @param {string}   codigo
+ * @param {object}   opciones
+ * @param {Function} opciones.alRegistrar  Recibe la unidad elegida.
+ * @param {Function} [opciones.alCerrar]   Se dispara al cerrar.
+ */
+function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
+  const unidades = producto.unidades || [];
+
+  // El boton de cada unidad se arma ANTES de que el dialogo exista, asi que
+  // todavia no hay `cerrar`: se guarda aca y se completa en `alAbrir`.
+  let cerrarModal = () => {};
+
+  const lista = crear('ul', { clase: 'lista lista--unidades' });
+
+  for (const unidad of unidades) {
+    const estadoInfo = ESTADOS[unidad.current_status] ?? { texto: unidad.current_status, clase: 'insignia--baja' };
+
+    const item = crear('li', { clase: 'lista__item' });
+
+    const cuerpo = crear('div', { clase: 'lista__cuerpo' });
+    cuerpo.append(
+      crear('div', { clase: 'lista__titulo mono', texto: unidad.serial_number }),
+      crear('div', {
+        clase: 'lista__meta',
+        texto: [estadoInfo.texto, unidad.ubicacion_nombre].filter(Boolean).join(' · '),
+      }),
+    );
+
+    const btnRegistrar = crear('button', {
+      clase: 'boton boton--chico',
+      texto: 'Registrar',
+      atributos: { type: 'button' },
+    });
+
+    btnRegistrar.addEventListener('click', async () => {
+      btnRegistrar.disabled = true;
+      btnRegistrar.textContent = 'Registrando…';
+      try {
+        await alRegistrar(unidad);
+        cerrarModal();
+      } catch {
+        // El error ya se aviso con `avisar()`. El boton vuelve a estar usable:
+        // el operador va a querer intentar con otra unidad.
+        btnRegistrar.disabled = false;
+        btnRegistrar.textContent = 'Registrar';
+      }
+    });
+
+    item.append(cuerpo, btnRegistrar);
+    lista.append(item);
+  }
+
+  const cuerpoModal = crear('div', { clase: 'producto-resuelto' });
+  cuerpoModal.append(
+    crear('div', {
+      clase: 'producto-resuelto__datos',
+      texto: `${producto.brand || ''} ${producto.model || ''} · SKU ${producto.sku || ''}`.trim(),
+    }),
+  );
+
+  if (unidades.length) {
+    cuerpoModal.append(lista);
+  } else {
+    cuerpoModal.append(
+      crear('p', {
+        clase: 'campo__ayuda',
+        texto: 'Este producto no tiene ninguna unidad dada de alta todavía.',
+      }),
+    );
+  }
+
+  const boton = crear('button', {
+    clase: 'boton boton--bloque',
+    texto: 'Entendido',
+    atributos: { type: 'button' },
+  });
+
+  abrirDialogo({
+    titulo: 'Esta etiqueta es de un producto, no de un equipo',
+    mensaje:
+      `El código ${codigo} es la etiqueta del producto ${producto.brand || ''} ${producto.model || ''}` +
+      ` (SKU ${producto.sku || ''}). Elegí la unidad a la que corresponde el movimiento.`,
+    cuerpo: [cuerpoModal],
+    nota: 'Para mover varias unidades de una vez usá la vista Movimientos, que mueve por producto y cantidad.',
+    clase: 'modal--alerta',
+    acciones: [boton],
+    alAbrir: (_modal, cerrar) => {
+      cerrarModal = cerrar;
+      boton.addEventListener('click', () => {
+        cerrar();
+        alCerrar?.();
+      });
       _modal.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') alCerrar?.();
       });
@@ -798,6 +964,42 @@ function mostrarCodigoDesconocido(motivo, codigo, alCerrar) {
           zonaResultado.replaceChildren();
         }
       }, 8000);
+    }
+  }
+
+  /**
+   * Registra el movimiento sobre UNA unidad elegida por el operador.
+   *
+   * La etiqueta de la caja no dice que equipo es: el operador elige el
+   * serial de la lista y se manda el escaneo de ESE equipo, con su propio
+   * `qr_code`. Es el mismo camino que el de una etiqueta de equipo leida con
+   * la camara, con un paso mas: la eleccion.
+   *
+   * @param {{qr_code: string, serial_number: string}} unidad
+   */
+  async function registrarUnidad(unidad) {
+    const codigo = unidad.qr_code || unidad.serial_number;
+
+    try {
+      const posicion = await obtenerPosicion();
+
+      const resultado = await api.escanear({
+        codigo,
+        tipo_movimiento: tipoSeleccionado,
+        // Un UUID NUEVO: este envio es un escaneo distinto del que fallo, y
+        // el anterior ya se consumio con un `client_scan_id` que no registro
+        // nada. Reusarlo haria que el backend lo tomara por un reintento.
+        client_scan_id: nuevoScanId(),
+        latitude: posicion.latitude,
+        longitude: posicion.longitude,
+      });
+
+      scanIdPendiente = null;
+      inputCodigo.value = '';
+      pintarResultado(resultado, codigo);
+    } catch (error) {
+      avisar(error.message, 'error');
+      throw error;
     }
   }
 

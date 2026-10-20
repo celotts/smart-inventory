@@ -16,6 +16,14 @@ services:
       # no encuentra ningun .sql que correr y la base queda sin una sola tabla,
       # con el healthcheck en verde todo el tiempo.
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # NO se monta `migrations/`: el entrypoint de Postgres corre en orden
+      # alfabetico y las volveria a aplicar encima de una base que init.sql
+      # ya dejo completa. `init.sql` replica el contenido de todas las
+      # migraciones y las registra en `schema_migrations`, asi que una base
+      # creada desde cero y una migrada quedan IDENTICAS.
+      #
+      # Para una base ya existente, las migraciones se aplican con
+      # `make migrar` (scripts/migrar.sh), que corre el SQL desde el host.
     healthcheck:
       # `pg_isready` dice "aceptando conexiones" cuando el postmaster levanta el
       # socket, que es ANTES de que corran los scripts de init. Green aqui no

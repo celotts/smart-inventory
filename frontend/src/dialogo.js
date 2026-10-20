@@ -21,6 +21,26 @@ import { crear } from './dom.js';
 const FOCUSEABLES = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
+ * Pila de dialogos abiertos.
+ *
+ * POR QUE HACE FALTA
+ * -----------------
+ * Un dialogo de confirmacion puede abrirse ENCIMA de otro (el formulario de
+ * edicion pide confirmacion al guardar). Con dos modales abiertos, Escape
+ * cerraba los dos de una: el operador percia el formulario y se queda con
+ * la pantalla de fondo y un aviso de error sin saber por que.
+ *
+ * Con la pila, cada modal sabe si es el de arriba: Escape y el atrape de foco
+ * solo los aplica el ultimo, que es el unico que el operador esta viendo.
+ */
+const pila = [];
+
+/** Si el modal es el de arriba, es el unico que el operador ve. */
+function esSuperior(modal) {
+  return pila[pila.length - 1] === modal;
+}
+
+/**
  * Abre un modal y devuelve una función para cerrarlo.
  *
  * @param {object} opciones
@@ -81,6 +101,7 @@ export function abrirDialogo({
   modal.append(tarjeta);
 
   document.body.append(modal);
+  pila.push(modal);
 
   const focusables = modal.querySelectorAll(FOCUSEABLES);
   const primero = focusables[0];
@@ -88,6 +109,9 @@ export function abrirDialogo({
 
   function atraparFoco(e) {
     if (e.key !== 'Tab') return;
+    // Solo el modal de arriba atrapa el foco: si no, el de abajo seguiria
+    // Honorando su Tab y el foco saltaria del modal nuevo al viejo.
+    if (!esSuperior(modal)) return;
     // Con un solo focoable, el foco no tiene a donde ir y hay que evitar que
     // Tab lo saque del modal.
     if (focusables.length === 1) {
@@ -105,7 +129,10 @@ export function abrirDialogo({
   }
 
   function alEscape(e) {
-    if (e.key === 'Escape') cerrar();
+    // Escape cierra SOLO el modal de arriba. Con un formulario de edicion
+    // abierto debajo, cerrar los dos de una dejaba al operador en la pagina
+    // de fondo sin saber que habia pasado.
+    if (e.key === 'Escape' && esSuperior(modal)) cerrar();
   }
 
   let cerrado = false;
@@ -113,6 +140,8 @@ export function abrirDialogo({
     if (cerrado) return;
     cerrado = true;
     modal.remove();
+    const i = pila.indexOf(modal);
+    if (i !== -1) pila.splice(i, 1);
     document.removeEventListener('keydown', alEscape);
     document.removeEventListener('keydown', atraparFoco);
     // El foco vuelve a donde estaba: si no, al cerrarse el modal el operador
@@ -134,4 +163,58 @@ let _contador = 0;
 function contador() {
   _contador += 1;
   return _contador;
+}
+
+/**
+ * Pide confirmacion y devuelve una promesa.
+ *
+ * @param {object} opciones
+ * @param {string} opciones.titulo
+ * @param {string} [opciones.mensaje]
+ * @param {string} [opciones.nota]
+ * @param {string} [opciones.textoConfirmar]  Texto del boton de confirmar.
+ * @param {string} [opciones.textoCancelar]   Texto del boton de cancelar.
+ * @param {string} [opciones.clase]           Clase extra del modal.
+ * @param {boolean}[opciones.peligro]         Boton de confirmar en rojo.
+ * @returns {Promise<boolean>} `true` si el operador confirmo.
+ */
+export function confirmar({
+  titulo,
+  mensaje,
+  nota,
+  textoConfirmar = 'Confirmar',
+  textoCancelar = 'Cancelar',
+  clase = 'modal--confirmacion',
+  peligro = false,
+}) {
+  return new Promise((resolver) => {
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: textoCancelar,
+      atributos: { type: 'button' },
+    });
+    const btnAceptar = crear('button', {
+      clase: `boton${peligro ? ' boton--peligro' : ''}`,
+      texto: textoConfirmar,
+      atributos: { type: 'button' },
+    });
+
+    abrirDialogo({
+      titulo,
+      mensaje,
+      nota,
+      clase,
+      acciones: [btnCancelar, btnAceptar],
+      alAbrir: (_modal, cerrar) => {
+        btnCancelar.addEventListener('click', () => {
+          resolver(false);
+          cerrar();
+        });
+        btnAceptar.addEventListener('click', () => {
+          resolver(true);
+          cerrar();
+        });
+      },
+    });
+  });
 }

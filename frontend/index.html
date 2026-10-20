@@ -211,6 +211,14 @@
     </div>
   </footer>
 
+  <!--
+    El vigilante de arranque va ANTES de main.js y en un archivo aparte, a
+    proposito: si el problema esta en main.js —un bundle roto en la cache, un
+    service worker que sirve una version vieja— un vigilante dentro de
+    main.js no llega a ejecutarse nunca. Este lo reemplaza por un mensaje con
+    boton de recargar en vez de dejar el "Cargando…" girando para siempre.
+  -->
+  <script type="module" src="/src/arranque.js"></script>
   <script type="module" src="/src/main.js"></script>
   <noscript>
     <p style="padding:2rem;text-align:center">

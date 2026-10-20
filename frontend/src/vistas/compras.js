@@ -19,9 +19,9 @@
  */
 
 import { api } from '../api.js';
-import { crear, icono, ICONOS } from '../dom.js';
+import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
 
 const ESTADOS_ORDEN = {
   BORRADOR: { texto: 'Borrador', clase: 'insignia--deposito' },
@@ -222,6 +222,16 @@ export function vistaCompras({ permisos = [] }) {
           return;
         }
 
+        // Recibir crea equipos con serial propio: es irreversible y genera
+        // movimientos de entrada. El operador tiene que confirmarlo.
+        const total = lineas.reduce((suma, l) => suma + l.cantidad_recibida, 0);
+        const ok = await confirmar({
+          titulo: 'Recibir mercancia',
+          mensaje: `¿Registrar la entrada de ${total} equipo(s) al inventario? Cada uno se crea con su serial y genera un movimiento de entrada.`,
+          textoConfirmar: 'Recibir',
+        });
+        if (!ok) return;
+
         btnRecibir.disabled = true;
         btnRecibir.textContent = 'Recibiendo…';
         try {
@@ -296,7 +306,7 @@ export function vistaCompras({ permisos = [] }) {
     const selectProducto = crear('select', { clase: 'campo__control' });
     for (const p of productos) {
       selectProducto.append(
-        crear('option', { texto: `${p.brand} ${p.model} (${p.sku})`, atributos: { value: p.id } }),
+        crear('option', { texto: etiquetaProducto(p), atributos: { value: p.id } }),
       );
     }
 
@@ -349,6 +359,13 @@ export function vistaCompras({ permisos = [] }) {
     async function enviar() {
       const cantidad = parseInt(campoCantidad.value || '0', 10);
       if (cantidad < 1) return avisar('La cantidad debe ser al menos 1', 'alerta');
+
+      const ok = await confirmar({
+        titulo: 'Crear orden de compra',
+        mensaje: `¿Crear la orden de compra por ${cantidad} unidad(es)?`,
+        textoConfirmar: 'Crear orden',
+      });
+      if (!ok) return;
 
       btnGuardar.disabled = true;
       btnGuardar.textContent = 'Creando…';

@@ -526,7 +526,7 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
    Contenido
    --------------------------------------------------------------------------- */
 .contenido {
-  max-width: 900px;
+  max-width: 1200px;
   margin-inline: auto;
   padding: 1.25rem 1rem calc(6rem + var(--safe-bottom));
 }
@@ -1310,6 +1310,18 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   -webkit-backdrop-filter: blur(4px);
   animation: modal-entrar 0.15s ease-out;
 }
+
+/* En movil el modal de formulario se ancla abajo como una hoja. `end` en vez
+ * de `center` para que el borde superior quede pegado al piso de la pantalla:
+ * el formulario largo scrollea desde arriba y el boton de guardar queda al
+ * alcance del pulgar, sin que el operador tenga que scrollear hasta el final
+ * para confirmarlo. */
+@media (max-width: 639px) {
+  .modal--formulario {
+    place-items: end center;
+    padding: 0;
+  }
+}
 @keyframes modal-entrar {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1349,6 +1361,14 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   color: var(--texto-suave);
 }
 
+/* El modal de confirmacion de una operacion destructiva. */
+.modal--peligro .modal__contenido {
+  border-top: 3px solid var(--error);
+}
+.modal--peligro h3 {
+  color: var(--error-texto);
+}
+
 /* La nota es el segundo nivel: dice qué hacer, no qué pasó. */
 .modal__nota {
   margin: 0.75rem 0 0;
@@ -1374,14 +1394,82 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   text-align: start;
 }
 
-/* Los modales con formulario (alta de producto, alta de proveedor, edicion de
-   componente) tienen mas campos que un aviso, asi que necesitan mas ancho y un
-   tope de alto: sin `max-height` el formulario largo empuja el boton de guardar
-   fuera de la pantalla en un celular y el operador no puede confirmar. */
+/* ---------------------------------------------------------------------------
+   Modal de formulario: hoja en móvil, compacto en laptop/tablet
+   ---------------------------------------------------------------------------
+   Un formulario de alta tiene mas campos que un aviso, y en un celular no
+   entra: por ahi el modal tiene que ser una hoja que ocupa toda la pantalla y
+   se scrollea. En una laptop o una tablet, en cambio, esa misma hoja queda
+   estirada y rara — el operador ve un panel angosto y largo en el medio de
+   una pantalla enorme.
+
+   Por eso el ancho y el alto se deciden por tamano de pantalla, no por
+   preferencia: hoja completa abajo de 640px, dialogo compacto y centrado
+   desde 640px para arriba. */
 .modal--formulario .modal__contenido {
-  width: min(92vw, 520px);
-  max-height: 90vh;
+  /* Movil: hoja inferior a pantalla completa. */
+  width: 100%;
+  max-width: 100%;
+  max-height: 92dvh;
   overflow-y: auto;
+  border-radius: var(--radio-lg) var(--radio-lg) 0 0;
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
+  margin-top: auto;
+}
+
+@media (min-width: 640px) {
+  .modal--formulario .modal__contenido {
+    /* Laptop y tablet: dialogo compacto, centrado, con esquinas completas. */
+    width: min(92vw, 480px);
+    max-width: 480px;
+    max-height: 85vh;
+    border-radius: var(--radio-lg);
+    padding-bottom: 1.5rem;
+    margin-top: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Formulario de modal en dos columnas (pantallas anchas)
+   ---------------------------------------------------------------------------
+   Un formulario de alta tiene ocho campos. En una sola columna son 1058 px de
+   alto: en un laptop de 900 px de alto, el modal llegaba al tope de 85vh y el
+   boton de guardar quedaba FUERA de la vista. El operador scrolleaba dentro
+   del modal para confirmarlo, y el modal se veia como una tira larga y
+   angosta: justo lo que no tiene que ser en una pantalla con espacio de sobra.
+
+   En dos columnas, los ocho campos son cuatro filas: el modal entra entero,
+   sin scroll, y se lee como una ficha y no como una lista.
+
+   El ancho tambien crece (480 -> 660 px) porque dos columnas de campos de
+   formulario necesitan el ancho: con 480 px cada campo quedaria de 220 px y
+   el placeholder se cortaria. Un modal mas ancho con el mismo numero de
+   campos por fila NO es "alargado": es lo contrario de alargado.
+
+   Y a partir de 768 px, que es donde entra una tablet en vertical, no antes:
+   con menos ancho que eso, dos columnas de formulario se vuelven ilegibles. */
+@media (min-width: 768px) {
+  .modal--formulario .modal__contenido {
+    width: min(92vw, 660px);
+    max-width: 660px;
+  }
+
+  .modal--formulario form.apilado {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1rem;
+  }
+
+  /* El margen inferior del campo suma al gap de la grilla y deja las filas
+   * separadas por mas de lo necesario. En una grilla el gap ya hace ese
+   * trabajo. */
+  .modal--formulario form.apilado > .campo {
+    margin-bottom: 0;
+  }
+
+  /* El boton de guardar ocupa las dos columnas: es una accion, no un campo. */
+  .modal--formulario form.apilado > .boton--bloque {
+    grid-column: 1 / -1;
+  }
 }
 .modal--formulario h3 {
   margin-top: 0;
@@ -1437,8 +1525,13 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   background: var(--superficie);
   border-top: 1px solid var(--borde);
   font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
-  white-space: pre;
-  word-break: normal; /* No romper palabras en SQL */
+  /* `pre` mantenia el SQL en una sola linea, y esa linea —de 140 caracteres
+     sin cortes— era el min-content de la caja: el grid de `.apilado` media a
+     ese hijo, la tarjeta se ensanchaba, y con ella la pagina entera. El SQL
+     largo se resuelve adentro del pre, envolviendo. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .sql-code::-webkit-scrollbar {
   height: 6px;
@@ -1449,6 +1542,251 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .sql-code::-webkit-scrollbar-thumb {
   background: var(--primario);
   border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout de consultas — dos columnas en pantallas anchas
+   ---------------------------------------------------------------------------
+   En pantallas de 1024px+, el chat ocupa el 65% y la columna lateral
+   (sugerencias + reporte) el 35%. En pantallas angostas, todo se apila. */
+.layout-consultas {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .layout-consultas {
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+  }
+
+  .layout-consultas__lateral {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   QR de la etiqueta
+   ---------------------------------------------------------------------------
+   El fondo BLANCO no es decoracion: un lector de codigos de barras mide el
+   contraste entre los modulos y el fondo, y un QR negro sobre el gris claro
+   del modo oscuro se lee con menos margen de error que sobre blanco. El
+   `padding` es la zona de silencio que el estandar exige alrededor del QR: sin
+   ella, el lector no arranca.
+
+   El SVG va INLINE (no en el `src` de un `<img>`): la API pide token por
+   header, que un `<img>` no puede mandar, y la CSP de la app prohibe los
+   `data:` URL. Ver `src/qr.js`. */
+.qr-etiqueta {
+  display: grid;
+  place-items: center;
+  width: 180px;
+  height: 180px;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+}
+
+.qr-etiqueta svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qr-etiqueta--vacia {
+  /* El QR no se pudo generar: queda el hueco con borde, sin imagen rota. */
+  background: var(--superficie-2);
+}
+
+.qr-contenedor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie-2);
+}
+
+.qr-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.qr-caption .mono {
+  font-size: 1rem;
+  word-break: break-all;
+}
+
+/* En el formulario de edicion, el QR va sobre el campo, no al lado: el modal
+   es angosto y al lado lo dejaria con el ancho de un campo de texto. */
+.qr-formulario {
+  display: flex;
+  justify-content: center;
+  margin: -0.35rem 0 1rem;
+}
+
+.qr-formulario .qr-etiqueta {
+  width: 132px;
+  height: 132px;
+}
+
+/* ---------------------------------------------------------------------------
+   Etiqueta del producto (QR + codigo de barras)
+   ---------------------------------------------------------------------------
+   La etiqueta del PRODUCTO (la caja, el rack) es distinta de la del EQUIPO,
+   que ya tiene su bloque `.qr-etiqueta` mas arriba.
+
+   El fondo BLANCO de las dos imagenes no es decoracion: un lector de codigos
+   mide el CONTRASTE entre los modulos y el fondo, y un QR negro sobre el gris
+   del modo oscuro se lee con menos margen de error. El `padding` es la zona de
+   silencio que el estandar exige alrededor del codigo: sin ella, el lector no
+   arranca. */
+.lista__qr {
+  flex: 0 0 auto;
+  border-radius: var(--radio-sm);
+  overflow: hidden;
+}
+
+.qr-etiqueta--producto {
+  padding: 4px;
+}
+
+.codigo-barras {
+  display: block;
+  width: 100%;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+}
+
+.codigo-barras svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.codigo-barras--vacio {
+  /* El codigo no se pudo generar: queda el hueco con borde, sin imagen rota. */
+  background: var(--superficie-2);
+  min-height: 44px;
+}
+
+.etiqueta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.etiqueta__datos {
+  text-align: center;
+}
+
+.etiqueta__nombre {
+  font-weight: 600;
+}
+
+.etiqueta__meta {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+}
+
+.etiqueta__codigos {
+  font-size: 0.78rem;
+  color: var(--texto-suave);
+  text-align: center;
+  word-break: break-all;
+}
+
+/* ---------------------------------------------------------------------------
+   Etiqueta de un PRODUCTO leida en el escaner
+   ---------------------------------------------------------------------------
+   Cuando el operador apunta la camara a la CAJA, el codigo existe pero no
+   identifica a un equipo. El modal lista las unidades del producto para que
+   el operador elija con cual registrar el movimiento. */
+.producto-resuelto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.producto-resuelto__datos {
+  font-weight: 600;
+  text-align: center;
+}
+
+.lista--unidades {
+  max-height: 45vh;
+  overflow-y: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+}
+
+.lista--unidades .lista__item:last-child {
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Chat de consultas
+   ---------------------------------------------------------------------------
+   La caja de conversacion es un grid de una columna implicita, y en un grid
+   la columna `auto` se dimensiona segun el min-content del hijo mas largo.
+   Una respuesta con una linea larguisima (un SQL, un numero de serie pegado)
+   ensanchaba la caja, la caja ensanchaba la tarjeta, y la tarjeta —con
+   max-width: 900px pero width: auto— ensanchaba la pagina entera: aparecia
+   scroll horizontal global y las tarjetas de abajo quedaban comprimidas
+   contra el borde izquierdo.
+
+   `minmax(0, 1fr)` fija la columna al ancho del contenedor, y
+   `overflow-wrap: anywhere` en los hijos deja que una palabra larga se rompa
+   en vez de empujar. Junto con el `pre-wrap` del SQL de arriba, la pagina ya
+   no se ensancha por culpa de una respuesta. */
+.chat-caja {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Fila del input: el textarea crece y el boton NO.
+ *
+ * Antes usaba `.fila-botones`, donde `flex: 1 1 auto` en TODOS los hijos
+ * repartia el ancho en partes iguales: el textarea quedaba angosto (da igual
+ * cuanto escribas, la caja no crece) y el boton "Pregunta" —de cuatro
+ * letras— ocupaba la mitad de la fila. Ahora el input toma el espacio
+ * disponible y el boton se ajusta a su texto. */
+.fila-entrada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.fila-entrada > textarea,
+.fila-entrada > .campo__control {
+  flex: 1 1 60%;
+  min-width: 0;
+}
+.fila-entrada > .boton {
+  flex: 0 0 auto;
+}
+
+/* Botones de pregunta sugerida: el texto tiene que poder ocupar dos lineas.
+ * `.boton` es globalmente `white-space: nowrap` —bien para los botones de
+ * accion, malo para sugerencias de media frase—. Con dos lineas las cuatro
+ * sugerencias entran en dos filas de dos, sin cortes. */
+.fila-botones > .boton--suave {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
 }
 
 /* ---------------------------------------------------------------------------

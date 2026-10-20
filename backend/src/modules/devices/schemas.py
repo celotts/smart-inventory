@@ -149,6 +149,42 @@ class DispositivoDetalle(DispositivoResumen):
     ultimo_movimiento_tipo: str | None = None
 
 
+class UnidadProducto(BaseModel):
+    """Una unidad (equipo) de un producto del maestro."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    serial_number: str
+    qr_code: str
+    current_status: str
+    ubicacion_nombre: str | None = None
+
+
+class ProductoResuelto(BaseModel):
+    """
+    Un producto del maestro, resuelto desde el codigo de su etiqueta.
+
+    Es la CAJA, no el equipo. La etiqueta del producto no identifica a una
+    unidad: por eso viene con la lista de sus unidades, para que el operador
+    pueda elegir con cual registrar el movimiento.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    sku: str
+    brand: str
+    model: str
+    variant: str | None = None
+    categoria: str | None = None
+    qr_code: str | None = None
+    barcode: str | None = None
+    equipos: int = 0
+    disponibles: int = 0
+    unidades: list[UnidadProducto] = Field(default_factory=list)
+
+
 class ResolverCodigoResponse(BaseModel):
     """
     Respuesta de la resolucion de un codigo.
@@ -163,11 +199,17 @@ class ResolverCodigoResponse(BaseModel):
 
     Con un 404 para todo, el operador ve el mismo error para las tres y no sabe
     que hacer. Con el campo, el frontend puede dar la instruccion correcta.
+
+    `producto` es el caso aparte: el codigo existe y es la etiqueta de un
+    PRODUCTO del maestro (la caja), no la de un equipo. Viene con `dispositivo`
+    en None, porque un movimiento no se puede registrar sin saber a que unidad
+    pertenece.
     """
 
     encontrado: bool
     codigo: str
     dispositivo: DispositivoResumen | None = None
+    producto: ProductoResuelto | None = None
     motivo: str | None = Field(
         None,
         description="Por que no se resolvio, si no se resolvio.",

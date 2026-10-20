@@ -230,16 +230,20 @@ def recibir_orden(
                 # Movimiento WAREHOUSE_ENTRY.
                 #
                 # Las columnas son las REALES de movement_history: `user_id` (UUID),
-                # no `registered_by`, y `movement_type` (el ENUM), no una FK. El
-                # INSERT original nombraba columnas que no existen en la tabla.
+                # no `registered_by`, y `movement_type_id` (la FK a
+                # movement_types), no el ENUM `movement_type` —que la migracion
+                # 0010 dropeo—. El INSERT original nombraba columnas que no
+                # existen en la tabla.
                 q_mov = """
                     INSERT INTO movement_history (
-                        device_id, movement_type, movement_date,
+                        device_id, movement_type_id, movement_date,
                         origin_location_id, destination_location_id,
                         scan_latitude, scan_longitude, is_valid_location, user_id
                     )
                     VALUES (
-                        :dev_id, 'WAREHOUSE_ENTRY', NOW(),
+                        :dev_id,
+                        (SELECT id FROM movement_types WHERE name = 'WAREHOUSE_ENTRY'),
+                        NOW(),
                         NULL, :destino,
                         NULL, NULL, TRUE, :user_id
                     )

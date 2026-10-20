@@ -91,6 +91,13 @@ function registrarServiceWorker() {
   const esDesarrollo = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(
     window.location.hostname,
   );
+
+  // El chequeo de version SI corre en desarrollo: son dos problemas distintos.
+  // El service worker es para el modo offline; el sello es para que un
+  // navegador con la cache vieja se actualice solo. En desarrollo el archivo
+  // no existe y la peticion falla sin consequencia.
+  verificarVersionDelServidor();
+
   if (esDesarrollo) return;
 
   window.addEventListener('load', () => {
@@ -98,7 +105,92 @@ function registrarServiceWorker() {
       // Sin service worker la app funciona igual: pierde el modo offline, nada
       // mas. No se avisa porque seria un ruido constante en desarrollo.
     });
+
+    // Actualizar el service worker apenas se abre la pagina.
+    //
+    // POR QUE NO BASTA CON `register()`
+    // -----------------------------------
+    // `register()` instala un SW nuevo solo si no hay uno, o si el byte del
+    // archivo cambio. Un SW YA instalado que sigue sirviendo la version vieja
+    // se queda sirviendo la vieja: el navegador no lo vuelve a buscar solo, y
+    // el operador ve la app de ayer con un servidor que ya tiene la de hoy.
+    // El sintoma es "arregle el bug y el navegador sigue viendo el bug".
+    //
+    // `update()` le pregunta al servidor "cambiaste el sw.js?". Si cambio, el
+    // nuevo se instala y `clients.claim()` (dentro del SW) le quita el control
+    // de la pagina al viejo, sin que haga falta cerrar las pestanas.
+    navigator.serviceWorker.getRegistration().then((registro) => {
+      registro?.update?.();
+    }).catch(() => {
+      // Sin registro no hay nada que actualizar.
+    });
   });
+}
+
+/**
+ * Recarga la pagina si el servidor tiene una version mas nueva que la que
+ * esta corriendo.
+ *
+ * EL PROBLEMA QUE RESUELVE
+ * ------------------------
+ * El navegador guarda los modulos ES en su cache HTTP, y el service worker
+ * guarda el esqueleto de la app en la suya. Los dos sobreviven a un deploy.
+ * Un navegador que visito la app antes sigue ejecutando la version vieja
+ * mientras el servidor ya tiene la nueva, y el sintoma es desconcertante:
+ * "arregle el bug y el navegador sigue viendo el bug".
+ *
+ * COMO SE DETECTA
+ * ---------------
+ * El servidor expone `/build.txt` con el hash de todo el frontend (lo calcula
+ * el Dockerfile al construir la imagen). La app guarda ese hash en
+ * `localStorage` la ultima vez que cargo. Si el hash del servidor es
+ * distinto del guardado, este navegador esta corriendo codigo viejo: se
+ * recarga.
+ *
+ * POR QUE NO SE ENCUENTRA EN UN BUCLE
+ * -----------------------------------
+ * Porque el hash nuevo se guarda ANTES de recargar. En la recarga siguiente
+ * los dos coinciden y no pasa nada. Ademas se marca una bandera en
+ * `sessionStorage`: si la recarga no alcanza (el servicio worker todavia
+ * manda), no se vuelve a intentar en esta pestana.
+ *
+ * POR QUE NO SE ESCRIBE NADA EN EL SERVIDOR
+ * -----------------------------------------
+ * Es una comparacion de una linea. No necesita un endpoint que devuelva la
+ * version de la API: alcanza con el hash de los archivos que se sirven.
+ */
+async function verificarVersionDelServidor() {
+  const CLAVE = 'si-build';
+  const BANDERA = 'si-build-reintentado';
+
+  try {
+    const respuesta = await fetch('/build.txt', { cache: 'no-store' });
+    if (!respuesta.ok) return;
+
+    const sello = (await respuesta.text()).trim();
+    if (!sello) return;
+
+    const guardado = localStorage.getItem(CLAVE);
+
+    // Primera visita: no hay con que comparar. Se guarda y se sigue.
+    if (!guardado) {
+      localStorage.setItem(CLAVE, sello);
+      return;
+    }
+
+    if (guardado === sello) return;
+
+    // Hay version nueva. Si ya se intento recargar en esta pestana, no se
+    // insiste: significaria que el service worker sigue sirviendo el bundle
+    // viejo y recargar no lo arregla (hace falta una recarga forzada).
+    if (sessionStorage.getItem(BANDERA)) return;
+    sessionStorage.setItem(BANDERA, '1');
+    localStorage.setItem(CLAVE, sello);
+
+    window.location.reload();
+  } catch {
+    // Sin red, o el archivo no existe (desarrollo). No hay nada que hacer.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +278,13 @@ function mostrarVista(nombre, opciones = {}) {
 
   reemplazar(contenido, elemento);
 
+  // La app YA ARRANCO. El vigilante de `arranque.js` mira esta marca para no
+  // pisar una app que ya esta pintada: sin ella, un arranque lento (celular
+  // con 4G de segundo plano, o un contenedor que tarda en servir los modulos)
+  //agaltaba el limite de 12 segundos y reemplazaba la pantalla por "La app no
+  // pudo arrancar" cuando la app estaba funcionando.
+  document.body.dataset.appLista = '1';
+
   // `aria-current` en la pestana activa, y el estado del historial del
   // navegador para que el boton "atras" del celular funcione.
   for (const boton of cabecera.querySelectorAll('[data-vista]')) {
@@ -227,6 +326,11 @@ function pintarLogin() {
 
   vistaActual = login;
   reemplazar(contenido, login.elemento ?? login);
+
+  // Tambien es una app arrancada: el login ES la pantalla. Sin esta marca, un
+  // arranque lento que pasa los 12 segundos del vigilante reemplaza el login
+  // por "La app no pudo arrancar".
+  document.body.dataset.appLista = '1';
 }
 
 async function cargarUsuario() {
@@ -532,7 +636,12 @@ document.addEventListener('auditoria:abrir-equipo', (evento) => {
 const btnExterior = document.getElementById('btn-exterior');
 if (btnExterior) {
   btnExterior.addEventListener('click', () => {
-    const activo = document.documentElement.toggleAttribute('data-outdoor');
+    const activo = document.documentElement.getAttribute('data-outdoor') !== '1';
+    if (activo) {
+      document.documentElement.setAttribute('data-outdoor', '1');
+    } else {
+      document.documentElement.removeAttribute('data-outdoor');
+    }
     btnExterior.setAttribute('aria-pressed', activo);
     btnExterior.title = activo
       ? 'Desactivar modo exterior (alto contraste)'

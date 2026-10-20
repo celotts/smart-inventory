@@ -42,12 +42,16 @@ export function vistaConsultas({ permisos = [] } = {}) {
   pintarEstadoIA(tarjetaEstado);
 
   // --- Preguntas ------------------------------------------------------------
+  // En pantallas anchas, layout de dos columnas: chat a la izquierda,
+  // sugerencias y reporte a la derecha. En pantallas angostas, todo apilado.
+  const layoutConsultas = crear('div', { clase: 'layout-consultas' });
+
   const tarjetaChat = crear('div', { clase: 'tarjeta' });
 
   const caja = crear('div', {
-    clase: 'apilado',
+    clase: 'apilado chat-caja',
     estilo:
-      'max-height:26rem;overflow-y:auto;padding:0.85rem;background:var(--superficie-2);' +
+      'max-height:32rem;overflow-y:auto;padding:0.85rem;background:var(--superficie-2);' +
       'border-radius:var(--radio-sm);margin-bottom:1rem;white-space:pre-wrap;',
   });
   caja.setAttribute('aria-live', 'polite');
@@ -79,14 +83,14 @@ export function vistaConsultas({ permisos = [] } = {}) {
     },
   });
 
-  const filaEntrada = crear('div', { clase: 'fila-botones' });
+  const filaEntrada = crear('div', { clase: 'fila-entrada' });
   filaEntrada.append(entrada, botonEnviar);
 
   formulario.append(filaEntrada);
 
   // Sugerencias. Saves clicks pero son la mitad del espacio de la pantalla en
   // un celular, asi que se muestran solo si hay lugar.
-  const sugerencias = crear('div', { clase: 'fila-botones', estilo: 'margin-top:0.75rem' });
+  const sugerencias = crear('div', { clase: 'fila-botones' });
   for (const texto of PREGUNTAS_SUGERIDAS) {
     sugerencias.append(
       crear('button', {
@@ -111,10 +115,17 @@ export function vistaConsultas({ permisos = [] } = {}) {
     }),
     caja,
     formulario,
-    sugerencias,
   );
 
-  raiz.append(tarjetaChat);
+  // Columna lateral: sugerencias + reporte (visible en pantallas anchas)
+  const lateral = crear('div', { clase: 'layout-consultas__lateral' });
+
+  const cajaSugerencias = crear('div', { clase: 'tarjeta' });
+  cajaSugerencias.append(
+    crear('h2', { clase: 'tarjeta__titulo', texto: 'Sugerencias' }),
+    sugerencias,
+  );
+  lateral.append(cajaSugerencias);
 
   // --- Reporte --------------------------------------------------------------
   if (permisos.includes('ai:report')) {
@@ -133,8 +144,11 @@ export function vistaConsultas({ permisos = [] } = {}) {
       }),
       botonReporte,
     );
-    raiz.append(tarjetaReporte);
+    lateral.append(tarjetaReporte);
   }
+
+  layoutConsultas.append(tarjetaChat, lateral);
+  raiz.append(layoutConsultas);
 
   async function enviar() {
     const pregunta = entrada.value.trim();

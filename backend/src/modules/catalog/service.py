@@ -28,6 +28,78 @@ class ProductoInvalido(ValueError):
     """Regla de negocio del catalogo (SKU repetido, categoria inexistente)."""
 
 
+LARGO_QR = 150
+LARGO_BARCODE = 64
+
+
+def _codigos_de_etiqueta(sku: str, datos: dict[str, Any]) -> tuple[str, str]:
+    """
+    Resuelve el QR y el codigo de barras de un producto.
+
+    POR QUE HAY UN CODIGO POR PRODUCTO
+    -----------------------------------
+    Un producto del maestro es "una notebook tal modelo": hay cinco en el
+    deposito. La etiqueta con el QR y el codigo de barras es la del PRODUCTO
+    (la de la caja, la del rack, la del producto en la góndola del almacen),
+    no la de cada equipo: la de cada equipo es la que ya existe, con el
+    `qr_code` de `devices` y su serial.
+
+    POR QUE EL QR NO ES EL SKU
+    --------------------------
+    El QR lleva un prefijo `PRD-` para que se distinga de un codigo de
+    etiqueta de EQUIPO (`INV-...`) de un vistazo. Los dos conviven en el mismo
+    deposito, y un operador que escanea con la app tiene que poder decir de
+    un vistazo si esta mirando una caja o un equipo.
+
+    El codigo de barras, en cambio, es el SKU: es lo que ya esta escrito en la
+    caja y en el sistema del proveedor, y repetirlo es mejor que inventar un
+    numero que el proveedor no conoce.
+
+    Los dos son editables: si el proveedor ya tiene un codigo propio, se usa
+    ese. Lo que NO se puede es que dos productos compartan el mismo codigo:
+    es lo que hace inutil una etiqueta.
+    """
+    qr_code = (datos.get("qr_code") or "").strip() or f"PRD-{sku}"
+    barcode = (datos.get("barcode") or "").strip() or sku
+
+    if len(qr_code) > LARGO_QR:
+        raise ProductoInvalido(
+            f"El codigo QR no puede superar los {LARGO_QR} caracteres."
+        )
+    if len(barcode) > LARGO_BARCODE:
+        raise ProductoInvalido(
+            f"El codigo de barras no puede superar los {LARGO_BARCODE} caracteres."
+        )
+
+    return qr_code, barcode
+
+
+def obtener_codigos_producto(producto_id: int) -> dict[str, Any]:
+    """
+    Los datos de etiqueta de un producto: lo que va codificado y lo que se
+    imprime.
+
+    Lanza `ProductoInvalido` si el producto no existe o fue eliminado.
+    """
+    db = get_db_session()
+    try:
+        fila = db.execute(
+            text(
+                """
+                SELECT id, sku, brand, model, variant, qr_code, barcode
+                FROM models
+                WHERE id = :id AND deleted_at IS NULL
+                """
+            ),
+            {"id": producto_id},
+        ).mappings().first()
+        if not fila:
+            raise ProductoInvalido("El producto no existe o ya fue eliminado.")
+        return dict(fila)
+    finally:
+        db.close()
+
+
 def listar_categorias() -> list[dict[str, Any]]:
     """Categorias activas, con su codigo corto para armar SKUs."""
     db = get_db_session()
@@ -97,6 +169,8 @@ def listar_productos(
                     m.lead_time_days,
                     m.is_active,
                     m.is_serialized,
+                    m.qr_code,
+                    m.barcode,
                     (SELECT COUNT(*) FROM devices d
                       WHERE d.model_id = m.id AND d.deleted_at IS NULL) AS equipos
                 FROM models m
@@ -124,6 +198,9 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
     if not categoria_id:
         raise ProductoInvalido("La categoria es obligatoria.")
 
+    sku = (datos["sku"] or "").strip()
+    qr_code, barcode = _codigos_de_etiqueta(sku, datos)
+
     db = get_db_session()
     try:
         existe = db.execute(
@@ -141,12 +218,14 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
                         category_id, brand, model, sku, variant,
                         unit_cost, list_price, currency,
                         min_stock, max_stock, reorder_multiple, lead_time_days,
+                        qr_code, barcode,
                         is_active
                     )
                     VALUES (
                         :category_id, :brand, :model, :sku, :variant,
                         :unit_cost, :list_price, :currency,
                         :min_stock, :max_stock, :reorder_multiple, :lead_time_days,
+                        :qr_code, :barcode,
                         TRUE
                     )
                     RETURNING id
@@ -156,7 +235,7 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
                     "category_id": categoria_id,
                     "brand": datos["brand"],
                     "model": datos["model"],
-                    "sku": datos["sku"],
+                    "sku": sku,
                     "variant": datos.get("variant"),
                     "unit_cost": datos.get("unit_cost"),
                     "list_price": datos.get("list_price"),
@@ -165,6 +244,8 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
                     "max_stock": datos.get("max_stock", 100),
                     "reorder_multiple": datos.get("reorder_multiple", 1),
                     "lead_time_days": datos.get("lead_time_days", 14),
+                    "qr_code": qr_code,
+                    "barcode": barcode,
                 },
             ).scalar_one()
             db.commit()
@@ -174,6 +255,14 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
             if "sku" in detalle:
                 raise ProductoInvalido(
                     f"Ya existe un producto con el SKU '{datos['sku']}'."
+                ) from exc
+            if "barcode" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un producto con el codigo de barras '{barcode}'."
+                ) from exc
+            if "qr_code" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un producto con el codigo QR '{qr_code}'."
                 ) from exc
             if "uq_models_brand_model" in detalle:
                 raise ProductoInvalido(
@@ -187,7 +276,8 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
                 SELECT m.id, m.sku, m.brand, m.model, m.variant,
                        m.category_id, c.name AS categoria,
                        m.unit_cost, m.list_price, m.currency,
-                       m.min_stock, m.max_stock, m.is_active
+                       m.min_stock, m.max_stock, m.is_active,
+                       m.qr_code, m.barcode
                 FROM models m
                 JOIN categories c ON c.id = m.category_id
                 WHERE m.id = :id
@@ -210,6 +300,12 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
     categoria_id = datos.get("category_id")
     if not categoria_id:
         raise ProductoInvalido("La categoria es obligatoria.")
+
+    # Los codigos de etiqueta SOLO se tocan si vienen en el body: el COALESCE
+    # de abajo deja el valor anterior cuando no vienen. Si no, una edicion
+    # que no toca la etiqueta la borraria, y con ella la ability de reimprimirla.
+    qr_code = (datos.get("qr_code") or "").strip() or None
+    barcode = (datos.get("barcode") or "").strip() or None
 
     db = get_db_session()
     try:
@@ -236,6 +332,8 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
                         max_stock = :max_stock,
                         reorder_multiple = :reorder_multiple,
                         lead_time_days = :lead_time_days,
+                        qr_code = COALESCE(:qr_code, qr_code),
+                        barcode = COALESCE(:barcode, barcode),
                         is_active = :is_active
                     WHERE id = :id AND deleted_at IS NULL
                     """
@@ -253,6 +351,8 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
                     "max_stock": datos.get("max_stock", 100),
                     "reorder_multiple": datos.get("reorder_multiple", 1),
                     "lead_time_days": datos.get("lead_time_days", 14),
+                    "qr_code": qr_code,
+                    "barcode": barcode,
                     "is_active": datos.get("is_active", True),
                 },
             )
@@ -260,6 +360,14 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
         except IntegrityError as exc:
             db.rollback()
             detalle = str(getattr(exc, "orig", exc))
+            if "barcode" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un producto con el codigo de barras '{barcode}'."
+                ) from exc
+            if "qr_code" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un producto con el codigo QR '{qr_code}'."
+                ) from exc
             if "uq_models_brand_model" in detalle:
                 raise ProductoInvalido(
                     f"Ya existe el modelo '{datos['brand']} {datos['model']}'."
@@ -272,7 +380,8 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
                 SELECT m.id, m.sku, m.brand, m.model, m.variant,
                        m.category_id, c.name AS categoria,
                        m.unit_cost, m.list_price, m.currency,
-                       m.min_stock, m.max_stock, m.is_active
+                       m.min_stock, m.max_stock, m.is_active,
+                       m.qr_code, m.barcode
                 FROM models m
                 JOIN categories c ON c.id = m.category_id
                 WHERE m.id = :id

@@ -26,6 +26,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 
+# Los tests van en la imagen.
+#
+# POR QUE
+# -------
+# `requirements.txt` dice, textual: "los tests corren DENTRO del contenedor y
+# necesitan las MISMAS versiones de bcrypt, PyJWT y psycopg2 que la app:
+# probarlos con otra combinacion de versiones prueba otro sistema". Y pytest
+# esta en `requirements.txt` justamente por eso.
+#
+# Pero la carpeta no estaba en la imagen: `docker compose exec backend pytest
+# tests/` fallaba con "file or directory not found" y el Makefile caia al
+# Python del host, que tiene OTRAS versiones de las dependencias. O sea: los
+# tests nunca se corrieron donde el proyecto dice que se corren.
+COPY tests/ ./tests/
+
 EXPOSE 5000
 
 # uvicorn y no `python src/main.py`: el segundo corre el archivo como script

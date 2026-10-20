@@ -24,7 +24,11 @@
  * otros          → red, y cache de respaldo si falla.
  */
 
-const VERSION = 'si-v2';
+// El sello se incrementa cuando cambia la estrategia de cache. Al cambiarlo,
+// el `activate` de mas abajo borra los caches de la version anterior: sin eso,
+// el navegador guarda megabytes de versiones que ya no existen y sirve la
+// primera que encuentra.
+const VERSION = 'si-v3';
 const CACHE_ESTATICO = `${VERSION}-estatico`;
 const CACHE_ESTABLE = `${VERSION}-estable`;
 
@@ -34,6 +38,9 @@ const ESQUELETO = [
   '/index.html',
   '/manifest.webmanifest',
   '/src/styles.css',
+  // El vigilante de arranque va primero: sin el, una app que no arranca se
+  // queda en "Cargando…" para siempre, y offline tampoco.
+  '/src/arranque.js',
   '/src/main.js',
   '/src/api.js',
   '/src/dom.js',
@@ -92,6 +99,11 @@ self.addEventListener('fetch', (evento) => {
 
   // La API JAMAS se cachea ni se intercepta. Sale temprano y sin tocar.
   if (url.pathname.startsWith('/api/')) return;
+
+  // El sello de build tampoco: es lo que le dice a la app que hay version
+  // nueva. Si el SW lo sirviera del cache, compararia consigo mismo y la
+  // app no se recargaria nunca.
+  if (url.pathname === '/build.txt') return;
 
   // Solo mismo origen: una peticion a un tercero no se mete en nuestro cache.
   if (url.origin !== self.location.origin) return;

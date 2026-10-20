@@ -134,6 +134,27 @@ export function icono(paths, { tamano = 20, className = '' } = {}) {
   return svg;
 }
 
+/**
+ * Etiqueta de un producto, para desplegables y listados.
+ *
+ * POR QUE NO ES `${p.brand} ${p.model} (${p.sku})`
+ * -----------------------------------------------
+ * Porque el SKU es NULL en los productos a los que todavia no se les asigno
+ * uno, y la interpolacion de `null` en una template string no da una cadena
+ * vacia: da la palabra "null". El operador ve "Dell Latitude 5520 (null)" en
+ * el desplegable del alta de componentes y no sabe si es un dato roto o una
+ * parte del nombre.
+ *
+ * El SKU va cuando esta, y no va cuando no: el nombre del producto ya
+ * alcanza para elegirlo.
+ */
+export function etiquetaProducto(p) {
+  if (!p) return '—';
+  const nombre = [p.brand, p.model].filter(Boolean).join(' ').trim();
+  const base = nombre || 'Sin modelo';
+  return p.sku ? `${base} (${p.sku})` : base;
+}
+
 /** Las rutas de los iconos que usa la app. */
 export const ICONOS = {
   camara: 'M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M3 12h18',

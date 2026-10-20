@@ -209,7 +209,7 @@ def _construir_sql(alcance: str | None, periodo: str) -> "tuple[str, str]":
         return (
             f"""
             SELECT
-                mh.movement_type AS tipo,
+                mt.name AS tipo,
                 COUNT(*) AS cantidad,
                 COUNT(*) FILTER (WHERE mh.is_valid_location = FALSE) AS fuera_de_radio,
                 -- AVG(booleano) NO EXISTE en Postgres: no hay conversion
@@ -218,8 +218,9 @@ def _construir_sql(alcance: str | None, periodo: str) -> "tuple[str, str]":
                 ROUND(AVG(CASE WHEN mh.is_valid_location THEN 1.0 ELSE 0.0 END) * 100, 1)
                     AS pct_validos
             FROM movement_history mh
+            JOIN movement_types mt ON mt.id = mh.movement_type_id
             WHERE {filtro}
-            GROUP BY mh.movement_type
+            GROUP BY mt.name
             ORDER BY cantidad DESC
             """,
             f"movimientos de {PERIODOS[periodo]}",

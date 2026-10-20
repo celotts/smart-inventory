@@ -12,11 +12,12 @@ al frontend, que hasta ahora no tenia forma de darlo de alta.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Body, HTTPException, status
+from fastapi import APIRouter, Depends, Query, Body, HTTPException, Response, status
 
 from src.core.deps import exigir
 from src.core.permissions import Permiso
-from src.modules.catalog import service
+from src.modules.catalog import barcode, service
+from src.modules.devices import qr as qr_dispositivo
 from src.modules.users.models import UsuarioActual
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -147,6 +148,81 @@ def eliminar_producto(
         return {"ok": True}
     except service.ProductoInvalido as exc:
         raise _error_de_negocio(exc) from exc
+
+
+# --- Etiqueta del producto (QR + codigo de barras) ---------------------------
+
+
+@router.get(
+    "/products/{producto_id}/qr",
+    summary="QR de la etiqueta del producto (SVG)",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {}}, "description": "QR en SVG."},
+    },
+)
+def qr_de_producto(
+    producto_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> Response:
+    """
+    El QR de la etiqueta del producto, listo para escanear o imprimir.
+
+    QUE CODIFICA
+    ------------
+    El `qr_code` del producto (`PRD-<sku>` por defecto), que es el codigo de la
+    ETIQUETA DEL PRODUCTO —la caja, el rack—, no la del equipo. La del equipo
+    es la que ya existe, en `/api/devices/{id}/qr`.
+
+    Se reutiliza el generador de QR de los dispositivos en vez de tener dos
+    copias del mismo codigo: el SVG es el mismo, y un solo lugar donde tocarlo.
+    """
+    try:
+        datos = service.obtener_codigos_producto(producto_id)
+    except service.ProductoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return Response(
+        content=qr_dispositivo.qr_como_svg(datos["qr_code"] or datos["sku"]),
+        media_type="image/svg+xml",
+        headers={
+            # La etiqueta de un producto no cambia: el QR se puede cachear.
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+@router.get(
+    "/products/{producto_id}/barcode",
+    summary="Codigo de barras de la etiqueta del producto (SVG)",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {}}, "description": "Codigo de barras en SVG."},
+    },
+)
+def barcode_de_producto(
+    producto_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> Response:
+    """
+    El codigo de barras de la etiqueta del producto, en Code 128.
+
+    Es un SVG: pesa unos pocos KB, se ve nitido a cualquier tamaño y se
+    imprime sin perdida. El fondo es blanco explicito, porque un lector mide
+    el contraste entre las barras y el fondo.
+    """
+    try:
+        datos = service.obtener_codigos_producto(producto_id)
+    except service.ProductoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return Response(
+        content=barcode.codigo128_como_svg(datos["barcode"] or datos["sku"]),
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
 
 
 # --- Clientes ---------------------------------------------------------------

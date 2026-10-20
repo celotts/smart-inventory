@@ -33,10 +33,6 @@ ESQUEMA_SQL = """
 CREATE TYPE device_status AS ENUM (
     'IN_WAREHOUSE', 'IN_TRANSIT', 'INSTALLED', 'IN_REPAIR', 'PERMANENTLY_DISPOSED'
 );
-CREATE TYPE movement_type AS ENUM (
-    'WAREHOUSE_ENTRY', 'OUT_TO_CLIENT', 'INSTALLATION', 'REPLACEMENT',
-    'WITHDRAWAL_TO_WORKSHOP', 'WAREHOUSE_REENTRY', 'DISPOSAL'
-);
 CREATE TYPE repair_status AS ENUM (
     'DIAGNOSIS', 'IN_PROGRESS', 'WAITING_FOR_PARTS', 'REPAIRED', 'UNREPAIRABLE'
 );
@@ -72,6 +68,11 @@ CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
+    code VARCHAR(20) UNIQUE,
+    icon VARCHAR(50),
+    color VARCHAR(20),
+    sort_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
     deleted_at TIMESTAMPTZ
 );
 
@@ -82,6 +83,23 @@ CREATE TABLE models (
     model VARCHAR(100) NOT NULL,
     specifications JSONB,
     warranty_months INT,
+    sku VARCHAR(50) UNIQUE,
+    variant VARCHAR(100),
+    unit_cost NUMERIC(12, 2),
+    list_price NUMERIC(12, 2),
+    currency VARCHAR(3) DEFAULT 'USD',
+    min_stock INT DEFAULT 0,
+    max_stock INT DEFAULT 100,
+    reorder_multiple INT DEFAULT 1,
+    lead_time_days INT DEFAULT 14,
+    preferred_vendor_id INT,
+    eol_date DATE,
+    replacement_cycle_months INT,
+    requires_maintenance BOOLEAN DEFAULT FALSE,
+    maintenance_interval_months INT,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_serialized BOOLEAN,
+    track_by_lot BOOLEAN,
     deleted_at TIMESTAMPTZ
 );
 
@@ -100,15 +118,27 @@ CREATE TABLE devices (
     updated_at TIMESTAMPTZ
 );
 
+CREATE TABLE movement_types (
+    id UUID PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    label VARCHAR(100) NOT NULL,
+    target_status device_status NOT NULL,
+    is_system BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
 CREATE TABLE movement_history (
     id SERIAL PRIMARY KEY,
     device_id INT REFERENCES devices(id) ON DELETE CASCADE,
-    movement_type movement_type NOT NULL,
+    -- El tipo es una FK a movement_types, no un ENUM: los tipos son
+    -- configurables por cliente. Para filtrar por tipo hay que hacer JOIN
+    -- con `movement_types` y comparar por `mt.name`.
+    movement_type_id UUID NOT NULL REFERENCES movement_types(id) ON DELETE RESTRICT,
     origin_location_id INT REFERENCES locations(id),
     destination_location_id INT REFERENCES locations(id),
     replaced_device_id INT REFERENCES devices(id),
     replacement_reason TEXT,
-    user_id INT NOT NULL,
+    user_id UUID NOT NULL,
     scan_latitude NUMERIC(10, 8),
     scan_longitude NUMERIC(11, 8),
     is_valid_location BOOLEAN,

@@ -13,9 +13,10 @@
  */
 
 import { api } from '../api.js';
-import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
+import { ESTADOS, ICONOS, MOVIMIENTOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
+import { imagenQr } from '../qr.js';
 
 const ESTADOS_FILTRO = [
   { valor: '', texto: 'Todos' },
@@ -25,6 +26,41 @@ const ESTADOS_FILTRO = [
   { valor: 'IN_REPAIR', texto: 'En taller' },
   { valor: 'PERMANENTLY_DISPOSED', texto: 'Dados de baja' },
 ];
+
+/**
+ * Campo de texto con su etiqueta.
+ *
+ * MISMA FIRMA QUE EN PRODUCTOS Y CLIENTES
+ * ---------------------------------------
+ * `(placeholder, etiqueta, { valor, mono, type })`.
+ *
+ * ESTA FUNCION NO EXISTIA EN ESTA VISTA
+ * -------------------------------------
+ * Se usaba en el formulario de edicion y en el de baja, pero no estaba
+ * definida ni importada: la primera llamada tiraba `ReferenceError: campoTexto
+ * is not defined`, que MATABA la funcion `abrirEdicion` entera. Como el
+ * error era una promesa rechazada sin manejar, no se veia nada en pantalla:
+ * el boton "Editar" no hacia nada y no aparecia ningun error.
+ *
+ * Es el mismo bug de fondo que el de `crear('div', {clase}, [hijo])`: una
+ * funcion que se usa y no existe, y el error se pierde en el camino.
+ */
+function campoTexto(placeholder, etiqueta, { type = 'text', valor = '', mono = false } = {}) {
+  const input = crear('input', {
+    clase: `campo__control${mono ? ' mono' : ''}`,
+    atributos: {
+      type,
+      placeholder,
+      autocomplete: 'off',
+      ...(valor ? { value: valor } : {}),
+    },
+  });
+  const campo = crear('label', {
+    clase: 'campo',
+    hijos: [crear('span', { clase: 'campo__etiqueta', texto: etiqueta }), input],
+  });
+  return { campo, input };
+}
 
 export function vistaInventario({ alAbrirDispositivo }) {
   const raiz = crear('div');
@@ -338,13 +374,19 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       return;
     }
 
-    const campoSerial = campoTexto(ficha.serial_number, 'Serial', { mono: true });
-    const campoQR = campoTexto(ficha.qr_code, 'Codigo QR', { mono: true });
+    const campoSerial = campoTexto('Ej: SN-12345678', 'Serial', {
+      valor: ficha.serial_number,
+      mono: true,
+    });
+    const campoQR = campoTexto('Ej: INV-a1b2c3d4', 'Codigo QR', {
+      valor: ficha.qr_code,
+      mono: true,
+    });
 
     const selectProducto = crear('select', { clase: 'campo__control' });
     for (const p of productos) {
       const opcion = crear('option', {
-        texto: `${p.brand} ${p.model} (${p.sku})`,
+        texto: etiquetaProducto(p),
         atributos: { value: p.id },
       });
       if (p.id === ficha.modelo_id) opcion.selected = true;
@@ -378,9 +420,9 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     }
 
     const campoInstalacion = campoTexto(
-      (ficha.installation_date ?? '').slice(0, 10),
+      'AAAA-MM-DD',
       'Fecha de instalacion (AAAA-MM-DD)',
-      { type: 'date' },
+      { type: 'date', valor: (ficha.installation_date ?? '').slice(0, 10) },
     );
 
     const form = crear('form', {
@@ -396,6 +438,16 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     form.append(
       campoSerial.campo,
       campoQR.campo,
+      // El QR de la etiqueta, junto al campo que lo edita.
+      //
+      // El operador que esta corrigiendo el codigo tiene que ver a que
+      // etiqueta se refiere: sin la imagen, "INV-a1b2c3d4" es un texto que
+      // puede estar mal. Con la, ve la imagen escaneable y sabe si esta
+      // Tocando el equipo correcto.
+      crear('div', {
+        clase: 'qr-formulario',
+        hijos: [imagenQr(ficha.id, ficha.qr_code, 132)],
+      }),
       crear('label', {
         clase: 'campo',
         hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Producto' }), selectProducto],
@@ -449,6 +501,13 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
         cerrarModal();
         return;
       }
+
+      const ok = await confirmar({
+        titulo: 'Guardar cambios',
+        mensaje: `¿Guardar los cambios del componente ${ficha.serial_number}?`,
+        textoConfirmar: 'Guardar cambios',
+      });
+      if (!ok) return;
 
       btnGuardar.disabled = true;
       btnGuardar.textContent = 'Guardando…';
@@ -582,6 +641,22 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       crear('h2', { clase: 'tarjeta__titulo', texto: 'Ficha del componente' }),
       def,
     );
+
+    // El QR de la etiqueta.
+    //
+    // El texto del codigo esta arriba, en el `def`. Esta es la parte que
+    // sirve de verdad: la imagen escaneable, que es lo que va pegado al
+    // equipo y lo que el operador necesita para reimprimir la etiqueta o
+    // para verificar de un vistazo que el equipo es este.
+    const qr = imagenQr(ficha.id, ficha.qr_code);
+    const contenedorQr = crear('div', { clase: 'qr-contenedor' });
+    const captionQr = crear('div', { clase: 'qr-caption' });
+    captionQr.append(
+      crear('span', { clase: 'mono', texto: ficha.qr_code }),
+      crear('span', { clase: 'pequeno tenue', texto: 'Codigo de la etiqueta' }),
+    );
+    contenedorQr.append(qr, captionQr);
+    tarjeta.append(contenedorQr);
 
     if (ficha.esta_en_taller) {
       tarjeta.append(

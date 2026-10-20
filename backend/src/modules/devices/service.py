@@ -163,6 +163,80 @@ def _conexion():
     return get_ai_engine().connect()
 
 
+# Cuantas unidades se devuelven con un producto. Es un tope de prudencia: un
+# producto puede tener cientos de equipos, y la lista que se muestra en el
+# celular es para ELEGIR uno, no para hacer un inventario. Con 50, el que
+# esta en el deposito esta seguro en la lista.
+MAX_UNIDADES_PRODUCTO = 50
+
+
+def _producto_por_codigo(codigo: str) -> dict[str, Any] | None:
+    """
+    Busca un PRODUCTO del maestro por el codigo de su etiqueta.
+
+    QUE ES ESTO
+    -----------
+    El producto ("una notebook tal modelo: hay cinco en el deposito") tiene su
+    propia etiqueta, con su QR (`PRD-...`) y su codigo de barras. Es LA CAJA,
+    no el equipo. Cuando el operador apunta la camara a la caja, lo que lee es
+    esta etiqueta.
+
+    POR QUE LA BUSQUEDA TAMBIEN MIRA EL SKU
+    ---------------------------------------
+    El codigo de barras del producto es, por defecto, su SKU. Y el SKU es lo
+    que el proveedor escribe a mano en la caja. Un codigo leido que no
+    pertenece a ningun equipo tiene que poder encontrar al producto.
+
+    POR QUE DEVUELVE SUS UNIDADES
+    -----------------------------
+    Porque la etiqueta de la caja no identifica a un equipo, y el operador
+    necesita ver cuales son para elegir con que unidad registrar el
+    movimiento. Devolver el producto solo, sin las unidades, lo deja en un
+    callejon sin salida: sabe que leyo bien, y no sabe que hacer.
+    """
+    with _conexion() as conexion:
+        producto = conexion.execute(
+            text(
+                """
+                SELECT m.id, m.sku, m.brand, m.model, m.variant,
+                       m.qr_code, m.barcode, c.name AS categoria
+                FROM models m
+                JOIN categories c ON c.id = m.category_id
+                WHERE m.deleted_at IS NULL
+                  AND (m.qr_code = :codigo OR m.barcode = :codigo OR m.sku = :codigo)
+                LIMIT 1
+                """
+            ),
+            {"codigo": codigo},
+        ).mappings().first()
+
+        if not producto:
+            return None
+
+        unidades = conexion.execute(
+            text(
+                """
+                SELECT d.id, d.serial_number, d.qr_code, d.current_status,
+                       l.store_name AS ubicacion_nombre
+                FROM devices d
+                LEFT JOIN locations l ON l.id = d.current_location_id
+                WHERE d.model_id = :model_id AND d.deleted_at IS NULL
+                ORDER BY d.current_status, d.serial_number
+                LIMIT :limite
+                """
+            ),
+            {"model_id": producto["id"], "limite": MAX_UNIDADES_PRODUCTO},
+        ).mappings().all()
+
+    datos = dict(producto)
+    datos["unidades"] = [dict(u) for u in unidades]
+    datos["equipos"] = len(datos["unidades"])
+    datos["disponibles"] = sum(
+        1 for u in datos["unidades"] if u["current_status"] == "IN_WAREHOUSE"
+    )
+    return datos
+
+
 def resolver_codigo(codigo: str) -> dict[str, Any]:
     """
     Resuelve un codigo leido por el lector a un componente.
@@ -174,6 +248,14 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
     Devuelve `encontrado=False` con un `motivo` en vez de levantar excepcion, y
     la razon esta en el docstring del schema: el operador necesita distinguir
     "no existe" de "esta dado de baja", y son dos instrucciones distintas.
+
+    QUE PASA SI EL CODIGO ES DE UN PRODUCTO
+    ---------------------------------------
+    Si el codigo es la etiqueta de la CAJA (el producto del maestro, `PRD-...`),
+    la respuesta trae `producto` con sus unidades y NO trae `dispositivo`: esa
+    etiqueta no identifica a un equipo, y un escaneo de movimiento no se puede
+    registrar sin saber cual. Quien llama tiene que distinguir los dos casos:
+    `encontrado` sigue siendo True, porque el codigo EXISTE.
     """
     config = get_settings()
     codigo = (codigo or "").strip()
@@ -242,6 +324,23 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
             ),
         }
 
+    # La etiqueta de la CAJA (el producto del maestro) no es la de un equipo.
+    # Se resuelve DESPUES del equipo y no antes, a proposito: si un codigo
+    # estuviera en las dos tablas, el equipo vivo es el que el operador quiere
+    # ver. El prefijo `PRD-` evita que eso pase, pero el orden lo deja
+    # garantizado.
+    producto = _producto_por_codigo(codigo)
+    if producto:
+        return {
+            "encontrado": True,
+            "codigo": codigo,
+            "producto": producto,
+            "motivo": (
+                f"El codigo es la etiqueta del producto {producto['brand']} "
+                f"{producto['model']} (SKU {producto['sku']})."
+            ),
+        }
+
     return {
         "encontrado": False,
         "codigo": codigo,
@@ -252,8 +351,35 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
     }
 
 
+def obtener_qr_equipo(device_id: int) -> str:
+    """
+    El codigo de la ETIQUETA del equipo, que es lo que va codificado en el QR.
+
+    No el serial: el serial es del fabricante y hay proveedores que lo
+    reciclan, asi que dos equipos distintos pueden tener el mismo serial en
+    distintos momentos. La etiqueta es propia del equipo.
+
+    Lanza `DispositivoNoEncontrado` si no existe.
+    """
+    with _conexion() as conexion:
+        fila = conexion.execute(
+            text(
+                """
+                SELECT qr_code
+                FROM devices
+                WHERE id = :id AND deleted_at IS NULL
+                """
+            ),
+            {"id": device_id},
+        ).mappings().first()
+
+        if not fila:
+            raise DispositivoNoEncontrado(f"No existe un componente con id {device_id}.")
+
+        return fila["qr_code"]
+
+
 def obtener_dispositivo(device_id: int) -> dict[str, Any]:
-    """Ficha completa. Lanza `DispositivoNoEncontrado` si no existe."""
     with _conexion() as conexion:
         fila = conexion.execute(
             text(f"{_SELECT_DISPOSITIVO} WHERE d.id = :id AND d.deleted_at IS NULL"),
@@ -269,10 +395,11 @@ def obtener_dispositivo(device_id: int) -> dict[str, Any]:
         ultimo = conexion.execute(
             text(
                 """
-                SELECT movement_type, movement_date
-                FROM movement_history
-                WHERE device_id = :id
-                ORDER BY movement_date DESC
+                SELECT mt.name AS movement_type, mh.movement_date
+                FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
+                WHERE mh.device_id = :id
+                ORDER BY mh.movement_date DESC
                 LIMIT 1
                 """
             ),

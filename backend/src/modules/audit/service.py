@@ -141,7 +141,7 @@ def linea_de_tiempo(
             mh.movement_date                         AS fecha,
             'inventario'                             AS categoria,
             'MOVIMIENTO'                             AS tipo,
-            mh.movement_type::text                   AS subtipo,
+            mt.name                                   AS subtipo,
             COALESCE(u.full_name, u.email, 'Usuario eliminado') AS actor,
             u.email                                  AS actor_email,
             d.id                                     AS device_id,
@@ -156,6 +156,7 @@ def linea_de_tiempo(
         FROM movement_history mh
         JOIN devices d    ON d.id = mh.device_id
         JOIN models m     ON m.id = d.model_id
+        JOIN movement_types mt ON mt.id = mh.movement_type_id
         LEFT JOIN users u ON u.id = mh.user_id
         LEFT JOIN locations lo ON lo.id = mh.origin_location_id
         LEFT JOIN locations ld ON ld.id = mh.destination_location_id

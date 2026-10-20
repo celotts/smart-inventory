@@ -27,7 +27,7 @@
 import { api } from '../api.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
-import { abrirDialogo } from '../dialogo.js';
+import { abrirDialogo, confirmar } from '../dialogo.js';
 
 /**
  * Las operaciones de movimiento, con todo lo que la UI necesita para ofrecerlas.
@@ -434,6 +434,20 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       if (op.pide_origen) cuerpo.ubicacion_origen_id = parseInt(selectOrigen.value, 10);
       const observaciones = campoObservaciones.value.trim();
       if (observaciones) cuerpo.observations = observaciones;
+
+      // La baja definitiva saca los equipos del inventario y no tiene vuelta
+      // atras: por eso pide confirmacion explicita, y el mensaje dice que
+      // dejan de estar disponibles.
+      const esBaja = op.valor === 'DISPOSAL';
+      const ok = await confirmar({
+        titulo: esBaja ? 'Confirmar baja definitiva' : 'Confirmar movimiento',
+        mensaje: esBaja
+          ? `¿Dar de baja ${cantidad} unidad(es) de ${producto.nombre}? Los equipos dejan de estar disponibles en el inventario.`
+          : `¿Mover ${cantidad} unidad(es) de ${producto.nombre}?`,
+        textoConfirmar: esBaja ? 'Dar de baja' : 'Mover mercancía',
+        peligro: esBaja,
+      });
+      if (!ok) return;
 
       btnMover.disabled = true;
       btnMover.textContent = 'Moviendo…';

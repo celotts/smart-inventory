@@ -57,8 +57,14 @@ def _get_alertas_criticas(db: Session) -> list[dict]:
             'STOCK_BAJO' AS tipo,
             m.sku,
             m.model AS modelo,
-            sl.available_count AS actual,
-            m.min_stock AS minimo,
+            -- `::text` en las dos ramas: el UNION exige que las columnas
+            -- tengan el MISMO tipo, y la rama de orden de compra pone una
+            -- fecha en `actual` (texto) donde la de stock bajo pone un
+            -- conteo (entero). Sin el cast, Postgres responde "UNION types
+            -- integer and text cannot be matched" y el reporte entero
+            -- devuelve 500.
+            sl.available_count::text AS actual,
+            m.min_stock::text         AS minimo,
             l.store_name AS ubicacion
         FROM stock_levels sl
         JOIN models m ON m.id = sl.model_id AND m.is_active
@@ -126,12 +132,13 @@ def _get_stock_por_estado(db: Session) -> list[dict]:
 def _get_movimientos_recientes(db: Session, dias: int = 7) -> list[dict]:
     query = """
         SELECT
-            mh.movement_type,
+            mt.name AS movement_type,
             COUNT(*) AS cantidad,
             DATE(mh.movement_date) AS fecha
         FROM movement_history mh
+        JOIN movement_types mt ON mt.id = mh.movement_type_id
         WHERE mh.movement_date >= NOW() - INTERVAL '%s days'
-        GROUP BY mh.movement_type, DATE(mh.movement_date)
+        GROUP BY mt.name, DATE(mh.movement_date)
         ORDER BY fecha DESC, cantidad DESC
     """ % dias
     return [dict(r) for r in db.execute(text(query)).mappings().all()]
@@ -197,11 +204,12 @@ def rotacion_modelos(dias: int = 30, top: int = 10) -> list[dict]:
                 m.model,
                 m.brand,
                 COUNT(mh.id) AS total_movimientos,
-                COUNT(mh.id) FILTER (WHERE mh.movement_type IN ('OUT_TO_CLIENT', 'WAREHOUSE_ENTRY')) AS entradas_salidas,
-                COUNT(mh.id) FILTER (WHERE mh.movement_type = 'INSTALLATION') AS instalaciones
+                COUNT(mh.id) FILTER (WHERE mt.name IN ('OUT_TO_CLIENT', 'WAREHOUSE_ENTRY')) AS entradas_salidas,
+                COUNT(mh.id) FILTER (WHERE mt.name = 'INSTALLATION') AS instalaciones
             FROM models m
             JOIN devices d ON d.model_id = m.id
             JOIN movement_history mh ON mh.device_id = d.id
+            JOIN movement_types mt ON mt.id = mh.movement_type_id
             WHERE mh.movement_date >= NOW() - INTERVAL '%s days'
             GROUP BY m.id, m.sku, m.model, m.brand
             ORDER BY total_movimientos DESC
@@ -218,23 +226,25 @@ def tiempo_instalacion(model_id: int | None = None, cliente_id: int | None = Non
     try:
         query = """
             WITH out_events AS (
-                SELECT device_id, movement_date AS fecha_out
-                FROM movement_history
-                WHERE movement_type = 'OUT_TO_CLIENT'
-                  AND movement_date >= NOW() - INTERVAL '%s days'
+                SELECT mh.device_id, mh.movement_date AS fecha_out
+                FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
+                WHERE mt.name = 'OUT_TO_CLIENT'
+                  AND mh.movement_date >= NOW() - INTERVAL '%s days'
             ),
             install_events AS (
-                SELECT device_id, movement_date AS fecha_inst
-                FROM movement_history
-                WHERE movement_type = 'INSTALLATION'
-                  AND movement_date >= NOW() - INTERVAL '%s days'
+                SELECT mh.device_id, mh.movement_date AS fecha_inst
+                FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
+                WHERE mt.name = 'INSTALLATION'
+                  AND mh.movement_date >= NOW() - INTERVAL '%s days'
             )
             SELECT
                 mo.id AS model_id,
                 mo.sku,
                 mo.model,
                 mo.brand,
-                c.name AS cliente,
+                c.commercial_name AS cliente,
                 AVG(i.fecha_inst - o.fecha_out) AS promedio_dias,
                 COUNT(*) AS instalaciones
             FROM out_events o
@@ -253,7 +263,7 @@ def tiempo_instalacion(model_id: int | None = None, cliente_id: int | None = Non
             query += " AND c.id = :cliente_id"
             params["cliente_id"] = cliente_id
 
-        query += " GROUP BY mo.id, mo.sku, mo.model, mo.brand, c.name ORDER BY instalaciones DESC LIMIT 20"
+        query += " GROUP BY mo.id, mo.sku, mo.model, mo.brand, c.commercial_name ORDER BY instalaciones DESC LIMIT 20"
 
         return [dict(r) for r in db.execute(text(query), params).mappings().all()]
     finally:

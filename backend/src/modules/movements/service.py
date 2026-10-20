@@ -98,6 +98,38 @@ class DispositivoNoEncontrado(LookupError):
     """El codigo no resuelve a ningun componente. 404."""
 
 
+class CodigoDeProducto(LookupError):
+    """
+    El codigo es la etiqueta de un PRODUCTO del maestro, no la de un equipo. 409.
+
+    POR QUE NO ES UN 404
+    --------------------
+    El codigo EXISTE: es la etiqueta de la caja, y el operador leyo bien. Un
+    404 le diria "este codigo no esta en el inventario", que es falso, y lo
+    mandaria a buscar un error donde no hay. Lo que hay es un pedido que no
+    se puede resolver como esta: un movimiento de inventario se registra
+    sobre un EQUIPO, y la etiqueta de la caja no dice cual.
+
+    POR QUE 409 Y NO 400
+    --------------------
+    El pedido esta bien formado: el codigo es legitimo, el tipo de movimiento
+    es valido. Lo que no se puede es aplicarlo sin elegir una unidad. Es un
+    conflicto entre lo que pidio el operador y lo que el dato permite.
+
+    El producto y sus unidades viajan en la excepcion: el frontend los
+    muestra para que el operador elija la unidad y no tenga que buscar el
+    serial a mano.
+    """
+
+    def __init__(self, producto: dict[str, Any]) -> None:
+        self.producto = producto
+        super().__init__(
+            f"El codigo es la etiqueta del producto {producto.get('brand', '')} "
+            f"{producto.get('model', '')} (SKU {producto.get('sku', '')}), no la de un equipo. "
+            "Elegi la unidad a la que corresponde el movimiento."
+        )
+
+
 def _validar_uuid(valor: str, nombre: str) -> str:
     """Valida un UUID de cliente antes de mandarlo a Postgres."""
     try:
@@ -343,6 +375,15 @@ def escanear(
 
     # --- 1. Resolucion del codigo ---------------------------------------
     resolucion = devices_service.resolver_codigo(codigo)
+
+    # La etiqueta de la CAJA (el producto del maestro) no identifica a un
+    # equipo. El codigo existe, asi que no es un 404: es un 409 con el
+    # producto y sus unidades, para que el operador elija con cual registrar
+    # el movimiento.
+    producto = resolucion.get("producto")
+    if producto:
+        raise CodigoDeProducto(producto)
+
     if not resolucion["encontrado"]:
         raise DispositivoNoEncontrado(
             resolucion["motivo"] or "El codigo no corresponde a ningun componente."
@@ -360,9 +401,10 @@ def escanear(
         previo = conexion.execute(
             text(
                 """
-                SELECT sr.movement_id, mh.movement_type, mh.movement_date
+                SELECT sr.movement_id, mt.name AS movement_type, mh.movement_date
                 FROM scan_receipts sr
                 JOIN movement_history mh ON mh.id = sr.movement_id
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
                 WHERE sr.client_scan_id = :cid
                 """
             ),
@@ -394,14 +436,15 @@ def escanear(
                 text(
                     """
                     INSERT INTO movement_history (
-                        device_id, movement_type,
+                        device_id, movement_type_id,
                         origin_location_id, destination_location_id,
                         replaced_device_id, replacement_reason,
                         user_id, scan_latitude, scan_longitude,
                         is_valid_location, observations
                     )
                     VALUES (
-                        :device_id, :tipo,
+                        :device_id,
+                        (SELECT id FROM movement_types WHERE name = :tipo),
                         :origen, :destino,
                         :reemplazado, :motivo,
                         :user_id, :lat, :lng,
@@ -580,7 +623,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
                 """
                 SELECT
                     mh.id,
-                    mh.movement_type,
+                    mt.name AS movement_type,
                     mh.movement_date,
                     mh.is_valid_location,
                     lo.store_name AS origen,
@@ -588,6 +631,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
                     u.full_name AS registrado_por,
                     mh.observations
                 FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
                 LEFT JOIN locations lo ON lo.id = mh.origin_location_id
                 LEFT JOIN locations ld ON ld.id = mh.destination_location_id
                 LEFT JOIN users u ON u.id = mh.user_id
@@ -813,7 +857,7 @@ def historial_dispositivo(device_id: int, limite: int = 50) -> list[dict[str, An
                 """
                 SELECT
                     mh.id,
-                    mh.movement_type,
+                    mt.name AS movement_type,
                     mh.movement_date,
                     mh.scan_latitude,
                     mh.scan_longitude,
@@ -825,6 +869,7 @@ def historial_dispositivo(device_id: int, limite: int = 50) -> list[dict[str, An
                     u.full_name    AS registrado_por,
                     d.serial_number AS equipo_reemplazado
                 FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
                 LEFT JOIN locations lo ON lo.id = mh.origin_location_id
                 LEFT JOIN locations ld ON ld.id = mh.destination_location_id
                 LEFT JOIN users u      ON u.id = mh.user_id
@@ -869,12 +914,13 @@ def listar_movimientos(
             text(
                 f"""
                 SELECT
-                    mh.id, mh.movement_type, mh.movement_date,
+                    mh.id, mt.name AS movement_type, mh.movement_date,
                     mh.is_valid_location,
                     d.serial_number, d.qr_code,
                     lo.store_name AS origen, ld.store_name AS destino,
                     u.full_name AS registrado_por
                 FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
                 JOIN devices d ON d.id = mh.device_id
                 LEFT JOIN locations lo ON lo.id = mh.origin_location_id
                 LEFT JOIN locations ld ON ld.id = mh.destination_location_id

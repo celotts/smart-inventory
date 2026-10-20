@@ -173,8 +173,10 @@ def obtener_metricas(
             (SELECT count(*) FROM repairs r WHERE r.device_id = d.id
                 AND r.status = 'WAITING_FOR_PARTS') AS esperando_repuestos,
             (SELECT count(*) FROM movement_history mh WHERE mh.device_id = d.id) AS movimientos_totales,
-            (SELECT count(*) FROM movement_history mh WHERE mh.device_id = d.id
-                AND mh.movement_type = 'REPLACEMENT') AS reemplazos,
+            (SELECT count(*) FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
+                WHERE mh.device_id = d.id
+                AND mt.name = 'REPLACEMENT') AS reemplazos,
             (SELECT count(*) FROM movement_history mh WHERE mh.device_id = d.id
                 AND mh.is_valid_location = FALSE) AS escaneos_fuera_de_radio,
             (SELECT count(*) FROM movement_history mh WHERE mh.device_id = d.id

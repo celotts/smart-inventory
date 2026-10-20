@@ -141,6 +141,15 @@ def _errores_de_escaneo(exc: Exception) -> HTTPException:
     """
     if isinstance(exc, service.DispositivoNoEncontrado):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, service.CodigoDeProducto):
+        # 409 con el producto y sus unidades: el frontend los muestra para que
+        # el operador elija la unidad. El `detalle` es un objeto y no un
+        # string, y es lo unico en este router que devuelve algo asi —por eso
+        # el frontend lo busca por `detalle.producto` y no por el texto.
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"mensaje": str(exc), "producto": exc.producto},
+        )
     if isinstance(exc, service.TransicionInvalida):
         # 409, no 400 ni 500: el pedido esta BIEN formado, el conflicto es con
         # el estado actual del componente. 409 es exactamente eso, y lo que
@@ -193,6 +202,7 @@ def escanear(
     except (
         service.ErrorDeEscaneo,
         service.DispositivoNoEncontrado,
+        service.CodigoDeProducto,
         service.TransicionInvalida,
         CoordenadaInvalida,
     ) as exc:
@@ -252,6 +262,7 @@ def escanear_lote(
         except (
             service.ErrorDeEscaneo,
             service.DispositivoNoEncontrado,
+            service.CodigoDeProducto,
             service.TransicionInvalida,
             CoordenadaInvalida,
         ) as exc:

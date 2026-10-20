@@ -30,6 +30,14 @@ bcrypt==4.2.1
 # de las que uno quiere en la pieza que decide quien es admin.
 PyJWT==2.10.1
 
+# QR de la etiqueta del equipo.
+#
+# `qrcode` es Python puro: ni una extension compilada, ni un binario. Se usa
+# SOLO para el SVG (la factory `SvgPathImage` escribe XML con la libreria
+# estandar, sin Pillow), asi que la imagen no pesa: el SVG de un QR son unos
+# pocos KB de texto.
+qrcode==7.4.2
+
 # Verificacion criptografica de la firma del JWT. Sin esto, PyJWT acepta
 # HS256 sin cekquearlo y un token forjado pasa.
 cryptography==44.0.0

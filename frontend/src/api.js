@@ -312,6 +312,7 @@ export async function pedir(ruta, opciones = {}) {
     params,
     reintentar = true,
     streaming = false,
+    comoTexto = false,
   } = opciones;
 
   const url = new URL(BASE + ruta, window.location.origin);
@@ -378,7 +379,6 @@ export async function pedir(ruta, opciones = {}) {
       datos = null;
     }
   }
-
   if (!respuesta.ok) {
     throw new ErrorDeApi(
       mensajeDeError(datos, respuesta.status),
@@ -387,7 +387,11 @@ export async function pedir(ruta, opciones = {}) {
     );
   }
 
-  return datos;
+  // `comoTexto`: para las respuestas que NO son JSON —el SVG del QR—. Se
+  // devuelve el cuerpo crudo en vez de parsearlo. El chequeo de error de
+  // arriba va antes: un error tiene que seguir siendo un error con su
+  // mensaje, vine de donde vine la respuesta.
+  return comoTexto ? texto : datos;
 }
 
 /**
