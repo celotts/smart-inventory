@@ -1782,6 +1782,72 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ---------------------------------------------------------------------------
+   Recibo de escaneos de la sesion
+   ---------------------------------------------------------------------------
+   Cada escaneo queda con su hora, su codigo y su estado. Es el comprobante
+   del turno: antes el panel se reemplazaba en cada lectura y se borraba solo
+   a los 8 segundos, asi que al final del conteo no quedaba rastro de lo que
+   se habia hecho.
+
+   El mas nuevo va arriba (el `prepend`), que es lo que el operador esta
+   mirando mientras escanea. */
+.lista--escaneos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lista__item--escaneo {
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 0.5rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+}
+
+.lista__item--escaneo .resultado {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.escaneo__hora {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--texto-tenue);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  padding-top: 0.15rem;
+}
+
+/* El chispoteo de "registrando", al lado de la camara. Va aca y no en la
+   zona de resultado, para no borrar el recibo mientras se registra el
+   siguiente escaneo. */
+.escaner-registrando {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.escaner-registrando::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.4rem;
+  border: 2px solid var(--borde-fuerte);
+  border-top-color: var(--primario);
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: girar 0.8s linear infinite;
+}
+
+/* La animacion `girar` ya esta definida mas arriba: se reusa, no se duplica. */
+
+/* ---------------------------------------------------------------------------
    TOOLTIPS
    ---------------------------------------------------------------------------
    Un tooltip es un EXTRA, nunca la unica forma de saber que hace un control:

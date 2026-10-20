@@ -140,7 +140,43 @@ pantalla tiene que poder leer la explicación sin que nadie pase el mouse.
 Aplicado a: los 8 KPIs del tablero (qué mide cada número), las insignias de
 estado, y los dos botones de solo icono de la cabecera.
 
-### 2.5 Otros detalles de profesionalismo
+### 2.5 El escáner: la cámara se apagaba y el resultado se borraba
+
+**Lo que pasaba**: al leer un código, el lector se detenía (por diseño: "para
+no leer diez veces la misma etiqueta"), la cámara se apagaba y el operador
+tenía que apretar "Encender cámara" para cada etiqueta. El resultado se
+mostraba en un panel que **se borraba solo a los 8 segundos**.
+
+En un depósito eso es un problema de piso: un conteo de 40 equipos son 40
+toques de más, y el operador termina escaneando con el ingreso manual, que es
+más lento. Y al final del conteo no quedaba **ningún comprobante** de lo que
+se había escaneado: el último escaneo tapaba al anterior, y a los 8 segundos
+no quedaba nada.
+
+**Ahora**:
+
+- **Escaneo continuo**: la cámara sigue encendida y el operador sigue
+  escaneando. El lector (`escaner.js`) tiene un modo `continuo` con un
+  filtro de **3 segundos por código**: la etiqueta sigue en el encuadre y el
+  detector la vuelve a leer ~30 veces por segundo, y sin ese filtro un solo
+  barrido registraría el mismo equipo treinta veces. El filtro es *por
+  valor*: una etiqueta nueva se registra al instante.
+- **Cola de escaneos**: el operador puede pasar el celu sobre tres cajas en un
+  segundo. Antes, los dos últimos se perdían en silencio y el conteo quedaba
+  corto sin que nadie supiera por qué. Ahora se registran en orden.
+- **Recibo de la sesión**: cada escaneo queda con su hora, su código, su
+  estado y su mensaje, y **se acumulan** (el más nuevo arriba). Es el
+  comprobante del turno, con un botón "Limpiar".
+- **Los errores no cortan el escaneo**: una etiqueta desconocida ya no abre un
+  modal (que tapaba la pantalla e impedía seguir escaneando); va al recibo en
+  rojo y un aviso flotante lo anuncia.
+- El "Registrando…" se muestra **en la tarjeta de la cámara**, no en la zona
+  de resultado: reemplazarlo borraría el recibo.
+
+El ingreso manual pasó también por la cola, para que no se pise con un
+escaneo de cámara.
+
+### 2.6 Otros detalles de profesionalismo
 
 - **El fondo no se mueve con un modal abierto**: el `overflow: hidden` en el
   `body` bloquea el scroll de atrás, compensando el ancho de la barra para
@@ -163,6 +199,7 @@ estado, y los dos botones de solo icono de la cabecera.
 | 5 | **`aria-live` en las listas que cambian** | El inventario actualiza la lista al escribir, y un lector de pantalla no se entera del cambio | Bajo |
 | 6 | **Auditoría de contraste con un verificador automático** | Los contrastes están anotados a mano en los tokens: bien, pero un test que los mida evita que se rompan en el próximo cambio | Bajo |
 | 7 | **Linterna de accesibilidad en CI** (eslint-plugin-jsx-a11y o similar) | Sin dependencias, no: un chequeo propio de las reglas basicas | Medio |
+| 8 | **Imprimir el recibo de la sesion** | El recibo de escaneos existe en pantalla, pero no se puede imprimir ni exportar: en un conteo de deposito, el papel es el comprobante que pide el responsable | Bajo |
 
 ---
 

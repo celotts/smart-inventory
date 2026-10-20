@@ -52,6 +52,21 @@ const FORMATOS_DESEADOS = [
 /** Formatos que presque siempre existen y son un fallback razonable. */
 const FORMATOS_MINIMOS = ['qr_code', 'code_128', 'ean_13'];
 
+/**
+ * Cuanto tiempo se ignora un codigo que ya se leyo, en modo continuo.
+ *
+ * Es el tiempo minimo entre dos escaneos del MISMO valor. Un barrido con la
+ * camara sobre una etiqueta produce decenas de lecturas por segundo; sin este
+ * filtro, un solo equipo se registraria dozens de veces.
+ *
+ * TRES SEGUNDOS
+ * -------------
+ * Es lo que tarda un operador en pasar de una etiqueta a otra. Un valor mas
+ * corto deja pasar el doble escaneo de la misma etiqueta; uno mas largo hace
+ * que un codigo repetido a proposito tarde en registrarse.
+ */
+const COOLDOWN_MS = 3000;
+
 export class LectorQR {
   #stream = null;
   #detector = null;
@@ -60,19 +75,30 @@ export class LectorQR {
 
   #video = null;
 
+  // Modo continuo: el lector NO se detiene al leer, y el mismo codigo se
+  // ignora durante `COOLDOWN_MS`.
+  #continuo = false;
+  #ultimoValor = null;
+  #ultimoMomento = 0;
+
   /**
    * @param {HTMLElement} contenedor  Donde se inserta el `<video>`.
+   * @param {object} [opciones]
+   * @param {boolean} [opciones.continuo]  Si es true, el lector sigue
+   *   escaneando despues de leer, en vez de apagarse.
    *
    * El lector crea su propio `<video>` en vez de recibirlo: asi el `<video>`
    * nunca puede quedar apuntando a otro lado si la vista se vuelve a montar,
    * y `detener()` siempre sabe exactamente que apagar.
    */
-  constructor(contenedor) {
+  constructor(contenedor, { continuo = false } = {}) {
     this.#video = document.createElement('video');
     this.#video.setAttribute('playsinline', ''); // iOS: sin esto abre a pantalla completa
     this.#video.muted = true;
     this.#video.hidden = true;
     contenedor.append(this.#video);
+
+    this.#continuo = continuo;
   }
 
   /** El `<video>`, para poder mostrarlo u ocultarlo desde la vista. */
@@ -237,12 +263,31 @@ export class LectorQR {
             // el operador lo confirme.
             const valor = (codigos[0].rawValue ?? '').trim();
             if (valor) {
-              // Se detiene ANTES de llamar al callback: seguir leyendo frames
-              // mientras la app procesa el escaneo produce diez escaneos del
-              // mismo codigo en un segundo.
-              this.detener();
-              alLeer(valor);
-              return;
+              if (this.#continuo) {
+                // MODO CONTINUO: la camara sigue encendida y el operador
+                // sigue escaneando, que es como se trabaja en un deposito.
+                //
+                // El mismo codigo se ignora durante `COOLDOWN_MS`: la etiqueta
+                // sigue en el encuadre y el detector la vuelve a leer unas
+                // 30 veces por segundo. Sin este filtro, un solo barrido
+                // registraria el mismo equipo treinta veces.
+                //
+                // El filtro es POR VALOR: una etiqueta nueva en el encuadre se
+                // registra al instante.
+                const ahora = Date.now();
+                if (valor !== this.#ultimoValor || ahora - this.#ultimoMomento > COOLDOWN_MS) {
+                  this.#ultimoValor = valor;
+                  this.#ultimoMomento = ahora;
+                  alLeer(valor);
+                }
+              } else {
+                // Se detiene ANTES de llamar al callback: seguir leyendo frames
+                // mientras la app procesa el escaneo produce diez escaneos del
+                // mismo codigo en un segundo.
+                this.detener();
+                alLeer(valor);
+                return;
+              }
             }
           }
         } catch (error) {
@@ -269,6 +314,18 @@ export class LectorQR {
     };
 
     requestAnimationFrame(paso);
+  }
+
+  /**
+   * Forget the last value read, so the SAME code can be read again right away.
+   *
+   * It is used after a manual scan: the operator typed a code that the camera
+   * had just read, and the app has to accept it even if it is the same as the
+   * previous one.
+   */
+  olvidarUltimo() {
+    this.#ultimoValor = null;
+    this.#ultimoMomento = 0;
   }
 
   /** Cierra la camara. Se puede llamar aunque nunca haya arrancado. */

@@ -46,6 +46,10 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let vacioPista = null;
   let timerSinLectura = null;
   let inputCodigo = null;
+  // La lista del recibo de escaneos de la sesion.
+  let listaRecibo = null;
+  // El chispoteo de "registrando…".
+  let indicadorRegistro = null;
   let botonManual = null;
   let zonaResultado = null;
   let chipsContainer = null;
@@ -246,7 +250,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     atributos: {
       onsubmit: (e) => {
         e.preventDefault();
-        procesar(inputCodigo.value);
+        encolar(inputCodigo.value);
       },
     },
   });
@@ -325,7 +329,15 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   // INICIALIZACIÓN DEL LECTOR
   // ============================================================
 
-  lector = new LectorQR(marcoVideo);
+  // El lector, en MODO CONTINUO: la camara sigue encendida despues de leer y
+  // el operador sigue escaneando. Es como se trabaja en un deposito: se pasa
+  // el celular sobre una caja tras otra, sin tocar la pantalla.
+  //
+  // Antes el lector se apagaba en cada lectura y el operador tinha que
+  // apretar "Encender camara" para cada etiqueta. En un conteo de 40 equipos
+  // eso son 40 toques de mas, y el operador termina escaneando con el
+  // ingreso manual, que es mas lento.
+  lector = new LectorQR(marcoVideo, { continuo: true });
 
   // Verificar soporte y mostrar aviso si no hay cámara nativa
   const razon = LectorQR.razonNoDisponible();
@@ -431,16 +443,50 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     botonCamara.setAttribute('aria-label', `${accion} cámara del escáner`);
   }
 
-  /** El callback que el lector dispara cuando lee algo. */
+  /**
+   * El callback que el lector dispara cuando lee algo.
+   *
+   * La camara NO se apaga: en modo continuo el operador sigue escaneando.
+   * El codigo se ENCOLA, porque puede leerse otro mientras el primero se
+   * esta registrando, y descartarlo seria perder un equipo del conteo.
+   */
   function alLeerCodigo(codigo) {
-    // El lector se detiene SOLO en cuanto lee, para no leer diez veces la misma
-    // etiqueta. A esta altura la cámara ya está apagada, así que el botón tiene
-    // que volver a "Encender": si se queda en "Apagar cámara" sobre un cuadro
-    // negro, el operador que quiera seguir escaneando tiene que adivinar que
-    // apretarlo lo ENCIENDE.
-    pintarBotonCamara(false);
     inputCodigo.value = codigo;
-    return procesar(codigo);
+    encolar(codigo);
+  }
+
+  /**
+   * La cola de escaneos.
+   *
+   * POR QUE UNA COLA Y NO UN `if (envioEnCurso) return`
+   * -----------------------------------------------
+   * El operador pasa el celu sobre tres cajas en un segundo. Sin cola, los
+   * dos ultimos se pierden en silencio: el conteo queda corto y nadie sabe
+   * por que. Con cola, se registran en orden.
+   *
+   * El tope de 20 es una red: si algo se rompe y la cola no baja, no se
+   * acumula hasta que el celular se queda sin memoria.
+   */
+  const cola = [];
+  let procesando = false;
+
+  function encolar(codigo) {
+    cola.push(codigo);
+    if (cola.length > 20) cola.shift();
+    procesarCola();
+  }
+
+  async function procesarCola() {
+    if (procesando) return;
+    procesando = true;
+    try {
+      while (cola.length) {
+        const codigo = cola.shift();
+        await procesar(codigo);
+      }
+    } finally {
+      procesando = false;
+    }
   }
 
   async function alternarCamara(forzarEncendido = false) {
@@ -492,15 +538,13 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   /**
    * Vuelve a encender la cámara después de un código que no existe.
    *
-   * El lector se detiene solo en cuanto lee, para no leer diez veces la misma
-   * etiqueta. Con un código válido eso es lo correcto: el operador ya tiene el
-   * resultado. Con uno que NO existe no: la etiqueta no era el problema, el
-   * operador todavía tiene una entera por escanear, y quedarse con el cuadro
-   * negro lo obliga a apretar un botón extra en cada etiqueta mala.
+   * En modo CONTINUO la camara nunca se apaga sola: sigue encendida entre
+   * escaneos, y este metodo solo sirve para volver a encenderla si el
+   * operador la apago (o si el navegador la cerro por un permiso).
    *
-   * Se rearma AL CERRAR EL MODAL, no antes: si la cámara se encendiera con la
-   * etiqueta mala todavía en el encuadre, volvería a leer el mismo código y
-   * abriría el modal otra vez, sin fin.
+   * El lector tiene su propio filtro por codigo (3 segundos), asi que no
+   * hay que worries de que se lea la misma etiqueta en bucle mientras el
+   * modal de la etiqueta de CAJA esta abierto.
    */
   function rearmarCamara() {
     if (razon) return; // El navegador no puede abrir cámara: no tiene sentido.
@@ -536,7 +580,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   inputCodigo.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
-      procesar(inputCodigo.value);
+      encolar(inputCodigo.value);
     }
   });
 
@@ -635,8 +679,9 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
     envioEnCurso = true;
     botonManual.disabled = true;
-    botonCamara.disabled = true;
-    zonaResultado.replaceChildren(crear('p', { clase: 'cargando', texto: 'Registrando…' }));
+    // El indicador va en la tarjeta de la camara, NO en la zona de resultado:
+    // reemplazar el resultado borra el recibo de la sesion.
+    indicarRegistro(true);
 
     // La baja definitiva no tiene vuelta atras: el equipo sale del inventario.
     // Pide confirmacion. El resto de los movimientos NO la pide —el escaneo
@@ -697,7 +742,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // con el motivo del backend tal cual: el texto está escrito para el
       // operador, no para un developers.
       if (error.status === 404) {
-        mostrarCodigoDesconocido(error.message, codigo, rearmarCamara);
+        // En modo continuo, un modal por cada etiqueta desconocida CORTARIA el
+        // escaneo: el operador no podria seguir pasando el celu porque la
+        // pantalla de aviso esta encima. El error va al recibo, que se lee
+        // igual, y un aviso flotante lo anuncia.
+        agregarErrorAlRecibo(codigo, error.message);
+        avisar(error.message, 'error', 5000);
         return;
       }
 
@@ -714,12 +764,30 @@ export function vistaEscanear({ alAbrirDispositivo }) {
         return;
       }
 
-      pintarError(error, codigo);
+      // El error va al recibo: es parte del conteo, no un cartel que se va.
+      agregarErrorAlRecibo(codigo, error.message);
+      avisar(error.message, 'error', 5000);
     } finally {
       envioEnCurso = false;
       botonManual.disabled = false;
-      botonCamara.disabled = false;
+      indicarRegistro(false);
     }
+  }
+
+  /**
+   * Enciende o apaga el chispoteo de "registrando".
+   *
+   * Va en la tarjeta de la camara y no en la zona de resultado: el recibo de
+   * escaneos tiene que seguir ahi mientras se registra el siguiente.
+   */
+  function indicarRegistro(activo) {
+    if (!indicadorRegistro) {
+      indicadorRegistro = crear('p', { clase: 'escaner-registrando', atributos: { role: 'status' } });
+      indicadorRegistro.hidden = true;
+      tarjetaCamara.appendChild(indicadorRegistro);
+    }
+    indicadorRegistro.hidden = !activo;
+    indicadorRegistro.textContent = activo ? 'Registrando…' : '';
   }
 
   /**
@@ -729,35 +797,6 @@ export function vistaEscanear({ alAbrirDispositivo }) {
  * @param {string}   codigo    El código escaneado, para que el operador lo lea.
  * @param {Function} [alCerrar] Se dispara al cerrar, con y sin Escape.
  */
-function mostrarCodigoDesconocido(motivo, codigo, alCerrar) {
-  const boton = crear('button', {
-    clase: 'boton boton--bloque',
-    texto: 'Entendido',
-    atributos: { type: 'button' },
-  });
-
-  abrirDialogo({
-    titulo: 'Ese código no está en el inventario',
-    mensaje: motivo || `Ningún componente de este inventario tiene el código ${codigo}.`,
-    nota: 'Si el componente está dado de baja, hay que emitir un certificado nuevo antes de volver a inventariarlo.',
-    clase: 'modal--alerta',
-    acciones: [boton],
-    // El botón se escucha acá y no al construirlo porque `cerrar` todavía no
-    // existe: el diálogo se arma antes de poder cerrarse.
-    alAbrir: (_modal, cerrar) => {
-      boton.addEventListener('click', () => {
-        cerrar();
-        alCerrar?.();
-      });
-      // Escape cierra el modal, y la cámara tiene que volver igual: el modal
-      // no es el evento, es una de las dos formas de cerrarlo.
-      _modal.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') alCerrar?.();
-      });
-    },
-  });
-}
-
 /**
  * Saca el producto de un error 409 del backend.
  *
@@ -955,16 +994,88 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       );
     }
 
-    zonaResultado.replaceChildren(bloque);
+    // El resultado se SUMA al recibo de la sesion, no reemplaza el anterior.
+    //
+    // ANTES
+    // ----
+    // El panel se reemplazaba en cada escaneo y se borraba solo a los 8
+    // segundos. En un conteo de 40 equipos, el operador no tenia forma de
+    // saber cuantos habia escaneado ni revisar los anteriores: el ultimo
+    // escaneo tapaba al anterior, y a los 8 segundos no quedaba nada. Al
+    // final del conteo no habia ningun comprobante de lo que se hizo.
+    //
+    // AHORA
+    // ----
+    // El recibo acumula: cada escaneo queda con su hora, su codigo y su
+    // estado. Es el comprobante del turno, y el operador puede revisarlo
+    // mientras sigue escaneando.
+    agregarAlRecibo(bloque);
+  }
 
-    // Auto-limpiar después de 8s si no hay error geo
-    if (geo.dentro_del_radio !== false) {
-      setTimeout(() => {
-        if (zonaResultado.firstChild === bloque) {
-          zonaResultado.replaceChildren();
-        }
-      }, 8000);
+  /**
+   * Agrega un ESCANEO FALLIDO al recibo de la sesion.
+   *
+   * @param {string} codigo
+   * @param {string} mensaje  Lo que respondio el backend.
+   */
+  function agregarErrorAlRecibo(codigo, mensaje) {
+    const bloque = crear('div', { clase: 'resultado resultado--error' });
+    const titulo = crear('div', { clase: 'resultado__titulo' });
+    titulo.append(
+      icono(ICONOS.error, { tamano: 18 }),
+      crear('span', { texto: 'No se pudo registrar' }),
+    );
+    bloque.append(
+      titulo,
+      crear('p', { clase: 'resultado__mensaje', texto: mensaje || 'Codigo desconocido.' }),
+      crear('p', { clase: 'resultado__mensaje mono pequeno tenue', texto: codigo }),
+    );
+    agregarAlRecibo(bloque);
+  }
+
+  /**
+   * Agrega un resultado al recibo de la sesion.
+   *
+   * @param {HTMLElement} bloque  El resultado a agregar.
+   */
+  function agregarAlRecibo(bloque) {
+    if (!listaRecibo) {
+      // La primera vez se arma la cabecera y la lista.
+      listaRecibo = crear('ul', { clase: 'lista lista--escaneos' });
+
+      const encabezadoRecibo = crear('div', { clase: 'flex-entre' });
+      encabezadoRecibo.append(
+        crear('h2', { clase: 'tarjeta__titulo', texto: 'Escaneos de la sesion' }),
+      );
+
+      const btnLimpiar = crear('button', {
+        clase: 'boton boton--suave boton--chico',
+        texto: 'Limpiar',
+        atributos: {
+          type: 'button',
+          title: 'Borrar el recibo de escaneos de esta sesion',
+        },
+      });
+      btnLimpiar.addEventListener('click', () => {
+        listaRecibo?.replaceChildren();
+        zonaResultado.replaceChildren();
+        listaRecibo = null;
+      });
+      encabezadoRecibo.append(btnLimpiar);
+
+      zonaResultado.replaceChildren(encabezadoRecibo, listaRecibo);
     }
+
+    // El mas nuevo arriba: es el que el operador esta mirando.
+    const item = crear('li', { clase: 'lista__item lista__item--escaneo' });
+    const hora = new Date().toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    item.append(crear('span', { clase: 'escaneo__hora tabular', texto: hora }));
+    item.appendChild(bloque);
+    listaRecibo.prepend(item);
   }
 
   /**
@@ -1001,48 +1112,6 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       avisar(error.message, 'error');
       throw error;
     }
-  }
-
-  // --- Pintar error ---
-  function pintarError(error, codigo) {
-    const bloque = crear('div', { clase: 'resultado resultado--error' });
-
-    const titulo = crear('div', { clase: 'resultado__titulo' });
-    titulo.append(
-      icono(ICONOS.error, { tamano: 18 }),
-      crear('span', {
-        texto: error.status === 404
-          ? 'Ese código no está en el inventario'
-          : 'No se pudo registrar',
-      }),
-    );
-
-    bloque.append(titulo, crear('p', { clase: 'resultado__mensaje', texto: error.message }));
-
-    if (error.status === 404) {
-      bloque.append(
-        crear('p', {
-          clase: 'resultado__mensaje pequeno tenue',
-          texto:
-            'Si el componente está dado de baja, hay que emitir un certificado ' +
-            'nuevo antes de volver a inventariarlo.',
-        }),
-      );
-    }
-
-    if (error.status === 0) {
-      bloque.append(
-        crear('p', {
-          clase: 'resultado__mensaje pequeno tenue',
-          texto: 'Revisa la conexión e intenta de nuevo con el mismo código.',
-        }),
-      );
-    }
-
-    bloque.append(crear('p', { clase: 'resultado__mensaje mono pequeno tenue', texto: codigo }));
-
-    zonaResultado.replaceChildren(bloque);
-    avisar(error.message, 'error');
   }
 
   // ============================================================
