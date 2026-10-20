@@ -82,6 +82,7 @@ def listar_incidencias(
     model_id: int | None = None,
     location_id: int | None = None,
     solo_vencidas: bool = False,
+    solo_abiertas: bool = False,
     solo_mias: bool = False,
     busqueda: str | None = None,
     limite: int = 50,
@@ -121,6 +122,10 @@ def listar_incidencias(
     if solo_vencidas:
         # Vencida = sin resolver y con el plazo de resolucion pasado.
         condiciones.append("i.resolved_at IS NULL AND i.resolution_due_at < NOW()")
+    if solo_abiertas:
+        # Las que siguen vivas: las tres del ciclo de trabajo. Es el filtro que
+        # usa el tablero del Helpdesk para mostrar "los casos que vencen".
+        condiciones.append("i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')")
     if busqueda:
         condiciones.append(
             "(i.title ILIKE :busqueda OR i.description ILIKE :busqueda OR i.code ILIKE :busqueda "

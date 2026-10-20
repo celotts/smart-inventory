@@ -1284,6 +1284,28 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   font-weight: 700;
   line-height: 1.1;
 }
+
+/* Los TRES numeros que se miran en los tres segundos.
+ *
+ * El tablero no escanea ocho numeros: elige. Por eso los destacados son mas
+ * grandes y los secundarios van en una fila aparte, mas chicos. El tamanio
+ * es la jerarquia, no el color. */
+.kpi--destacado {
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+.kpi--destacado .kpi__valor {
+  font-size: var(--text-3xl, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.kpi--destacado .kpi__etiqueta {
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 500;
+}
 .kpi__etiqueta {
   margin-top: 0.15rem;
   color: var(--texto-suave);

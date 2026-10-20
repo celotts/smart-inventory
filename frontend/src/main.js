@@ -113,6 +113,16 @@ iniciarModoExterior();
 // El chip de usuario: "Mi cuenta" (cambiar la propia contraseña).
 iniciarChipUsuario();
 
+// Una vista puede pedir un salto a otra ("Ver todos" en el tablero). Se usa un
+// evento de documento y no un import de `navegacion.js`: importarla desde una
+// vista crearia un ciclo (navegacion importa las vistas, y las vistas
+// importan navegacion). Con ESM, un ciclo no rompe, pero deja el binding en
+// `undefined` en el primer arranque, sin error que lo diga.
+document.addEventListener('app:ir-a', (evento) => {
+  const destino = evento.detail?.vista;
+  if (destino) mostrarVista(destino);
+});
+
 // ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------

@@ -159,6 +159,90 @@ def _locales(texto: str) -> set[str]:
     return nombres
 
 
+def _claves_de_crear(texto: str) -> set[str]:
+    """
+    Las claves de PRIMER NIVEL de cada llamada a `crear(...)`.
+
+    Se parsea el objeto de opciones contando llaves, corchetes y parentesis:
+    sin los tres, una llamada anidada dentro de `hijos: [...]` (por ejemplo
+    `icono(ICONOS.camara, { tamano: 20 })`) se cuenta como clave de la
+    llamada de `crear`, y el test reporta un problema que no existe.
+    """
+    claves: set[str] = set()
+    posicion = 0
+
+    while True:
+        inicio = texto.find("crear(", posicion)
+        if inicio == -1:
+            break
+        posicion = inicio + 6
+
+        llave = texto.find("{", inicio)
+        if llave == -1:
+            continue
+
+        # Se busca el cierre del objeto contando los tres tipos de apertura.
+        profundidad = 0
+        fin = -1
+        for i in range(llave, len(texto)):
+            caracter = texto[i]
+            if caracter in "{[(":
+                profundidad += 1
+            elif caracter in "}])":
+                profundidad -= 1
+                if profundidad == 0:
+                    fin = i
+                    break
+        if fin == -1:
+            continue
+
+        cuerpo = texto[llave + 1 : fin]
+
+        # Se recorre el cuerpo contando la profundidad de cada tipo.
+        nivel_llaves = 0
+        nivel_corchetes = 0
+        nivel_parentesis = 0
+        clave_actual = None
+        i = 0
+        while i < len(cuerpo):
+            caracter = cuerpo[i]
+            if caracter == "{":
+                nivel_llaves += 1
+            elif caracter == "}":
+                nivel_llaves -= 1
+            elif caracter == "[":
+                nivel_corchetes += 1
+            elif caracter == "]":
+                nivel_corchetes -= 1
+            elif caracter == "(":
+                nivel_parentesis += 1
+            elif caracter == ")":
+                nivel_parentesis -= 1
+            elif caracter in "'\"`":
+                # Los literales se saltan enteros: un `estilo: 'margin-top:0'`
+                # tiene dos puntos adentro y no es una clave.
+                cierre = cuerpo.find(caracter, i + 1)
+                if cierre == -1:
+                    break
+                i = cierre
+            elif (
+                clave_actual is None
+                and nivel_llaves == 0
+                and nivel_corchetes == 0
+                and nivel_parentesis == 0
+            ):
+                m = re.match(r"\s*([a-zA-Z_$][\w$]*)\s*:", cuerpo[i:])
+                if m:
+                    clave_actual = m.group(1)
+                    i += m.end() - 1
+            elif clave_actual is not None and ":" in cuerpo[i : i + 2]:
+                claves.add(clave_actual)
+                clave_actual = None
+            i += 1
+
+    return claves
+
+
 class TestGrafoDeModulos:
     def test_todo_import_existe(self):
         """
@@ -220,6 +304,33 @@ class TestGrafoDeModulos:
                     problemas.append(f"{ruta.name}: usa '{nombre}' y no lo importa")
 
         assert not problemas, "\n".join(problemas)
+
+    def test_las_claves_de_crear_estan_permitidas(self):
+        """
+        `crear()` descarta en SILENCIO las claves que no conoce.
+
+        El helper acepta `clase`, `id`, `texto`, `atributos`, `hijos` y
+        `estilo`, y cualquier otra cosa se pierde sin error ni aviso. Un `role: 'tab'`
+        puesto al lado de `atributos` desaparece, y el boton queda sin
+        anunciar: el lector de pantalla lo lee como un boton cualquiera.
+
+        Pasa tres veces en este repo (un `onclick` que no se escuchaba, un
+        `errorDe` sin importar y un `role` perdido). Cada vez el sintoma fue
+        "el boton no hace nada".
+        """
+        PERMITIDAS = {"clase", "id", "texto", "atributos", "hijos", "estilo"}
+        problemas = []
+
+        for ruta in _archivos_js():
+            texto = _sin_comentarios(ruta.read_text(encoding="utf-8"))
+            for clave in _claves_de_crear(texto):
+                if clave not in PERMITIDAS:
+                    problemas.append(
+                        f"{ruta.name}: `crear()` con la clave '{clave}', que se descarta en silencio"
+                    )
+
+        unicos = sorted(set(problemas))
+        assert not unicos, "\n".join(unicos)
 
     def test_no_hay_imports_de_ruta_absoluta(self):
         """

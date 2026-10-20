@@ -38,30 +38,42 @@
  * @param {string} [opciones.clase]
  * @param {string} [opciones.id]
  * @param {string} [opciones.texto]     Va por textContent. Seguro con cualquier dato.
+ * @param {string} [opciones.estilo]     Estilo en linea (cssText).
  * @param {object} [opciones.atributos] atributos="valor"
  * @param {Array}  [opciones.hijos]     Elementos ya construidos.
  *
  * LO QUE SE DESCARTA EN SILENCIO
  * ------------------------------
- * Cualquier clave que no sea `clase`, `id`, `texto`, `atributos` o `hijos` se
- * ignora. No hay error, no hay aviso: el elemento sale sin eso y el bug aparece
- * mas tarde y en otro lado.
+ * Cualquier clave que no sea `clase`, `id`, `texto`, `atributos`, `hijos` o
+ * `estilo` se ignora. No hay error, no hay aviso: el elemento sale sin eso y el
+ * bug aparece mas tarde y en otro lado.
  *
  * Ya paso tres veces en este repo, todas con la misma forma:
  *
  *   crear('div', { clase: 'x' }, [hijo])  → el hijo nunca se agrega
  *   crear('p',  { id: 'y' })              → el `id` no existe
  *   crear('div', { role: 'dialog' })      → no es un dialogo para el lector
+ *   crear('div', { estilo: 'margin:0' })  → el estilo no se aplica
  *
- * La regla: lo que sea atributo va en `atributos`. `id` es la unica excepcion,
- * porque se usa en todas partes y casi siempre es un error olvidarlo.
+ * La regla: lo que sea atributo va en `atributos`. `id` y `estilo` son las dos
+ * excepciones, porque se usan en todas partes y casi siempre es un error
+ * olvidarlos.
  */
 export function crear(etiqueta, opciones = {}) {
-  const { clase, id, texto, atributos, hijos } = opciones;
+  const { clase, id, texto, atributos, hijos, estilo } = opciones;
   const el = document.createElement(etiqueta);
 
   if (clase) el.className = clase;
   if (id) el.id = id;
+
+  // EL ESTILO EN LINEA: ESTABA EN EL DOCSTRING Y NO EN EL CODIGO
+  // -----------------------------------------------------------
+  // El helper documentaba cuatro opciones y aceptaba cuatro: `estilo` no
+  // existia, y todas las vistas la usaban (treinta y seis lugares). El
+  // resultado era que NINGUNO de esos estilos se aplicaba, y como el efecto
+  // es sutil (un `margin:0` de mas) nadie lo notaba: no habia ningun error,
+  // solo un archivo con la forma correcta y el resultado equivocado.
+  if (estilo) el.style.cssText = estilo;
 
   // `textContent` y no `innerText`: `innerText` depende del layout y es mas
   // lento, y ademas interpreta entidades. No es lo que se quiere.
