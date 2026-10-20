@@ -15,7 +15,10 @@ def crear_access_token(*args, **kwargs):
     for k,v in kwargs.items():
         if k == 'expires_delta':
             continue
-        payload[k] = str(v)
+        if k == 'user_id':
+            payload['sub'] = str(v)
+        else:
+            payload[k] = str(v)
     exp_delta = kwargs.get('expires_delta')
     try:
         import jwt
@@ -24,8 +27,10 @@ def crear_access_token(*args, **kwargs):
             from jose import jwt
         except:
             import jwt
+    import uuid
     expire = datetime.utcnow() + (exp_delta or timedelta(minutes=15))
     payload['exp'] = int(expire.timestamp())
+    payload['jti'] = str(uuid.uuid4())
     token = jwt.encode(payload, SECRET, algorithm='HS256')
     return token, expire
 

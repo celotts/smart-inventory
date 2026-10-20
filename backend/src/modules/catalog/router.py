@@ -96,6 +96,136 @@ def crear_producto(
         raise _error_de_negocio(exc) from exc
 
 
+@router.put(
+    "/products/{producto_id}",
+    summary="Actualizar un producto del maestro",
+)
+def actualizar_producto(
+    producto_id: int,
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Body:
+    {
+      "brand": "Dell",
+      "model": "Latitude 5520",
+      "category_id": 1,
+      "variant": "i5/16GB/512GB",
+      "unit_cost": 850.00,
+      "min_stock": 3,
+      "max_stock": 20,
+      "is_active": true
+    }
+    """
+    for obligatorio in ("brand", "model"):
+        if not (body.get(obligatorio) or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"El campo '{obligatorio}' es obligatorio.",
+            )
+    try:
+        return service.actualizar_producto(producto_id, body)
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+@router.delete(
+    "/products/{producto_id}",
+    summary="Eliminar un producto (borrado logico)",
+)
+def eliminar_producto(
+    producto_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Borrado logico de un producto. Solo se permite si NO tiene movimientos
+    asociados. Si tiene movimientos, se debe descontinuar (is_active = FALSE).
+    """
+    try:
+        service.eliminar_producto(producto_id)
+        return {"ok": True}
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+# --- Clientes ---------------------------------------------------------------
+
+@router.get(
+    "/clients",
+    summary="Listar clientes",
+)
+def listar_clientes(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> list[dict]:
+    return service.listar_clientes()
+
+
+@router.post(
+    "/clients",
+    status_code=status.HTTP_201_CREATED,
+    summary="Dar de alta un cliente",
+)
+def crear_cliente(
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    if not (body.get("commercial_name") or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El nombre comercial es obligatorio.",
+        )
+    if not (body.get("tax_id") or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El tax_id es obligatorio.",
+        )
+    try:
+        return service.crear_cliente(body)
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+@router.put(
+    "/clients/{cliente_id}",
+    summary="Actualizar un cliente",
+)
+def actualizar_cliente(
+    cliente_id: int,
+    body: dict = Body(...),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    if not (body.get("commercial_name") or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El nombre comercial es obligatorio.",
+        )
+    if not (body.get("tax_id") or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El tax_id es obligatorio.",
+        )
+    try:
+        return service.actualizar_cliente(cliente_id, body)
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
+@router.delete(
+    "/clients/{cliente_id}",
+    summary="Eliminar un cliente (borrado logico)",
+)
+def eliminar_cliente(
+    cliente_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    try:
+        service.eliminar_cliente(cliente_id)
+        return {"ok": True}
+    except service.ProductoInvalido as exc:
+        raise _error_de_negocio(exc) from exc
+
+
 # --- Proveedores ------------------------------------------------------------
 
 

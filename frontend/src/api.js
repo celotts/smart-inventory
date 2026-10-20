@@ -510,6 +510,12 @@ export const api = {
   categorias: () => pedir('/catalog/categories'),
   productos: (params) => pedir('/catalog/products', { params }),
   crearProducto: (datos) => pedir('/catalog/products', { metodo: 'POST', cuerpo: datos }),
+  actualizarProducto: (id, datos) => pedir(`/catalog/products/${id}`, { metodo: 'PUT', cuerpo: datos }),
+  eliminarProducto: (id) => pedir(`/catalog/products/${id}`, { metodo: 'DELETE' }),
+  clientes: () => pedir('/catalog/clients'),
+  crearCliente: (datos) => pedir('/catalog/clients', { metodo: 'POST', cuerpo: datos }),
+  actualizarCliente: (id, datos) => pedir(`/catalog/clients/${id}`, { metodo: 'PUT', cuerpo: datos }),
+  eliminarCliente: (id) => pedir(`/catalog/clients/${id}`, { metodo: 'DELETE' }),
   proveedores: () => pedir('/catalog/vendors'),
   crearProveedor: (datos) => pedir('/catalog/vendors', { metodo: 'POST', cuerpo: datos }),
 

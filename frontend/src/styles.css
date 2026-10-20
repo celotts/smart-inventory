@@ -1591,3 +1591,88 @@ textarea.campo__control {
 
 /* Espacio para que el contenido no quede bajo el footer */
 .contenido { padding-bottom: calc(5.5rem + var(--safe-bottom)); }
+
+/* ---------------------------------------------------------------------------
+   Vista de Clientes — diseno profesional
+   --------------------------------------------------------------------------- */
+
+/* Estadisticas */
+.clientes-stats { padding: 1rem 1.15rem; }
+.clientes-stats__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.85rem 0.5rem;
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  position: relative;
+}
+.stat-card__valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.stat-card__etiqueta {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+.stat-card svg {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  opacity: 0.5;
+}
+
+/* Tarjetas de cliente */
+.lista--clientes .lista__item {
+  padding: 0.85rem 0.75rem;
+  border-radius: var(--radio-sm);
+  border: 1px solid var(--borde);
+  margin-bottom: 0.5rem;
+  background: var(--superficie);
+  transition: box-shadow 0.15s, transform 0.08s;
+}
+.lista--clientes .lista__item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+.cliente-card__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primario), var(--primario-fuerte));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+}
+.cliente-card__acciones {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.boton--chico {
+  min-height: 32px;
+  padding: 0 0.7rem;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .clientes-stats__grid { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .cliente-card__acciones { flex-direction: column; }
+  .cliente-card__avatar { width: 36px; height: 36px; font-size: 0.8rem; }
+}

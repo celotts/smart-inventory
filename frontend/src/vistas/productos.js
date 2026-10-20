@@ -128,6 +128,24 @@ export function vistaProductos({ permisos = [] }) {
       );
 
       item.append(cuerpo);
+      if (puedeEditar) {
+        const btnEditar = crear('button', {
+          clase: 'boton boton--suave boton--chico',
+          texto: 'Editar',
+          atributos: { type: 'button', onclick: () => abrirEdicion(p) },
+        });
+        const btnDescontinuar = crear('button', {
+          clase: 'boton boton--chico boton--peligro',
+          texto: p.is_active ? 'Descontinuar' : 'Reactivar',
+          atributos: { type: 'button', onclick: () => alternarActivo(p) },
+        });
+        const btnEliminar = crear('button', {
+          clase: 'boton boton--chico boton--peligro',
+          texto: 'Eliminar',
+          atributos: { type: 'button', onclick: () => eliminarProducto(p) },
+        });
+        item.append(btnEditar, btnDescontinuar, btnEliminar);
+      }
       lista.append(item);
     }
 
@@ -234,6 +252,123 @@ export function vistaProductos({ permisos = [] }) {
     cerrarModal = abrirDialogo({
       titulo: 'Nuevo producto',
       nota: 'El SKU es unico. Es la clave con la que se compra y se cuenta el stock.',
+      cuerpo: [form],
+      clase: 'modal--formulario',
+      acciones: [btnCancelar],
+      alAbrir: (_modal, cerrar) => {
+        cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
+      },
+    });
+  }
+
+  // --- Edicion de producto ---------------------------------------------------
+  async function abrirEdicion(p) {
+    let categorias = [];
+    try {
+      categorias = await api.categorias();
+    } catch (error) {
+      avisar(`No se pudieron cargar las categorias: ${error.message}`, 'error');
+      return;
+    }
+
+    const campoMarca = campoTexto('Ej: Dell, HP, Cisco', 'Marca *');
+    campoMarca.input.value = p.brand || '';
+    const campoModelo = campoTexto('Ej: Latitude 5520', 'Modelo *');
+    campoModelo.input.value = p.model || '';
+    const campoSKU = campoTexto('Ej: NB-DELL-5520', 'SKU (no editable)', { mono: true });
+    campoSKU.input.value = p.sku || '';
+    campoSKU.input.disabled = true;
+    const campoVariante = campoTexto('Ej: i5/16GB/512GB (opcional)', 'Variante');
+    campoVariante.input.value = p.variant || '';
+
+    const selectCategoria = crear('select', { clase: 'campo__control' });
+    selectCategoria.append(
+      crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true } }),
+    );
+    for (const c of categorias) {
+      selectCategoria.append(crear('option', { texto: c.name, atributos: { value: c.id } }));
+    }
+    selectCategoria.value = String(p.category_id || '');
+
+    const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01' });
+    campoCosto.input.value = p.unit_cost ?? '';
+    const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0' });
+    campoMin.input.value = String(p.min_stock ?? 0);
+    const campoMax = campoTexto('Ej: 20', 'Stock maximo', { type: 'number', valor: '100' });
+    campoMax.input.value = String(p.max_stock ?? 100);
+
+    const form = crear('form', {
+      clase: 'apilado',
+      atributos: {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await enviar();
+        },
+      },
+    });
+
+    form.append(
+      campoMarca.campo,
+      campoModelo.campo,
+      campoSKU.campo,
+      campoVariante.campo,
+      crear('label', {
+        clase: 'campo',
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria *' }), selectCategoria],
+      }),
+      campoCosto.campo,
+      campoMin.campo,
+      campoMax.campo,
+    );
+
+    const btnGuardar = crear('button', {
+      clase: 'boton boton--bloque',
+      texto: 'Guardar cambios',
+      atributos: { type: 'submit' },
+    });
+    form.append(btnGuardar);
+
+    let cerrarModal = () => {};
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
+    async function enviar() {
+      const brand = campoMarca.input.value.trim();
+      const model = campoModelo.input.value.trim();
+      const category_id = selectCategoria.value ? parseInt(selectCategoria.value, 10) : null;
+
+      if (!brand || !model) return avisar('Marca y modelo son obligatorios', 'alerta');
+      if (!category_id) return avisar('Selecciona una categoria', 'alerta');
+
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = 'Guardando…';
+      try {
+        await api.actualizarProducto(p.id, {
+          brand,
+          model,
+          category_id,
+          variant: campoVariante.input.value.trim() || undefined,
+          unit_cost: campoCosto.input.value ? parseFloat(campoCosto.input.value) : undefined,
+          min_stock: parseInt(campoMin.input.value || '0', 10),
+          max_stock: parseInt(campoMax.input.value || '100', 10),
+        });
+        avisar('Producto actualizado correctamente', 'exito', 2500);
+        cerrarModal();
+        cargar();
+      } catch (error) {
+        avisar(error.message, 'error');
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = 'Guardar cambios';
+      }
+    }
+
+    cerrarModal = abrirDialogo({
+      titulo: `Editar producto — ${p.sku}`,
+      nota: 'El SKU no se puede modificar: es la clave historica del producto.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],

@@ -200,6 +200,253 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
         db.close()
 
 
+def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, Any]:
+    """
+    Actualizacion de un producto del maestro.
+
+    No se permite cambiar el SKU (es la clave historica con la que se compro
+    y se conto stock). Si se quiere otro SKU, se da de alta un producto nuevo.
+    """
+    categoria_id = datos.get("category_id")
+    if not categoria_id:
+        raise ProductoInvalido("La categoria es obligatoria.")
+
+    db = get_db_session()
+    try:
+        existe = db.execute(
+            text("SELECT 1 FROM categories WHERE id = :id AND is_active = TRUE"),
+            {"id": categoria_id},
+        ).first()
+        if not existe:
+            raise ProductoInvalido("La categoria seleccionada no existe.")
+
+        try:
+            db.execute(
+                text(
+                    """
+                    UPDATE models SET
+                        category_id = :category_id,
+                        brand = :brand,
+                        model = :model,
+                        variant = :variant,
+                        unit_cost = :unit_cost,
+                        list_price = :list_price,
+                        currency = :currency,
+                        min_stock = :min_stock,
+                        max_stock = :max_stock,
+                        reorder_multiple = :reorder_multiple,
+                        lead_time_days = :lead_time_days,
+                        is_active = :is_active
+                    WHERE id = :id AND deleted_at IS NULL
+                    """
+                ),
+                {
+                    "id": producto_id,
+                    "category_id": categoria_id,
+                    "brand": datos["brand"],
+                    "model": datos["model"],
+                    "variant": datos.get("variant"),
+                    "unit_cost": datos.get("unit_cost"),
+                    "list_price": datos.get("list_price"),
+                    "currency": datos.get("currency") or "USD",
+                    "min_stock": datos.get("min_stock", 0),
+                    "max_stock": datos.get("max_stock", 100),
+                    "reorder_multiple": datos.get("reorder_multiple", 1),
+                    "lead_time_days": datos.get("lead_time_days", 14),
+                    "is_active": datos.get("is_active", True),
+                },
+            )
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            detalle = str(getattr(exc, "orig", exc))
+            if "uq_models_brand_model" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe el modelo '{datos['brand']} {datos['model']}'."
+                ) from exc
+            raise
+
+        fila = db.execute(
+            text(
+                """
+                SELECT m.id, m.sku, m.brand, m.model, m.variant,
+                       m.category_id, c.name AS categoria,
+                       m.unit_cost, m.list_price, m.currency,
+                       m.min_stock, m.max_stock, m.is_active
+                FROM models m
+                JOIN categories c ON c.id = m.category_id
+                WHERE m.id = :id
+                """
+            ),
+            {"id": producto_id},
+        ).mappings().one()
+        return dict(fila)
+    finally:
+        db.close()
+
+
+def eliminar_producto(producto_id: int) -> None:
+    """
+    Borrado logico de un producto. Solo se permite si NO tiene movimientos
+    asociados. Si tiene movimientos, se debe descontinuar (is_active = FALSE)
+    para no perder el historial.
+    """
+    db = get_db_session()
+    try:
+        # Verificar que el producto exista y no esté ya borrado
+        fila = db.execute(
+            text("SELECT id, brand, model, sku FROM models WHERE id = :id AND deleted_at IS NULL"),
+            {"id": producto_id},
+        ).mappings().first()
+        if not fila:
+            raise ProductoInvalido("El producto no existe o ya fue eliminado.")
+
+        # Verificar si tiene movimientos asociados
+        movimientos = db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM movement_history mh
+                JOIN devices d ON d.id = mh.device_id
+                WHERE d.model_id = :model_id
+                """
+            ),
+            {"model_id": producto_id},
+        ).scalar()
+
+        if movimientos > 0:
+            raise ProductoInvalido(
+                f"El producto '{fila['brand']} {fila['model']}' tiene {movimientos} movimientos asociados. "
+                "No se puede eliminar. Descontinúelo (is_active = FALSE) para mantener el historial."
+            )
+
+        # Borrado logico
+        db.execute(
+            text("UPDATE models SET deleted_at = NOW() WHERE id = :id"),
+            {"id": producto_id},
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def listar_clientes() -> list[dict[str, Any]]:
+    """Clientes activos."""
+    db = get_db_session()
+    try:
+        filas = db.execute(
+            text(
+                """
+                SELECT id, commercial_name, tax_id, contact_name, contact_email, contact_phone
+                FROM clients
+                WHERE deleted_at IS NULL
+                ORDER BY commercial_name
+                """
+            )
+        ).mappings().all()
+        return [dict(f) for f in filas]
+    finally:
+        db.close()
+
+
+def crear_cliente(datos: dict[str, Any]) -> dict[str, Any]:
+    """Alta de cliente."""
+    db = get_db_session()
+    try:
+        try:
+            cliente_id = db.execute(
+                text(
+                    """
+                    INSERT INTO clients (commercial_name, tax_id, contact_name, contact_email, contact_phone)
+                    VALUES (:commercial_name, :tax_id, :contact_name, :contact_email, :contact_phone)
+                    RETURNING id
+                    """
+                ),
+                {
+                    "commercial_name": datos["commercial_name"],
+                    "tax_id": datos["tax_id"],
+                    "contact_name": datos.get("contact_name"),
+                    "contact_email": datos.get("contact_email"),
+                    "contact_phone": datos.get("contact_phone"),
+                },
+            ).scalar_one()
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            detalle = str(getattr(exc, "orig", exc))
+            if "tax_id" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un cliente con el tax_id '{datos['tax_id']}'."
+                ) from exc
+            raise
+
+        fila = db.execute(
+            text("SELECT id, commercial_name, tax_id, contact_name, contact_email, contact_phone FROM clients WHERE id = :id"),
+            {"id": cliente_id},
+        ).mappings().one()
+        return dict(fila)
+    finally:
+        db.close()
+
+
+def actualizar_cliente(cliente_id: int, datos: dict[str, Any]) -> dict[str, Any]:
+    """Actualizacion de cliente."""
+    db = get_db_session()
+    try:
+        try:
+            db.execute(
+                text(
+                    """
+                    UPDATE clients SET
+                        commercial_name = :commercial_name,
+                        tax_id = :tax_id,
+                        contact_name = :contact_name,
+                        contact_email = :contact_email,
+                        contact_phone = :contact_phone
+                    WHERE id = :id AND deleted_at IS NULL
+                    """
+                ),
+                {
+                    "id": cliente_id,
+                    "commercial_name": datos["commercial_name"],
+                    "tax_id": datos["tax_id"],
+                    "contact_name": datos.get("contact_name"),
+                    "contact_email": datos.get("contact_email"),
+                    "contact_phone": datos.get("contact_phone"),
+                },
+            )
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            detalle = str(getattr(exc, "orig", exc))
+            if "tax_id" in detalle:
+                raise ProductoInvalido(
+                    f"Ya existe un cliente con el tax_id '{datos['tax_id']}'."
+                ) from exc
+            raise
+
+        fila = db.execute(
+            text("SELECT id, commercial_name, tax_id, contact_name, contact_email, contact_phone FROM clients WHERE id = :id"),
+            {"id": cliente_id},
+        ).mappings().one()
+        return dict(fila)
+    finally:
+        db.close()
+
+
+def eliminar_cliente(cliente_id: int) -> None:
+    """Borrado logico de cliente."""
+    db = get_db_session()
+    try:
+        db.execute(
+            text("UPDATE clients SET deleted_at = NOW() WHERE id = :id AND deleted_at IS NULL"),
+            {"id": cliente_id},
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 def listar_proveedores() -> list[dict[str, Any]]:
     """Proveedores activos, para el select de la orden de compra."""
     db = get_db_session()
