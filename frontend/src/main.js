@@ -62,6 +62,7 @@ import { vistaProductos } from './vistas/productos.js';
 import { vistaCompras } from './vistas/compras.js';
 import { vistaMovimientos } from './vistas/movimientos.js';
 import { vistaAuditoria } from './vistas/auditoria.js';
+import { conTooltip } from './tooltip.js';
 
 const contenido = document.getElementById('contenido');
 const cabecera = document.getElementById('cabecera');
@@ -665,6 +666,17 @@ for (const boton of cabecera.querySelectorAll('[data-vista]')) {
 
 document.getElementById('btn-salir')?.addEventListener('click', cerrar);
 
+// Tooltips de los botones de la cabecera.
+//
+// Son botones de SOLO ICONO: su nombre accesible esta en el `aria-label` del
+// HTML, y el tooltip es la DESCRIPCION. Sin el, el operador que no sabe que
+// hace el sol tiene que probarlo, y el que usa lector de pantalla solo oye
+// "boton".
+conTooltip(
+  document.getElementById('btn-salir'),
+  'Cerrar la sesion en este dispositivo. El token de acceso se borra de memoria.',
+);
+
 // La auditoría puede saltar a la ficha de un equipo. La vista dispara el evento
 // en vez de llamar a `mostrarVista` directamente: `mostrarVista` vive en este
 // archivo y las vistas lo importan de arriba hacia abajo — importarlo desde
@@ -677,6 +689,10 @@ document.addEventListener('auditoria:abrir-equipo', (evento) => {
 // Botón modo exterior / alto contraste (para sol directo, guantes, accesibilidad)
 const btnExterior = document.getElementById('btn-exterior');
 if (btnExterior) {
+  conTooltip(
+    btnExterior,
+    'Modo exterior: sube el contraste y el tamano de los controles para leer la pantalla bajo el sol directo, con guantes.',
+  );
   btnExterior.addEventListener('click', () => {
     const activo = document.documentElement.getAttribute('data-outdoor') !== '1';
     if (activo) {

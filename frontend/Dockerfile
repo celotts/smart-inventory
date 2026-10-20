@@ -27,6 +27,8 @@ FROM nginx:alpine
 # permisos de escritura de los archivos que se sirven evita que un proceso
 # comprometido pueda modificar su propio codigo y persistir.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Las cabeceras de seguridad van aparte: las `include` los `location` de nginx.conf.
+COPY security-headers.conf /etc/nginx/security-headers.conf
 COPY --chown=root:root index.html /usr/share/nginx/html/index.html
 COPY --chown=root:root src /usr/share/nginx/html/src
 COPY --chown=root:root public /usr/share/nginx/html/

@@ -35,6 +35,46 @@ const FOCUSEABLES = 'button, [href], input, select, textarea, [tabindex]:not([ta
  */
 const pila = [];
 
+/** El ancho de la barra de scroll, para compensarla cuando se bloquea. */
+let anchoBarra = 0;
+
+/**
+ * Bloquea el scroll del fondo mientras hay un modal abierto.
+ *
+ * POR QUE
+ * -------
+ * Con el modal abierto, la pagina de atras sigue bajando con el rueda del
+ * mouse: el operador ve el modal quieto y el fondo moviendose debajo, que se
+ * lee como "la app se colgo".
+ *
+ * El `padding-right` con el ancho de la barra compensa el espacio que deja de
+ * ocupar: sin eso, la pagina se desplaza unos pixeles al abrir el modal, y
+ * con ella todo el contenido (formularios, listas, el cursor del operador).
+ *
+ * Se hace por CONTADOR y no por una bandera: puede haber dos modales
+ * apilados (el de edicion pide confirmacion al guardar), y el scroll se
+ * desbloquea recien cuando se cierra el ULTIMO.
+ */
+function bloquearScroll() {
+  if (pila.length > 0) return;
+
+  const estilos = getComputedStyle(document.body);
+  anchoBarra = window.innerWidth - document.documentElement.clientWidth;
+
+  if (anchoBarra > 0) {
+    document.body.style.paddingRight = `${anchoBarra}px`;
+  }
+  document.body.classList.add('modal-abierto');
+}
+
+function desbloquearScroll() {
+  if (pila.length > 0) return;
+
+  document.body.classList.remove('modal-abierto');
+  document.body.style.paddingRight = '';
+  anchoBarra = 0;
+}
+
 /** Si el modal es el de arriba, es el unico que el operador ve. */
 function esSuperior(modal) {
   return pila[pila.length - 1] === modal;
@@ -102,6 +142,7 @@ export function abrirDialogo({
 
   document.body.append(modal);
   pila.push(modal);
+  bloquearScroll();
 
   const focusables = modal.querySelectorAll(FOCUSEABLES);
   const primero = focusables[0];
@@ -142,6 +183,7 @@ export function abrirDialogo({
     modal.remove();
     const i = pila.indexOf(modal);
     if (i !== -1) pila.splice(i, 1);
+    desbloquearScroll();
     document.removeEventListener('keydown', alEscape);
     document.removeEventListener('keydown', atraparFoco);
     // El foco vuelve a donde estaba: si no, al cerrarse el modal el operador

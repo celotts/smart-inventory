@@ -28,6 +28,35 @@
 
 const LIMITE_MS = 12000;
 
+/**
+ * El error que hizo fallar el arranque, si lo hubo.
+ *
+ * QUE ESTO RESUELVE
+ * -----------------
+ * Un `ReferenceError` en un modulo (un nombre mal escrito, una importacion
+ * que no existe) ABORTA el arranque de la app entera: no se pinta ninguna
+ * pantalla y el operador ve "Cargando…" para siempre. Sin este bloque, el
+ * unico rastro estaba en la consola del navegador, que el operador no abre y
+ * que ademas se pierde al reiniciar el celular.
+ *
+ * Con el, la pantalla dice QUE paso. El soporte no necesita el celular del
+ * operador para diagnosing: alcanza con que lea el mensaje.
+ */
+let errorDeArranque = null;
+
+window.addEventListener('error', (evento) => {
+  errorDeArranque = evento.message || 'Error desconocido';
+  // `preventDefault` evita que el error se muestre dos veces: una por el
+  // listener y otra por el cartel del navegador.
+  evento.preventDefault?.();
+});
+
+window.addEventListener('unhandledrejection', (evento) => {
+  const motivo = evento.reason;
+  errorDeArranque = motivo?.message || String(motivo || 'Promesa rechazada sin manejar');
+  evento.preventDefault?.();
+});
+
 setTimeout(() => {
   // Si la app ya pinto una pantalla, no hay nada que hacer.
   //
@@ -59,11 +88,28 @@ setTimeout(() => {
     'Esto casi siempre es la cache del navegador con una version vieja de los archivos. ' +
     'Hacé una recarga forzada: Cmd+Shift+R (Mac) o Ctrl+Shift+R (Windows).';
 
+  // Si hubo un error de JavaScript, se dice cual. Un `ReferenceError` en un
+  // modulo aborta el arranque entero, y sin esto el operador solo ve "no
+  // arranco": ni el soporte ni el developer saben que paso hasta que abren
+  // la consola en un celular que no vuelve a sus manos.
+  const detalle = errorDeArranque
+    ? (() => {
+        const p = document.createElement('p');
+        p.className = 'campo__error';
+        p.style.textAlign = 'left';
+        p.style.whiteSpace = 'pre-wrap';
+        p.textContent = `Detalle del error: ${errorDeArranque}`;
+        return p;
+      })()
+    : null;
+
   const boton = document.createElement('button');
   boton.className = 'boton';
   boton.textContent = 'Recargar ahora';
   boton.addEventListener('click', () => window.location.reload());
 
-  caja.append(titulo, texto, boton);
+  caja.append(titulo, texto);
+  if (detalle) caja.appendChild(detalle);
+  caja.appendChild(boton);
   contenedor.replaceChildren(caja);
 }, LIMITE_MS);

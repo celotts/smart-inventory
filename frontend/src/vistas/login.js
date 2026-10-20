@@ -3,11 +3,23 @@
  *
  * NADA DE ESTA VISTA USA `innerHTML`. El email y el password van por
  * `textContent` y `value`, y el mensaje de error se arma con `crear()`.
+ *
+ * POR QUE NO HAY MEDIDOR DE FORTALEZA ACA
+ * ---------------------------------------
+ * El medidor de fortaleza de clave tiene sentido cuando se CREA una clave: el
+ * operador elige una y hay que decirle si es debil. En el INGRESO la clave ya
+ * existe, su fortaleza no es decision del operador, y mostrarla confunde:
+ * "tu clave es debil" le dice al operador que tiene que cambiarla, cuando lo
+ * unico que esta haciendo es entrar.
+ *
+ * El error de un ingreso fallido va en el formulario y no en un campo: el
+ * problema no es el email o la clave, es la COMBINACION. Marcaria de mas un
+ * campo que esta bien.
  */
 
 import { api } from '../api.js';
 import { crear, icono } from '../dom.js';
-import { PasswordStrengthMeter } from '../composables/usePasswordStrength.js';
+import { campoTexto } from '../formulario.js';
 
 export function vistaLogin({ alEntrar }) {
   const contenedor = crear('div', { clase: 'login' });
@@ -34,39 +46,26 @@ export function vistaLogin({ alEntrar }) {
     },
   });
 
-  const email = crear('input', {
-    clase: 'campo__control',
-    texto: undefined,
-    atributos: {
-      type: 'email',
-      name: 'email',
-      id: 'email',
-      autocomplete: 'username',
-      required: true,
-      autocapitalize: 'none',
-      autocorrect: 'off',
-      spellcheck: 'false',
-      inputmode: 'email',
-      placeholder: 'operador@empresa.com',
-    },
+  const email = campoTexto({
+    etiqueta: 'Email',
+    placeholder: 'operador@empresa.com',
+    tipo: 'email',
+    autocomplete: 'username',
+    inputmode: 'email',
+    requerido: true,
   });
 
-  const clave = crear('input', {
-    clase: 'campo__control',
-    atributos: {
-      type: 'password',
-      name: 'password',
-      id: 'clave',
-      autocomplete: 'current-password',
-      required: true,
-      placeholder: '••••••••',
-    },
+  const clave = campoTexto({
+    etiqueta: 'Contraseña',
+    placeholder: '••••••••',
+    tipo: 'password',
+    autocomplete: 'current-password',
+    requerido: true,
   });
 
-  // Medidor de fortaleza de contraseña
-  const medidorClave = PasswordStrengthMeter({ mostrarRequisitos: true });
-  clave.addEventListener('input', () => medidorClave.actualizar(clave.value));
-
+  // El error general del formulario (credenciales incorrectas, cuenta
+  // bloqueada, servidor caido). Va con `role="alert"` para que el lector de
+  // pantalla lo anuncie.
   const error = crear('p', { clase: 'campo__error', atributos: { role: 'alert' } });
   error.hidden = true;
 
@@ -76,22 +75,7 @@ export function vistaLogin({ alEntrar }) {
     atributos: { type: 'submit' },
   });
 
-  const envolver = (etiqueta, control, ayuda) => {
-    const label = crear('label', { clase: 'campo' });
-    const texto = crear('span', { clase: 'campo__etiqueta', texto: etiqueta });
-    label.htmlFor = control.id;
-    label.append(texto, control);
-    if (ayuda) label.append(crear('p', { clase: 'campo__ayuda', texto: ayuda }));
-    return label;
-  };
-
-  formulario.append(
-    envolver('Email', email),
-    envolver('Contraseña', clave),
-    medidorClave.elemento,  // Medidor de fortaleza
-    error,
-    boton,
-  );
+  formulario.append(email.campo, clave.campo, error, boton);
 
   tarjeta.append(
     crear('h2', { clase: 'tarjeta__titulo', texto: 'Iniciar sesion' }),
@@ -103,18 +87,27 @@ export function vistaLogin({ alEntrar }) {
 
   // El foco va al email apenas aparece: en un celular eso abre el teclado solo,
   // que es lo que se quiere en una pantalla que es basicamente un formulario.
-  queueMicrotask(() => email.focus());
+  queueMicrotask(() => email.control.focus());
 
   async function enviar() {
-    const correo = email.value.trim();
-    const palabra = clave.value;
+    const correo = email.control.value.trim();
+    const palabra = clave.control.value;
 
-    if (!correo || !palabra) {
-      mostrarError('Completa el email y la contraseña.');
+    email.limpiar();
+    clave.limpiar();
+    error.hidden = true;
+
+    if (!correo) {
+      email.marcar('Escribi tu email.');
+      email.control.focus();
+      return;
+    }
+    if (!palabra) {
+      clave.marcar('Escribi tu contraseña.');
+      clave.control.focus();
       return;
     }
 
-    error.hidden = true;
     boton.disabled = true;
     boton.textContent = 'Entrando…';
 
@@ -122,19 +115,15 @@ export function vistaLogin({ alEntrar }) {
       const datos = await api.login(correo, palabra);
       alEntrar(datos);
     } catch (excepcion) {
-      mostrarError(excepcion.message || 'No se pudo iniciar sesion.');
+      error.textContent = excepcion.message || 'No se pudo iniciar sesion.';
+      error.hidden = false;
       boton.disabled = false;
       boton.textContent = 'Entrar';
-      clave.value = '';
-      clave.focus();
-      // Resetear medidor
-      medidorClave.reiniciar();
+      // Se borra la clave: el operador la va a escribir de nuevo, y dejarla
+      // en el campo es una señal de que la app no lo registro.
+      clave.control.value = '';
+      clave.control.focus();
     }
-  }
-
-  function mostrarError(mensaje) {
-    error.textContent = mensaje;
-    error.hidden = false;
   }
 
   // Sin limpieza: no hay timers, streams ni listeners fuera del propio DOM,

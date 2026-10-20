@@ -26,6 +26,7 @@
 import { api } from '../api.js';
 import { ESTADOS, crear } from '../dom.js';
 import { descargarCsv } from '../descargas.js';
+import { conTooltip } from '../tooltip.js';
 
 export { descargarCsv };
 
@@ -80,23 +81,69 @@ export function vistaInicio({ alAbrirDispositivo } = {}) {
 
     const valor = (kpi) => (kpi === null || kpi === undefined ? '—' : String(kpi));
 
+    // Cada numero lleva su explicacion: un "0" al lado de "Mantenimientos
+    // pendientes" no dice si es bueno o malo, y el operador no tiene tiempo
+    // de averiguar que mide cada cosa.
     const tarjetas = [
-      { etiqueta: 'Equipos', valor: valor(kpis.total_devices) },
-      { etiqueta: 'En deposito', valor: valor(kpis.en_deposito) },
-      { etiqueta: 'En transito', valor: valor(kpis.en_transit) },
-      { etiqueta: 'Instalados', valor: valor(kpis.instalados) },
-      { etiqueta: 'En taller', valor: valor(kpis.en_taller) },
-      { etiqueta: 'Movimientos (30 d)', valor: valor(kpis.movimientos_30d) },
-      { etiqueta: 'Mantenimientos pendientes', valor: valor(kpis.mantenimientos_pendientes) },
-      { etiqueta: 'Ordenes de compra abiertas', valor: valor(kpis.pos_abiertas) },
+      {
+        etiqueta: 'Equipos',
+        valor: valor(kpis.total_devices),
+        ayuda: 'Componentes activos en el inventario, sin los dados de baja.',
+      },
+      {
+        etiqueta: 'En deposito',
+        valor: valor(kpis.en_deposito),
+        ayuda: 'Disponibles para salir. Es el stock que se puede entregar hoy.',
+      },
+      {
+        etiqueta: 'En transito',
+        valor: valor(kpis.en_transit),
+        ayuda: 'Salieron del deposito hacia el cliente, todavia no instalados.',
+      },
+      {
+        etiqueta: 'Instalados',
+        valor: valor(kpis.instalados),
+        ayuda: 'Working en sitio del cliente.',
+      },
+      {
+        etiqueta: 'En taller',
+        valor: valor(kpis.en_taller),
+        ayuda: 'En reparacion: no se pueden mover hasta que se reparen.',
+      },
+      {
+        etiqueta: 'Movimientos (30 d)',
+        valor: valor(kpis.movimientos_30d),
+        ayuda: 'Escaneos y traslados registrados en los ultimos 30 dias.',
+      },
+      {
+        etiqueta: 'Mantenimientos pendientes',
+        valor: valor(kpis.mantenimientos_pendientes),
+        ayuda: 'Planes de mantenimiento que ya estan vencidos o por vencer.',
+      },
+      {
+        etiqueta: 'Ordenes de compra abiertas',
+        valor: valor(kpis.pos_abiertas),
+        ayuda: 'Pedidos a proveedores que todavia no llegaron.',
+      },
     ];
 
     for (const t of tarjetas) {
-      const caja = crear('div', { clase: 'kpi' });
+      // `tabindex="0"`: la tarjeta lleva una descripcion (el tooltip), y sin
+      // esto el teclado no puede llegar a ella. Un `div` no es enfocable, y
+      // el tooltip de una tarjeta que solo se ve al pasar el mouse es
+      // informacion que el teclado no tiene.
+      const caja = crear('div', {
+        clase: 'kpi',
+        atributos: { tabindex: '0' },
+      });
       caja.append(
         crear('div', { clase: 'kpi__valor', texto: t.valor }),
         crear('div', { clase: 'kpi__etiqueta', texto: t.etiqueta }),
       );
+      // El tooltip es la DESCRIPCION del numero: el nombre del KPI sigue
+      // siendo el texto, completo, sin depender de que el mouse pase por
+      // encima.
+      conTooltip(caja, t.ayuda);
       rejilla.append(caja);
     }
 
@@ -132,6 +179,7 @@ export function vistaInicio({ alAbrirDispositivo } = {}) {
         clase: `insignia ${info.clase}`,
         texto: String(s.cantidad),
       });
+      conTooltip(insignia, `${info.texto}: ${s.cantidad} equipos.`);
 
       item.append(cuerpo, insignia);
       lista.append(item);

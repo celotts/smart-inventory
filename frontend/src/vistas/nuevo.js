@@ -9,6 +9,7 @@ import { api } from '../api.js';
 import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
+import { campoTexto, campoSelect, resumenDeErrores } from '../formulario.js';
 
 export function vistaNuevo({ permisos = [] }) {
   const raiz = crear('div');
@@ -55,27 +56,22 @@ export function vistaNuevo({ permisos = [] }) {
   });
 
   // Campos
-  const campoSerial = crear('input', {
-    clase: 'campo__control',
-    atributos: {
-      type: 'text',
-      placeholder: 'Ej: SN-12345678',
-      autocomplete: 'off',
-      autocapitalize: 'characters',
-      required: true,
-      'aria-label': 'Número de serie del fabricante',
-    },
+  //
+  // Con `campoTexto` y `campoSelect` el error va DEBAJO del campo, con el
+  // control marcado y el foco movido al primer problema. Un aviso flotante
+  // que se va solo a los 4 segundos deja al operador con la duda de que
+  // campo esta mal.
+  const campoSerial = campoTexto({
+    etiqueta: 'Serial',
+    placeholder: 'Ej: SN-12345678',
+    ayuda: 'El serial del fabricante. Es unico en toda la base.',
+    requerido: true,
   });
 
-  const campoQR = crear('input', {
-    clase: 'campo__control',
-    atributos: {
-      type: 'text',
-      placeholder: 'Opcional: INV-a1b2c3 (se genera si vacío)',
-      autocomplete: 'off',
-      autocapitalize: 'characters',
-      'aria-label': 'Código QR propio (opcional)',
-    },
+  const campoQR = campoTexto({
+    etiqueta: 'QR propio',
+    placeholder: 'Ej: INV-a1b2c3 (se genera si vacío)',
+    ayuda: 'Opcional. Si lo dejas vacio, el sistema genera uno propio.',
   });
 
   // --- Producto, desde el maestro -------------------------------------------
@@ -85,21 +81,23 @@ export function vistaNuevo({ permisos = [] }) {
   // `model_id` (un id del catalogo) y tiene `extra="forbid"`, asi que el alta
   // fallaba con 422 siempre. Un equipo no lleva marca y modelo escritos a mano:
   // apunta a un producto del maestro, y de ahi hereda marca, modelo y categoria.
-  const campoProducto = crear('select', {
-    clase: 'campo__control',
-    atributos: { 'aria-label': 'Producto del catálogo' },
+  const campoProducto = campoSelect({
+    etiqueta: 'Producto',
+    ayuda: 'El equipo hereda marca, modelo y categoria del producto del maestro.',
+    requerido: true,
   });
-  campoProducto.append(
+  campoProducto.control.append(
     crear('option', { texto: 'Cargando productos…', atributos: { value: '', disabled: true } }),
   );
 
-  const campoUbicacion = crear('select', {
-    clase: 'campo__control',
-    atributos: {
-      'aria-label': 'Ubicación inicial',
-    },
+  const campoUbicacion = campoSelect({
+    etiqueta: 'Ubicación inicial',
+    ayuda: 'Donde queda el equipo. Se puede cambiar despues.',
+    requerido: true,
   });
-  campoUbicacion.append(crear('option', { texto: 'Cargando ubicaciones…', atributos: { value: '', disabled: true } }));
+  campoUbicacion.control.append(
+    crear('option', { texto: 'Cargando ubicaciones…', atributos: { value: '', disabled: true } }),
+  );
 
   const btnSubmit = crear('button', {
     clase: 'boton boton--bloque',
@@ -107,13 +105,18 @@ export function vistaNuevo({ permisos = [] }) {
     atributos: { type: 'submit' },
   });
 
+  // El resumen de errores va arriba de todo: si hay tres campos con problema,
+  // el operador tiene que enterarse antes de llegar al final del formulario.
+  const zonaResumen = crear('div');
+
   form.append(
     crear('h2', { clase: 'tarjeta__titulo', estilo: 'text-align:center; margin-bottom:0.5rem', texto: 'Nuevo componente' }),
     crear('p', { clase: 'tarjeta__subtitulo centrado', texto: 'Completa los datos para dar de alta un equipo en el inventario.' }),
-    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Producto *' }), campoProducto] }),
-    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Serial *' }), campoSerial] }),
-    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'QR propio' }), campoQR] }),
-    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Ubicación inicial *' }), campoUbicacion] }),
+    zonaResumen,
+    campoProducto.campo,
+    campoSerial.campo,
+    campoQR.campo,
+    campoUbicacion.campo,
     btnSubmit,
   );
 
@@ -123,21 +126,21 @@ export function vistaNuevo({ permisos = [] }) {
   async function cargarProductos() {
     try {
       const productos = await api.productos();
-      campoProducto.replaceChildren();
-      campoProducto.append(crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }));
+      campoProducto.control.replaceChildren();
+      campoProducto.control.append(crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }));
       if (!productos.length) {
-        campoProducto.replaceChildren(
+        campoProducto.control.replaceChildren(
           crear('option', { texto: 'No hay productos: crea uno en la pestaña "Productos"', atributos: { value: '', disabled: true, selected: true } }),
         );
         return;
       }
       for (const p of productos) {
-        campoProducto.append(
+        campoProducto.control.append(
           crear('option', { texto: etiquetaProducto(p), atributos: { value: p.id } }),
         );
       }
     } catch (error) {
-      campoProducto.replaceChildren(crear('option', { texto: 'Error al cargar productos', atributos: { value: '', disabled: true } }));
+      campoProducto.control.replaceChildren(crear('option', { texto: 'Error al cargar productos', atributos: { value: '', disabled: true } }));
       console.error(error);
     }
   }
@@ -146,39 +149,57 @@ export function vistaNuevo({ permisos = [] }) {
   async function cargarUbicaciones() {
     try {
       const datos = await api.pedir('/devices/locations');
-      campoUbicacion.replaceChildren();
-      campoUbicacion.append(crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }));
+      campoUbicacion.control.replaceChildren();
+      campoUbicacion.control.append(crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }));
       for (const loc of datos.items) {
-        campoUbicacion.append(crear('option', { texto: loc.nombre, atributos: { value: loc.id } }));
+        campoUbicacion.control.append(crear('option', { texto: loc.nombre, atributos: { value: loc.id } }));
       }
     } catch (error) {
-      campoUbicacion.replaceChildren(crear('option', { texto: 'Error al cargar ubicaciones', atributos: { value: '', disabled: true } }));
+      campoUbicacion.control.replaceChildren(crear('option', { texto: 'Error al cargar ubicaciones', atributos: { value: '', disabled: true } }));
       console.error(error);
     }
   }
   cargarUbicaciones();
   cargarProductos();
 
+  /**
+   * Un error que NO es de un campo concreto (el servidor cayo, la sesion
+   * expiro): va arriba del formulario, no flotando.
+   */
+  function avisoFormulario(mensaje) {
+    const caja = crear('p', { clase: 'campo__error', atributos: { role: 'alert' }, texto: mensaje });
+    zonaResumen.replaceChildren(caja);
+  }
+
   // Enviar formulario
   async function enviarFormulario() {
-    const serial = campoSerial.value.trim();
-    const qr = campoQR.value.trim() || undefined;
-    const model_id = campoProducto.value ? parseInt(campoProducto.value, 10) : null;
-    const ubicacion_id = campoUbicacion.value ? parseInt(campoUbicacion.value, 10) : null;
+    const serial = campoSerial.control.value.trim();
+    const qr = campoQR.control.value.trim() || undefined;
+    const model_id = campoProducto.control.value ? parseInt(campoProducto.control.value, 10) : null;
+    const ubicacion_id = campoUbicacion.control.value ? parseInt(campoUbicacion.control.value, 10) : null;
+
+    // Los errores van DEBAJO del campo, con el control marcado, y el foco
+    // salta al primero. Un aviso flotante que se va solo a los 4 segundos
+    // deja al operador con la duda de QUE campo esta mal.
+    campoProducto.limpiar();
+    campoSerial.limpiar();
+    campoUbicacion.limpiar();
+    zonaResumen.replaceChildren();
 
     if (!model_id) {
-      avisar('Selecciona un producto del catálogo', 'alerta');
-      campoProducto.focus({ preventScroll: true });
-      return;
+      campoProducto.marcar('Selecciona un producto del catálogo.');
     }
     if (!serial) {
-      avisar('El serial es obligatorio', 'alerta');
-      campoSerial.focus({ preventScroll: true });
-      return;
+      campoSerial.marcar('El serial es obligatorio.');
     }
     if (!ubicacion_id) {
-      avisar('Selecciona una ubicación inicial', 'alerta');
-      campoUbicacion.focus({ preventScroll: true });
+      campoUbicacion.marcar('Selecciona una ubicación inicial.');
+    }
+
+    const resumen = resumenDeErrores([campoProducto, campoSerial, campoUbicacion]);
+    if (resumen) {
+      zonaResumen.replaceChildren(resumen);
+      resumen.querySelector('button')?.focus();
       return;
     }
 
@@ -200,12 +221,21 @@ export function vistaNuevo({ permisos = [] }) {
       avisar('Componente creado correctamente', 'exito', 2500);
       // Limpiar formulario
       form.reset();
-      campoProducto.value = '';
-      campoUbicacion.value = '';
+      campoProducto.control.value = '';
+      campoUbicacion.control.value = '';
       cargarUbicaciones();
       cargarProductos();
     } catch (error) {
-      avisar(error.message, 'error');
+      // Un 409/422 del backend es un problema de un campo (el serial ya
+      // existe, el QR esta repetido). Va al campo, no a un cartel.
+      if (error.status === 409 || error.status === 422) {
+        const mensaje = error.message || 'Revisa los datos.';
+        if (/serial/i.test(mensaje)) campoSerial.marcar(mensaje);
+        else if (/qr|c[oó]digo/i.test(mensaje)) campoQR.marcar(mensaje);
+        else avisoFormulario(mensaje);
+      } else {
+        avisoFormulario(error.message);
+      }
     } finally {
       btnSubmit.disabled = false;
       btnSubmit.textContent = 'Crear componente';

@@ -22,6 +22,8 @@ import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { imagenBarcodeProducto, imagenQrProducto, svgsDeEtiqueta } from '../etiqueta.js';
+import { errorDe, resumenDeErrores } from '../formulario.js';
+import { botonEscanear } from '../escaner-campo.js';
 
 export function vistaProductos({ permisos = [] }) {
   const raiz = crear('div');
@@ -260,6 +262,12 @@ export function vistaProductos({ permisos = [] }) {
       avisar('El navegador bloqueó la ventana de impresión.', 'error');
       return;
     }
+
+    // `window.opener` en null: sin esto, la ventana de impresion puede
+    // navegar la pestana de la app. Con `noopener` en el `window.open` el
+    // navegador devolveria `null` y no habria forma de escribirle el
+    // contenido, asi que se anula el opener a mano.
+    ventana.opener = null;
 
     const doc = ventana.document;
     doc.title = `Etiqueta ${p.sku || p.model || ''}`;
@@ -666,6 +674,22 @@ export function vistaProductos({ permisos = [] }) {
     const campoQR = campoTexto('Ej: PRD-NB-DELL-5520 (se genera si vacío)', 'Código QR', { mono: true });
     const campoBarras = campoTexto('Ej: el SKU (opcional)', 'Código de barras', { mono: true });
 
+    // ESCANEAR EL CODIGO DE LA CAJA
+    //
+    // El producto llega con un codigo del proveedor: un GTIN en la caja, o el
+    // QR del fabricante. Copiarlo a mano es la fuente numero uno de errores de
+    // inventario, asi que se LEE.
+    //
+    // Lo leido va al campo de CODIGO DE BARRAS (el del proveedor), nunca al
+    // QR propio: ese (`PRD-<sku>`) es el protocolo interno de la app, y el
+    // escaner de la caja lo resuelve contra el maestro. Pisarlo haria que la
+    // etiqueta propia dejara de funcionar.
+    const filaBarras = crear('div', { clase: 'campo-con-boton' });
+    filaBarras.append(
+      campoBarras.campo,
+      botonEscanear({ campo: campoBarras.input, nombre: 'el codigo de barras' }),
+    );
+
     const selectCategoria = crear('select', { clase: 'campo__control' });
     selectCategoria.append(
       crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }),
@@ -676,6 +700,7 @@ export function vistaProductos({ permisos = [] }) {
       // rama sale cada una.
       selectCategoria.append(crear('option', { texto: c.ruta || c.name, atributos: { value: c.id } }));
     }
+    const errorCategoria = errorDe(selectCategoria);
 
     const campoCosto = campoTexto('Ej: 850.00', 'Costo unitario (USD)', { type: 'number', paso: '0.01' });
     const campoMin = campoTexto('Ej: 3', 'Stock minimo', { type: 'number', valor: '0' });
@@ -696,7 +721,13 @@ export function vistaProductos({ permisos = [] }) {
     // solo se mandan los que el operador lleno.
     const zonaAtributos = crear('div', { clase: 'apilado' });
 
+    // El resumen de errores va arriba: en un formulario de diez campos, el
+    // operador tiene que enterarse de que hay un problema antes de llegar al
+    // final del formulario.
+    const zonaResumen = crear('div');
+
     form.append(
+      zonaResumen,
       campoMarca.campo,
       campoModelo.campo,
       campoSKU.campo,
@@ -710,7 +741,7 @@ export function vistaProductos({ permisos = [] }) {
       campoMin.campo,
       campoMax.campo,
       campoQR.campo,
-      campoBarras.campo,
+      filaBarras,
     );
 
     selectCategoria.addEventListener('change', () => {
@@ -737,8 +768,42 @@ export function vistaProductos({ permisos = [] }) {
       const sku = campoSKU.input.value.trim();
       const category_id = selectCategoria.value ? parseInt(selectCategoria.value, 10) : null;
 
-      if (!brand || !model || !sku) return avisar('Marca, modelo y SKU son obligatorios', 'alerta');
-      if (!category_id) return avisar('Selecciona una categoria', 'alerta');
+      // Los errores van debajo de cada campo, con el control marcado, y el
+      // foco salta al primero. Un cartel flotante que se va solo no dice que
+      // campo esta mal.
+      campoMarca.limpiar();
+      campoModelo.limpiar();
+      campoSKU.limpiar();
+      errorCategoria.limpiar();
+      zonaResumen.replaceChildren();
+
+      if (!brand) campoMarca.marcar('La marca es obligatoria.');
+      if (!model) campoModelo.marcar('El modelo es obligatorio.');
+      if (!sku) campoSKU.marcar('El SKU es obligatorio: es la clave con la que se compra y se cuenta el stock.');
+      if (!category_id) errorCategoria.marcar('Selecciona una categoria.');
+
+      const resumen = resumenDeErrores([campoMarca, campoModelo, campoSKU, errorCategoria]);
+      if (resumen) {
+        zonaResumen.replaceChildren(resumen);
+        campoMarca.control.focus();
+        return;
+      }
+      if (campoMarca.control.getAttribute('aria-invalid') === 'true') {
+        campoMarca.control.focus();
+        return;
+      }
+      if (campoModelo.control.getAttribute('aria-invalid') === 'true') {
+        campoModelo.control.focus();
+        return;
+      }
+      if (campoSKU.control.getAttribute('aria-invalid') === 'true') {
+        campoSKU.control.focus();
+        return;
+      }
+      if (selectCategoria.getAttribute('aria-invalid') === 'true') {
+        selectCategoria.focus();
+        return;
+      }
 
       // Confirmacion antes de escribir: el alta de un producto genera stock y
       // claves de compra, y un SKU equivocado se propaga a los movimientos.
@@ -769,7 +834,17 @@ export function vistaProductos({ permisos = [] }) {
         cerrarModal();
         cargar();
       } catch (error) {
-        avisar(error.message, 'error');
+        // Un 409 es un problema de un campo (el SKU ya existe, el QR esta
+        // repetido). Va al campo, no a un cartel que se va solo.
+        if (error.status === 409) {
+          const mensaje = error.message || 'Revisa los datos.';
+          if (/sku/i.test(mensaje)) campoSKU.marcar(mensaje);
+          else if (/barras/i.test(mensaje)) campoBarras.marcar(mensaje);
+          else if (/qr|c[oó]digo/i.test(mensaje)) campoQR.marcar(mensaje);
+          else zonaResumen.replaceChildren(crear('p', { clase: 'campo__error', texto: mensaje }));
+        } else {
+          avisar(error.message, 'error');
+        }
         btnGuardar.disabled = false;
         btnGuardar.textContent = 'Guardar producto';
       }
@@ -810,6 +885,14 @@ export function vistaProductos({ permisos = [] }) {
     const campoQR = campoTexto('Ej: PRD-NB-DELL-5520', 'Código QR', { mono: true });
     campoQR.input.value = p.qr_code || '';
     const campoBarras = campoTexto('Ej: el SKU', 'Código de barras', { mono: true });
+
+    // El mismo escaner que en el alta: el codigo del proveedor se lee de la
+    // caja, no se escribe. Ver la nota del alta.
+    const filaBarras = crear('div', { clase: 'campo-con-boton' });
+    filaBarras.append(
+      campoBarras.campo,
+      botonEscanear({ campo: campoBarras.input, nombre: 'el codigo de barras' }),
+    );
     campoBarras.input.value = p.barcode || '';
 
     const selectCategoria = crear('select', { clase: 'campo__control' });
@@ -843,7 +926,13 @@ export function vistaProductos({ permisos = [] }) {
 
     const zonaAtributos = crear('div', { clase: 'apilado' });
 
+    // El resumen de errores va arriba: en un formulario de diez campos, el
+    // operador tiene que enterarse de que hay un problema antes de llegar al
+    // final del formulario.
+    const zonaResumen = crear('div');
+
     form.append(
+      zonaResumen,
       campoMarca.campo,
       campoModelo.campo,
       campoSKU.campo,
@@ -857,7 +946,7 @@ export function vistaProductos({ permisos = [] }) {
       campoMin.campo,
       campoMax.campo,
       campoQR.campo,
-      campoBarras.campo,
+      filaBarras,
     );
 
     selectCategoria.addEventListener('change', () => {
@@ -885,8 +974,33 @@ export function vistaProductos({ permisos = [] }) {
       const model = campoModelo.input.value.trim();
       const category_id = selectCategoria.value ? parseInt(selectCategoria.value, 10) : null;
 
-      if (!brand || !model) return avisar('Marca y modelo son obligatorios', 'alerta');
-      if (!category_id) return avisar('Selecciona una categoria', 'alerta');
+      campoMarca.limpiar();
+      campoModelo.limpiar();
+      errorCategoria.limpiar();
+      zonaResumen.replaceChildren();
+
+      if (!brand) campoMarca.marcar('La marca es obligatoria.');
+      if (!model) campoModelo.marcar('El modelo es obligatorio.');
+      if (!category_id) errorCategoria.marcar('Selecciona una categoria.');
+
+      const resumen = resumenDeErrores([campoMarca, campoModelo, errorCategoria]);
+      if (resumen) {
+        zonaResumen.replaceChildren(resumen);
+        campoMarca.control.focus();
+        return;
+      }
+      if (campoMarca.control.getAttribute('aria-invalid') === 'true') {
+        campoMarca.control.focus();
+        return;
+      }
+      if (campoModelo.control.getAttribute('aria-invalid') === 'true') {
+        campoModelo.control.focus();
+        return;
+      }
+      if (selectCategoria.getAttribute('aria-invalid') === 'true') {
+        selectCategoria.focus();
+        return;
+      }
 
       const ok = await confirmar({
         titulo: 'Guardar cambios',
@@ -1016,7 +1130,14 @@ export function vistaProductos({ permisos = [] }) {
   return { elemento: raiz };
 }
 
-/** Campo de texto con su etiqueta, para no repetir el bloque en cada alta. */
+/**
+ * Campo de texto con su etiqueta, para no repetir el bloque en cada alta.
+ *
+ * `errorDe` le da la capacidad de marcar error: el texto va debajo del
+ * campo, el control queda con `aria-invalid`, y el error se anuncia. Sin
+ * esto, el unico aviso es un cartel flotante que se va solo a los 4
+ * segundos, y el operador no sabe QUE campo esta mal.
+ */
 function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mono = false } = {}) {
   const input = crear('input', {
     clase: `campo__control${mono ? ' mono' : ''}`,
@@ -1032,7 +1153,8 @@ function campoTexto(placeholder, etiqueta, { type = 'text', paso, valor = '', mo
     clase: 'campo',
     hijos: [crear('span', { clase: 'campo__etiqueta', texto: etiqueta }), input],
   });
-  return { campo, input };
+  const error = errorDe(input);
+  return { campo, input, marcar: error.marcar, limpiar: error.limpiar, control: input };
 }
 
 /**
