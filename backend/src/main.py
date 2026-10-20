@@ -41,7 +41,7 @@ _ES_PRODUCCION = os.getenv("APP_ENV", "production").lower() in ("production", "p
 
 app = FastAPI(
     title="Smart Inventory B2B API",
-    version="0.3.0",
+    version="0.4.0",
     description="Gestion de inventario de dispositivos para empresas, con IA.",
     # POR QUE /docs SE DESACTIVA EN PRODUCCION
     # --------------------------------------

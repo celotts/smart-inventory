@@ -160,6 +160,40 @@ function registrarServiceWorker() {
  * Es una comparacion de una linea. No necesita un endpoint que devuelva la
  * version de la API: alcanza con el hash de los archivos que se sirven.
  */
+/**
+ * El hash de build que dice el servidor.
+ *
+ * LO QUE ES
+ * ---------
+ * El Dockerfile calcula un SHA-256 de todo el contenido del front (los modulos
+ * y el HTML) y lo publica en `/build.txt`. Es lo que identifica un deploy: si
+ * el contenido cambio, el hash cambio.
+ *
+ * POR QUE SE PIDE UNA VEZ Y SE CACHEA
+ * -----------------------------------
+ * El pie lo muestra y la verificacion de version lo compara: pedirlo dos
+ * veces es dos esperas de red por carga de pagina. Se pide una vez y se
+ * guarda en memoria.
+ *
+ * @returns {Promise<string|null>}
+ */
+let selloDelServidor = null;
+
+async function obtenerSelloDelServidor() {
+  if (selloDelServidor) return selloDelServidor;
+
+  try {
+    const respuesta = await fetch('/build.txt', { cache: 'no-store' });
+    if (!respuesta.ok) return null;
+    const texto = (await respuesta.text()).trim();
+    if (texto) selloDelServidor = texto;
+  } catch {
+    // Sin red: el pie se queda con el sello manual.
+  }
+
+  return selloDelServidor;
+}
+
 async function verificarVersionDelServidor() {
   const CLAVE = 'si-build';
   const BANDERA = 'si-build-reintentado';
@@ -170,6 +204,9 @@ async function verificarVersionDelServidor() {
 
     const sello = (await respuesta.text()).trim();
     if (!sello) return;
+
+    // Se guarda en memoria: el pie lo muestra y no hace falta volver a pedirlo.
+    selloDelServidor = sello;
 
     const guardado = localStorage.getItem(CLAVE);
 
@@ -702,7 +739,7 @@ window.addEventListener('offline', () => {
    Footer - inicialización dinámica
    --------------------------------------------------------------------------- */
 function inicializarFooter() {
-  // Versión (inyectada por Vite/build o fallback)
+  // Version (inyectada por Vite/build o fallback)
   // En módulos ES nativos sin bundler, import.meta.env no existe.
   // Usamos una función auxiliar para acceder de forma segura.
   const getEnv = (key) => {
@@ -712,7 +749,13 @@ function inicializarFooter() {
       return undefined;
     }
   };
-  const version = getEnv('VITE_APP_VERSION') || '0.3.0';
+  // La version del PRODUCTO, que es la que ve el operador en el pie. No es el
+  // hash de build: el hash cambia con cada cambio de contenido (cada deploy),
+  // y la version cambia cuando hay una entrega con novedades.
+  //
+  // 0.4.0: jerarquia de categorias y ubicaciones, atributos por categoria,
+  // busqueda de texto completo, dashboard (Inicio) y exportacion a CSV.
+  const version = getEnv('VITE_APP_VERSION') || '0.4.0';
   const buildHash = getEnv('VITE_BUILD_HASH') || SELLO_BUILD;
   const env = getEnv('MODE') || 'development';
   const company = getEnv('VITE_COMPANY_NAME') || 'FC Quality';
@@ -727,8 +770,20 @@ function inicializarFooter() {
   if (versionEl) versionEl.textContent = `v${version}`;
 
   // Build hash
+  //
+  // Se pinta primero el sello manual (que es un fallback: si el servidor no
+  // responde, el pie tiene que mostrar algo), y despues el hash REAL que
+  // calcula el Dockerfile y sirve en `/build.txt`. El hash es lo que
+  // identifica un deploy: con el sello manual a mano, dos personas pueden
+  // estar mirando despliegues distintos y no saberlo.
   const buildEl = document.getElementById('build-hash');
   if (buildEl) buildEl.textContent = buildHash.slice(0, 7);
+
+  if (!getEnv('VITE_BUILD_HASH')) {
+    obtenerSelloDelServidor().then((sello) => {
+      if (sello && buildEl) buildEl.textContent = sello.slice(0, 7);
+    });
+  }
 
   // Entorno
   const envEl = document.getElementById('footer-env');

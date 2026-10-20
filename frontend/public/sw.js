@@ -28,7 +28,11 @@
 // el `activate` de mas abajo borra los caches de la version anterior: sin eso,
 // el navegador guarda megabytes de versiones que ya no existen y sirve la
 // primera que encuentra.
-const VERSION = 'si-v3';
+//
+// v4: el esqueleto incluye los modulos de la version 0.4.0 (el tablero de
+// Inicio, que es la pantalla de inicio, y los dos modulos nuevos). Sin
+// ellos, la app abria OFFLINE sin poder pintar la primera pantalla.
+const VERSION = 'si-v4';
 const CACHE_ESTATICO = `${VERSION}-estatico`;
 const CACHE_ESTABLE = `${VERSION}-estable`;
 
@@ -46,9 +50,13 @@ const ESQUELETO = [
   '/src/dom.js',
   '/src/escaner.js',
   '/src/avisos.js',
+  '/src/descargas.js',
+  '/src/etiqueta.js',
+  '/src/qr.js',
   '/src/composables/usePasswordStrength.js',
   '/src/vistas/login.js',
   '/src/vistas/escanear.js',
+  '/src/vistas/inicio.js',
   '/src/vistas/inventario.js',
   '/src/vistas/consultas.js',
   '/icons/icon.svg',
