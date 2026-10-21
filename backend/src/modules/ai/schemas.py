@@ -18,7 +18,43 @@ que consulta produjo el numero.
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class TurnoConversacion(BaseModel):
+    """
+    Un turno anterior de la conversacion.
+
+    SIN MEMORIA NO HAY PREGUNTAS DE SEGUIMIENTO
+    --------------------------------------------
+    "Cuantos equipos hay en deposito?" se responde sola. "Cual es ese equipo
+    que se encontro?" NO: sin contexto, el modelo no tiene idea de a que
+    equipo se refiere y escribe la consulta que le parece (una consulta por
+    equipos INSTALADOS, que es otra cosa, y el operador recibe una respuesta
+    que contradice a la anterior).
+
+    Con el historial, el modelo ve que la pregunta anterior contaba los
+    equipos en deposito, y escribe la consulta de DETALLE de ese mismo
+    conjunto.
+
+    Se mandan solo tres cosas de cada turno: la pregunta, la consulta que se
+    ejecuto y un resumen corto del resultado. El detalle de las filas no
+    viaja: el contexto se llena rapido y lo que hace falta para desambiguar
+    es el TEMA, no cada dato.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pregunta: str = Field(..., max_length=500)
+    sql: str | None = Field(None, max_length=4000)
+    resumen: str | None = Field(None, max_length=2000)
+
+
+class Sugerencia(BaseModel):
+    """Una accion que el operador puede hacer desde la respuesta."""
+
+    texto: str = Field(..., max_length=80)
+    vista: str | None = Field(None, max_length=40)
 
 
 class PreguntaRequest(BaseModel):
@@ -37,6 +73,13 @@ class PreguntaRequest(BaseModel):
         default=True,
         description="Incluir la consulta generada, para poder verificarla.",
     )
+    # Los turnos anteriores, para que las preguntas de seguimiento ("ese
+    # equipo", "los de ayer") se entiendan.
+    historial: list[TurnoConversacion] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Turnos anteriores de la conversacion.",
+    )
 
 
 class RespuestaIA(BaseModel):
@@ -52,6 +95,13 @@ class RespuestaIA(BaseModel):
     uso_fallback: bool = False
     latencia_ms: int | None = None
     error: str | None = None
+    # La accion sugerida, cuando la pregunta pedia escribir: el asistente es
+    # de consultas y le dice al operador donde hacer lo que pidio.
+    sugerencia: Sugerencia | None = None
+    # El resumen del resultado, en una linea. El front lo guarda y lo manda
+    # de vuelta en la pregunta siguiente: es lo que permite que "cual es ese
+    # equipo que se encontro?" entienda de que equipo se trata.
+    resumen: str | None = None
 
 
 class AnalisisDispositivoRequest(BaseModel):

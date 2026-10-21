@@ -516,7 +516,15 @@ export const api = {
 
   historial: (id, params) => pedir(`/movements/dispositivo/${id}`, { params }),
 
-  preguntar: (pregunta) => pedir('/ai/preguntar', { metodo: 'POST', cuerpo: { pregunta }, timeoutMs: 300000 }),
+  // El historial va en el pedido: sin el, una pregunta de seguimiento ("cual
+  // es ese equipo que se encontro?") se responde de algo que no tiene nada
+  // que ver.
+  preguntar: (pregunta, historial = []) =>
+    pedir('/ai/preguntar', {
+      metodo: 'POST',
+      cuerpo: { pregunta, historial },
+      timeoutMs: 300000,
+    }),
 
   reporte: () => pedir('/ai/reporte', { metodo: 'POST', cuerpo: {}, timeoutMs: 300000 }),
 

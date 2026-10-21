@@ -33,8 +33,59 @@ const PREGUNTAS_SUGERIDAS = [
   'Que modelos se estan rompiendo mas?',
 ];
 
+// Cuantos turnos se guardan para darle contexto a la pregunta siguiente.
+// Seis es lo suficiente para "y de esos, cuales..." y lo bastante poco para
+// que el pedido no crezca sin limite.
+const MAX_TURNOS = 6;
+
+// Los nombres de columna que se repiten, traducidos. El resto se muestra con
+// el nombre de la columna, pero CON ESPACIOS: "serial_number" se entiende
+// mucho mejor que "serial_number".
+const COLUMNAS_TRADUCIDAS = {
+  count: 'Cantidad',
+  total: 'Total',
+  serial_number: 'Numero de serie',
+  qr_code: 'Codigo QR',
+  current_status: 'Estado',
+  store_name: 'Ubicacion',
+  address: 'Direccion',
+  sku: 'SKU',
+  brand: 'Marca',
+  model: 'Modelo',
+  model_name: 'Modelo',
+  variant: 'Variante',
+  category_id: 'Categoria',
+  name: 'Nombre',
+  full_name: 'Nombre',
+  email: 'Email',
+  created_at: 'Creado',
+  entry_date: 'Ingreso',
+  exit_date: 'Salida',
+  incident_id: 'Caso',
+  code: 'Codigo',
+  title: 'Titulo',
+  severity: 'Severidad',
+  status: 'Estado',
+  diagnosis: 'Diagnostico',
+  work_performed: 'Trabajo realizado',
+  location_name: 'Ubicacion',
+  available_count: 'Disponibles',
+  min_stock: 'Stock minimo',
+};
+
+/** El nombre de una columna, para mostrarlo. */
+function nombreColumna(columna) {
+  if (COLUMNAS_TRADUCIDAS[columna]) return COLUMNAS_TRADUCIDAS[columna];
+  const palabras = String(columna).replace(/_/g, ' ').trim();
+  return palabras.charAt(0).toUpperCase() + palabras.slice(1);
+}
+
 export function vistaConsultas({ permisos = [] } = {}) {
   const raiz = crear('div');
+
+  // El historial de la conversacion: lo que permite que "cual es ese equipo
+  // que se encontro?" entienda de que equipo se trata.
+  const historial = [];
 
   // --- Estado de la IA ------------------------------------------------------
   const tarjetaEstado = crear('div', { clase: 'tarjeta' });
@@ -162,7 +213,12 @@ export function vistaConsultas({ permisos = [] } = {}) {
     caja.append(pensando);
 
     try {
-      const respuesta = await api.preguntar(pregunta);
+      // El HISTORIAL
+      // -------------
+      // "Cual es ese equipo que se encontro?" no se puede responder sin
+      // saber de que equipo se trata. El backend lo usa para no cambiar de
+      // tema y para traer el DETALLE de lo que antes se contó.
+      const respuesta = await api.preguntar(pregunta, historial);
       pensando.remove();
 
       if (respuesta.error) {
@@ -171,9 +227,45 @@ export function vistaConsultas({ permisos = [] } = {}) {
         agregarMensaje('Inventario', respuesta.respuesta || 'Sin respuesta.', 'exito');
       }
 
+      // La tabla con los DATOS.
+      //
+      // Sin esto, el operador ve la prosa y el SELECT, pero no el producto
+      // queasked: el SQL dice que se busco, y los datos quedan escondidos
+      // en la respuesta de la API, que nadie mira.
+      if (respuesta.datos?.length && respuesta.columnas?.length) {
+        caja.lastChild.append(tablaDeDatos(respuesta));
+      }
+
+      // La accion sugerida ("andá a Productos"): un boton, no un texto.
+      if (respuesta.sugerencia?.vista) {
+        const btnSugerencia = crear('button', {
+          clase: 'boton boton--suave boton--chico',
+          texto: respuesta.sugerencia.texto,
+          atributos: { type: 'button' },
+        });
+        btnSugerencia.addEventListener('click', () => {
+          document.dispatchEvent(
+            new CustomEvent('app:ir-a', { detail: { vista: respuesta.sugerencia.vista } }),
+          );
+        });
+        caja.lastChild.append(btnSugerencia);
+      }
+
       // El SQL se muestra solo si el backend lo devolucion. Ver la nota de
       // seguridad: el modelo escribe el SELECT, y verlo ayuda a entender de
       // donde sale el numero.
+      // El turno se guarda para la proxima pregunta. El resumen lo arma el
+      // backend: es el tema de la consulta y los valores que identifican a
+      // cada fila (el serial, el SKU).
+      if (!respuesta.error) {
+        historial.push({
+          pregunta,
+          sql: respuesta.sql ?? null,
+          resumen: respuesta.resumen ?? null,
+        });
+        if (historial.length > MAX_TURNOS) historial.shift();
+      }
+
       if (respuesta.sql) {
         const detalle = crear('details', { 
           clase: 'sql-detalle',
@@ -220,6 +312,70 @@ export function vistaConsultas({ permisos = [] } = {}) {
   }
 
   /**
+   * La tabla con los datos de la consulta.
+   *
+   * POR QUE ESTA Y NO SOLO LA PROSA
+   * ------------------------------
+   * El operador pregunto "cual es ese equipo que se encontro?". La prosa
+   * dice "se encontro 1 equipo" y la tabla dice cual es. Con las dos, la
+   * respuesta se lee sin adivinar; con solo la prosa, el operador tiene que
+   * mirar el SELECT para entender de que se habla.
+   *
+   * TODOS LOS VALORES VAN POR `textContent`: los datos vienen de la base,
+   * pero un texto puede traer HTML de un serial mal cargado, y esto es un
+   * chat que se repite en cada pantalla.
+   */
+  function tablaDeDatos(respuesta) {
+    const envoltorio = crear('div', { clase: 'ia-tabla', estilo: 'margin-top:0.6rem' });
+
+    const tabla = crear('table', { clase: 'ia-tabla__tabla' });
+
+    const cabecera = crear('thead');
+    const filaCabecera = crear('tr');
+    for (const columna of respuesta.columnas) {
+      const celda = crear('th', {
+        texto: nombreColumna(columna),
+        atributos: { scope: 'col' },
+      });
+      filaCabecera.append(celda);
+    }
+    cabecera.append(filaCabecera);
+    tabla.append(cabecera);
+
+    const cuerpo = crear('tbody');
+    for (const fila of respuesta.datos) {
+      const tr = crear('tr');
+      for (const columna of respuesta.columnas) {
+        const valor = fila?.[columna];
+        const celda = crear('td');
+        // `null` se muestra como un guion y no como "null": es la diferencia
+        // entre "no hay dato" y "el sistema fallo".
+        celda.textContent = valor === null || valor === undefined ? '—' : String(valor);
+        tr.append(celda);
+      }
+      cuerpo.append(tr);
+    }
+    tabla.append(cuerpo);
+    envoltorio.append(tabla);
+
+    // El pie solo cuando aporta: "1 fila." debajo de una tabla de una fila
+    // es ruido. Cuando hay varias (o se truncaron) el numero importa.
+    if (respuesta.truncado || respuesta.cantidad_filas > 1) {
+      envoltorio.append(
+        crear('p', {
+          clase: 'pequeno tenue',
+          estilo: 'margin:0.4rem 0 0',
+          texto: respuesta.truncado
+            ? `Mostrando las primeras ${respuesta.datos.length} filas de ${respuesta.cantidad_filas}.`
+            : `${respuesta.cantidad_filas} filas.`,
+        }),
+      );
+    }
+
+    return envoltorio;
+  }
+
+  /**
    * Un mensaje en la caja de conversacion.
    *
    * El texto va SIEMPRE por `textContent`. No hay rama de este archivo que use
@@ -255,7 +411,9 @@ export function vistaConsultas({ permisos = [] } = {}) {
     agregarMensaje(
       'Inventario',
       'Preguntame por el inventario. Puedo contar equipos por estado, listar ' +
-        'los que llevan mucho instalados y buscar los que mas visitas al taller.',
+        'los que llevan mucho instalados y buscar los que mas visitas al taller. ' +
+        'Te muestro los datos en una tabla y entiendo las preguntas de ' +
+        'seguimiento ("cual es ese equipo que se encontro?").',
       'info',
     );
   }

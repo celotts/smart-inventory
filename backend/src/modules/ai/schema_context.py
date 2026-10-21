@@ -252,6 +252,25 @@ WHERE d.current_status = 'IN_WAREHOUSE'
   AND m.brand = 'Dell'
 GROUP BY m.model;
 
+-- `devices.current_location_id` PUEDE SER NULL: un equipo sin ubicacion NO tiene
+  fila en `locations`. Un `JOIN locations` (que es un INNER JOIN) deja afuera a
+  esos equipos y la cuenta sale mal. Si la pregunta NO es por ubicacion,
+  usá `LEFT JOIN locations`.
+-- `devices.model_id` es NOT NULL: ahi el `JOIN models` siempre se puede.
+
+-- PREGUNTAS DE SEGUIMIENTO
+-- Si te pasan el historial y la pregunta pide el detalle de algo que antes se
+-- CONTÓ, partí de la consulta anterior y sacá el COUNT. Un ejemplo exacto:
+--
+--   Pregunta anterior: "Cuantos equipos hay en deposito?"
+--   Consulta anterior: SELECT COUNT(*) FROM devices d JOIN locations l ON l.id = d.current_location_id WHERE d.current_status = 'IN_WAREHOUSE' AND l.deleted_at IS NULL
+--   Pregunta de ahora: "cual es ese equipo?"
+--   Consulta correcta: SELECT d.serial_number, d.qr_code, m.model, m.brand, l.store_name FROM devices d JOIN models m ON m.id = d.model_id JOIN locations l ON l.id = d.current_location_id WHERE d.current_status = 'IN_WAREHOUSE' AND l.deleted_at IS NULL
+--
+-- Ojo: NO agregues `WHERE d.id = 1`. La pregunta pide el detalle de lo que
+-- se contó, no un equipo en particular: agregar un id que no estaba en la
+-- consulta anterior hace que no devuelva nada.
+
 -- Coordenadas están en locations (latitude, longitude), NO en devices.
 -- Coordenadas del escaneo están en movement_history (scan_latitude, scan_longitude).
 """

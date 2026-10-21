@@ -61,7 +61,13 @@ def preguntar(
     llm = get_llm()
 
     try:
-        resultado = sql_agent.responder_pregunta(pedido.pregunta, llm=llm)
+        resultado = sql_agent.responder_pregunta(
+            pedido.pregunta,
+            llm=llm,
+            # El historial: sin el, las preguntas de seguimiento ("cual es ese
+            # equipo que se encontro?") se responden con otra cosa.
+            historial=[turno.model_dump() for turno in pedido.historial],
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except sql_agent.PreguntaNoRespondida as exc:
@@ -90,6 +96,8 @@ def preguntar(
         proveedor=resultado.get("proveedor"),
         uso_fallback=resultado.get("usou_fallback", False),
         error=resultado.get("error"),
+        sugerencia=resultado.get("sugerencia"),
+        resumen=resultado.get("resumen"),
     )
 
 

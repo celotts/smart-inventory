@@ -1301,6 +1301,52 @@ textarea.campo__control {
 }
 
 /* ---------------------------------------------------------------------------
+   La tabla de datos de la IA
+   ---------------------------------------------------------------------------
+   Los datos de la consulta, debajo de la respuesta.
+
+   Es una tabla y no una lista porque son COLUMNAS: comparar un serial con
+   otro en una lista vertical es mas lento que leerlos en fila.
+
+   El alto maximo con scroll: una consulta que devuelve 200 filas no puede
+   empujar el chat entero (y con el, la conversacion anterior). */
+.ia-tabla {
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+}
+.ia-tabla__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.ia-tabla__tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 650;
+  color: var(--texto-suave);
+  background: var(--superficie-2);
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--borde);
+  white-space: nowrap;
+}
+.ia-tabla__tabla td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: top;
+}
+.ia-tabla__tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+.ia-tabla__tabla tbody tr:hover td {
+  background: var(--superficie-2);
+}
+
+/* ---------------------------------------------------------------------------
    KPIs
    ---------------------------------------------------------------------------
    Los cuadros de resumen del tablero. */
