@@ -58,7 +58,28 @@
  * La regla: lo que sea atributo va en `atributos`. `id` y `estilo` son las dos
  * excepciones, porque se usan en todas partes y casi siempre es un error
  * olvidarlos.
+ *
+ * EL IDIOMA
+ * ---------
+ * TODO el texto de la pantalla pasa por acá, asi que el traductor va acá y
+ * alcanza a todo: el texto del nodo y los atributos que llevan texto
+ * (`placeholder`, `title`, `aria-label`).
+ *
+ * Sin esto, cambiar el idioma solo traducía los textos ESTATICOS del
+ * `index.html` (el menu y el pie) y nada mas: las etiquetas de los
+ * formularios, los botones de los modales y los titulos de las vistas
+ * seguian en espanol, con el menu en ingles. Era la mitad de la app sin
+ * traducir.
+ *
+ * El idioma de la BASE no se toca: el nombre de un producto y el titulo de
+ * un caso son los que son.
  */
+
+import { traducir } from './i18n.js';
+
+/** Los atributos cuyo valor es TEXTO de interfaz (y se traducen). */
+const ATRIBUTOS_CON_TEXTO = new Set(['placeholder', 'title', 'aria-label']);
+
 export function crear(etiqueta, opciones = {}) {
   const { clase, id, texto, atributos, hijos, estilo } = opciones;
   const el = document.createElement(etiqueta);
@@ -77,7 +98,11 @@ export function crear(etiqueta, opciones = {}) {
 
   // `textContent` y no `innerText`: `innerText` depende del layout y es más
   // lento, y además interpreta entidades. No es lo que se quiere.
-  if (texto !== undefined && texto !== null) el.textContent = String(texto);
+  //
+  // El texto pasa por el traductor: TODA la pantalla se arma con `crear()`,
+  // así que acá es donde se cambia el idioma de las vistas, los formularios
+  // y los modales.
+  if (texto !== undefined && texto !== null) el.textContent = traducir(String(texto));
 
   if (atributos) {
     for (const [nombre, valor] of Object.entries(atributos)) {
@@ -90,7 +115,10 @@ export function crear(etiqueta, opciones = {}) {
       } else if (valor === true) {
         el.setAttribute(nombre, '');
       } else {
-        el.setAttribute(nombre, String(valor));
+        // Los atributos que llevan TEXTO tambien se traducen: el
+        // placeholder de un campo y el `aria-label` de un boton son parte de
+        // la interfaz, no datos.
+        el.setAttribute(nombre, ATRIBUTOS_CON_TEXTO.has(nombre) ? traducir(String(valor)) : String(valor));
       }
     }
   }

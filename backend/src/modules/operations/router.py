@@ -295,7 +295,7 @@ def listar_mantenimiento(
             text(
                 f"""
                 SELECT m.id, m.tipo, m.descripcion, m.scheduled_for, m.completed_at,
-                       d.serial_number, u.full_name AS técnico
+                       d.serial_number, u.full_name AS tecnico
                 FROM maintenance m
                 LEFT JOIN devices d ON d.id = m.device_id
                 LEFT JOIN users u   ON u.id = m.tecnico_id

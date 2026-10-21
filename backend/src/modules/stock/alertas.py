@@ -203,11 +203,11 @@ def listar_alertas(
                     a.lead_time_days,
                     a.created_at,
                     a.updated_at,
-                    GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS días_bajo_minimo,
+                    GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS dias_bajo_minimo,
                     CASE
                         WHEN a.lead_time_days IS NULL OR a.lead_time_days <= 0 THEN NULL
                         ELSE GREATEST(0, a.lead_time_days - EXTRACT(DAYS FROM (NOW() - a.created_at))::INT)
-                    END AS días_para_romperse,
+                    END AS dias_para_romperse,
                     CASE
                         WHEN a.lead_time_days IS NULL OR a.lead_time_days <= 0 THEN FALSE
                         ELSE EXTRACT(DAYS FROM (NOW() - a.created_at))::INT > a.lead_time_days

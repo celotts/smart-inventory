@@ -161,7 +161,7 @@ def obtener_metricas(
             d.warehouse_entry_date,
             d.created_at,
             EXTRACT(EPOCH FROM (NOW() - COALESCE(d.installation_date, d.warehouse_entry_date, d.created_at)))
-                / 86400.0 AS días_en_servicio,
+                / 86400.0 AS dias_en_servicio,
             mo.brand,
             mo.model,
             mo.warranty_months,
@@ -198,7 +198,7 @@ def obtener_metricas(
             -- taller desde antes de Cristo" — un número tan absurdo que no
             -- sesa en ninguna conclusion, pero se cuela igual en el texto.
             COALESCE((SELECT EXTRACT(EPOCH FROM (NOW() - MAX(r3.entry_date))) / 86400.0
-                FROM repairs r3 WHERE r3.device_id = d.id), NULL) AS días_desde_ultima_reparación,
+                FROM repairs r3 WHERE r3.device_id = d.id), NULL) AS dias_desde_ultima_reparacion,
             {diagnosticos}
         FROM devices d
         LEFT JOIN models mo     ON mo.id = d.model_id

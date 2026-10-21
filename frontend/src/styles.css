@@ -455,8 +455,11 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
    --------------------------------------------------------------------------- */
 /* LA CABECERA ES UNA GRID DE TRES COLUMNAS
  *
- *   [ marca + usuario ] [ menu de secciones ] [ modulo + campana + salir ]
- *        (fija)              (centrado)                (fija)
+ *   [ marca ] [ menu de secciones ] [ campana · salir ]
+ *     (fija)      (centrado)            (fija)
+ *
+ * Y una segunda fila con lo que NO es navegacion: quien esta (el bloque con
+ * el rol) a la izquierda y el selector de modulo, CENTRADO en la pagina.
  *
  * POR QUE UNA GRID Y NO UN FLEX CON MARGENES AUTOMATICOS
  * ------------------------------------------------------
@@ -479,10 +482,10 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    'marca  nav      modulos  acciones'
-    'fila2  fila2    fila2    fila2';
+    'marca  nav      acciones'
+    'fila2  fila2    fila2';
   align-items: center;
   gap: 0.5rem 1rem;
   padding: calc(0.75rem + var(--safe-top)) 1rem 0.75rem;
@@ -575,20 +578,25 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .cabecera__nuevo-texto { display: none; }
 
 .cabecera__modulos {
-  grid-area: modulos;
   flex-shrink: 0;
-  /* CENTRADA EN SU PROPIA LINEA
+  /* CENTRADO EN LA PAGINA, EN LA SEGUNDA FILA
    *
-   * El selector de modulo va en una fila propia, centrada, y no al lado del
-   * menu de secciones: son dos cosas distintas (la app y el modulo en el que
-   * se esta trabajando), y al lado una de otra el operador no sabe cual es
-   * cual. En su propia linea, la pregunta "en que modulo estoy" tiene una
-   * respuesta en un solo lugar.
+   * El selector de modulo (Inventario | Service Desk) va en la misma fila
+   * que el bloque del usuario ("Rol: Admin") y CENTRADO en la pagina.
    *
-   * Y al estar en su propia fila, NO SE MUEVE: el menu de secciones cambia
-   * de ancho al cambiar de modulo (son pestanas distintas), y si el selector
-   * estuviera en la misma fila, se moveria con el. */
-  justify-self: center;
+   * El centrado es con `position: absolute` y no con `justify-self: center`:
+   * dentro de una celda de la grilla, el centro de la celda NO es el centro
+   * de la pagina, asi que "centrar la celda" dejaba los botones corridos
+   * hacia un lado. La fila 2 tiene `position: relative`, asi que el
+   * `left: 50%` es el 50% del ANCHO DE LA PAGINA (menos el padding), que es
+   * lo que se quiere.
+   *
+   * Y al estar en la segunda fila NO SE MUEVE cuando cambia el modulo: el
+   * menu de secciones cambia de ancho (son pestanas distintas) y, si el
+   * selector estuviera en la primera fila, se moveria con el. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .cabecera__marca {
@@ -639,6 +647,9 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
  */
 .cabecera__fila2 {
   grid-area: fila2;
+  /* `relative` para que el selector de modulo (que va con `position:
+   * absolute`) se ubique respecto de ESTA fila, que es del ancho de la
+   * pagina. Con eso, su `left: 50%` es el centro de la pagina. */
   position: relative;
   display: flex;
   align-items: center;
@@ -754,23 +765,19 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 /* EN EL CELULAR, LA CABECERA TIENE DOS FILAS
  *
- * En 390 px no entran el menu, los dos modulos, la campana y el boton de
+ * En 390 px no entran el menu, los modulos, la campana y el boton de
  * salir en una sola linea: si se apilan, el menu queda con dos pixeles de
  * ancho y los pestanas se meten debajo de los botones.
  *
- * Con dos filas: arriba, la marca, el usuario y los botones de la derecha;
- * abajo, el selector de modulo y el menu (que scrollea).
- *
- * El selector de modulo SIGUE EN EL MISMO LUGAR RELATIVO: a la derecha de
- * la fila de arriba, y con la misma separacion. Lo que cambia es la fila,
- * no la posicion dentro de ella.
+ * Con dos filas: arriba, la marca, el menu y los botones de la derecha;
+ * abajo, el bloque del usuario y el selector de modulo.
  */
 @media (max-width: 760px) {
   .cabecera {
-    grid-template-columns: auto auto 1fr auto;
+    grid-template-columns: auto 1fr auto;
     grid-template-areas:
-      'marca    nav      modulos  acciones'
-      'fila2    fila2    fila2    fila2';
+      'marca    nav      acciones'
+      'fila2    fila2    fila2';
     row-gap: 0.4rem;
     column-gap: 0.75rem;
   }
@@ -780,11 +787,13 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
     padding-inline: 0.25rem;
   }
 
-  /* En el celular no hay lugar para una fila mas: el selector y el menu
-     comparten la segunda, y el selector queda a la izquierda (no centrado:
-     centrado, con el menu al lado, se veria descentrado). */
+  /* En el celular el selector sigue CENTRADO en la pagina (es la fila 2, y
+     la fila 2 es del ancho de la pagina). Lo que cambia es que el bloque
+     del usuario y el selector comparten la fila: con el usuario a la
+     izquierda y el selector al centro, no se pisan porque en el celular el
+     bloque del usuario es solo el avatar (ver la media query de 1100 px). */
   .cabecera__modulos {
-    justify-self: start;
+    min-width: 9.5rem;
   }
 }
 
@@ -2871,7 +2880,7 @@ body[data-modulo="helpdesk"] {
    * pixel, y el contenido del selector se alinea a la derecha.
    */
   min-width: 11.5rem;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* Con un solo modulo, la zona no necesita el marco de un grupo de botones:
@@ -2892,6 +2901,9 @@ body[data-modulo="helpdesk"] {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  /* El nombre del modulo en UNA linea: "Service Desk" partido en dos queda
+   * como un boton raro, y en el celular el espacio es el que es. */
+  white-space: nowrap;
 }
 
 /* El color de cada modulo.

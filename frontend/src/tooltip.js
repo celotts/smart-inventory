@@ -32,6 +32,7 @@
  */
 
 import { crear } from './dom.js';
+import { traducir } from './i18n.js';
 
 let elementoTooltip = null;
 let destinoActual = null;
@@ -99,7 +100,9 @@ function mostrar(destino, texto) {
   ocultar();
 
   destinoActual = destino;
-  tooltip.textContent = texto;
+  // El texto se traduce al MOSTRARLO: el tooltip se crea una vez y se
+  // reutiliza, asi que no puede guardar el texto ya traducido.
+  tooltip.textContent = traducir(texto);
   tooltip.hidden = false;
 
   posicionar(destino);

@@ -64,7 +64,7 @@ def _get_alertas_criticas(db: Session) -> list[dict]:
             -- integer and text cannot be matched" y el reporte entero
             -- devuelve 500.
             sl.available_count::text AS actual,
-            m.min_stock::text         AS mínimo,
+            m.min_stock::text         AS minimo,
             l.store_name AS ubicacion
         FROM stock_levels sl
         JOIN models m ON m.id = sl.model_id AND m.is_active
@@ -152,7 +152,7 @@ def _get_mantenimientos_overdue(db: Session) -> list[dict]:
             mo.model,
             mp.name AS plan,
             m.due_date,
-            CURRENT_DATE - m.due_date AS días_vencido,
+            CURRENT_DATE - m.due_date AS dias_vencido,
             l.store_name AS ubicacion
         FROM maintenance m
         JOIN devices d ON d.id = m.device_id
@@ -173,7 +173,7 @@ def _get_pos_pendientes(db: Session) -> list[dict]:
             v.name AS proveedor,
             po.status,
             po.expected_date,
-            CURRENT_DATE - po.expected_date AS días_retraso
+            CURRENT_DATE - po.expected_date AS dias_retraso
         FROM purchase_orders po
         LEFT JOIN vendors v ON v.id = po.vendor_id
         WHERE po.status IN ('ENVIADA', 'CONFIRMADA')
@@ -245,7 +245,7 @@ def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
                 a.faltante,
                 a.lead_time_days,
                 a.created_at,
-                GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS días_bajo_minimo,
+                GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS dias_bajo_minimo,
                 CASE
                     WHEN a.lead_time_days IS NULL OR a.lead_time_days <= 0 THEN FALSE
                     ELSE EXTRACT(DAYS FROM (NOW() - a.created_at))::INT > a.lead_time_days

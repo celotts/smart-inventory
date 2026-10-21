@@ -313,28 +313,49 @@ class TestCabecera:
         )
         assert "grid-area: nav" in regla, "El menu tiene que tener su area."
 
-    def test_el_selector_de_modulo_esta_en_la_fila_de_arriba(self):
+    def test_el_selector_de_modulo_esta_centrado_en_la_segunda_fila(self):
         """
-        El selector de módulo va en la FILA DE ARRIBA, al lado del menú.
+        El selector de módulo va en la SEGUNDA fila, junto al bloque del
+        usuario ("Rol: Admin"), y CENTRADO en la página.
 
-        Es una eleccion operativa del día a día ("hoy trabajo el depósito"),
-        y tiene que estar a la vista sin bajar a otra fila.
+        POR QUÉ ESTÁ EN LA SEGUNDA FILA
+        ------------------------------
+        La primera fila es navegación: la marca, el menú de secciones y los
+        botones de la derecha. El selector de módulo es otra cosa: es la
+        elección operativa del día ("hoy trabajo el depósito"), y mezclada
+        con el menú de secciones el operador no sabe cuál de las dos cosas
+        está mirando.
+
+        En la segunda fila, con el bloque del usuario, la pregunta "en qué
+        módulo estoy" tiene su respuesta en un solo lugar.
         """
         css = self._css()
 
         bloque = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
         assert bloque, "No se encuentra la regla del selector de modulo."
-        assert "grid-area: modulos" in bloque.group(0), (
-            "El selector de modulo tiene que tener area propia en la fila de "
-            "arriba: es la eleccion operativa del dia a dia."
+        regla = bloque.group(0)
+
+        # Centrado respecto de la PAGINA, no de una celda.
+        assert "position: absolute" in regla, (
+            "El selector de modulo va centrado con `position: absolute`: "
+            "dentro de una celda de la grilla, el centro de la celda no es el "
+            "centro de la pagina."
+        )
+        assert "left: 50%" in regla, (
+            "El selector de modulo tiene que estar en el centro de la pagina."
+        )
+        assert "transform: translateX(-50%)" in regla, (
+            "Sin la traslacion, el selector queda corrido hacia la derecha "
+            "la mitad de su ancho."
         )
 
         areas = re.search(r"grid-template-areas:\s*([^;]+);", css, re.S)
         assert areas, "No se encuentra el grid-template-areas de la cabecera."
-        primera_fila = areas.group(1).strip().split("\n")[0]
-        assert "modulos" in primera_fila, (
-            "El selector de modulo tiene que estar en la PRIMERA fila de la "
-            "cabecera, no en la segunda."
+        filas = areas.group(1).strip().split("\n")
+        primera_fila = filas[0]
+        assert "modulos" not in primera_fila, (
+            "El selector de modulo no va en la primera fila de la cabecera, "
+            "sino en la segunda, junto al bloque del usuario."
         )
 
     def test_la_segunda_fila_de_la_cabecera_existe(self):
@@ -347,6 +368,22 @@ class TestCabecera:
         assert 'class="cabecera__fila2"' in contenido, (
             "La segunda fila de la cabecera (el usuario y el selector de "
             "modulo) tiene que existir."
+        )
+
+        # Y el selector de módulo tiene que estar DENTRO de esa fila: si
+        # queda como hijo directo de la cabecera, la posición absoluta se
+        # mide respecto de la cabecera y no de la fila.
+        inicio_fila = contenido.find('class="cabecera__fila2"')
+        selector = contenido.find('id="cabecera-modulo"')
+        menu = contenido.find('class="cabecera__nav"')
+
+        assert inicio_fila != -1, "No se encuentra la segunda fila."
+        assert selector != -1, "No se encuentra el selector de modulo."
+        assert menu != -1, "No se encuentra el menu de secciones."
+
+        assert inicio_fila < selector < menu, (
+            "El selector de modulo tiene que estar dentro de la segunda fila "
+            "de la cabecera (despues de abrirla y antes del menu), no fuera."
         )
 
 class TestModales:
@@ -777,34 +814,59 @@ class TestClasesDelCss:
         Un acento en el nombre es un error de escritura que no da error de
         sintaxis: el JS pide `botón` y el CSS define `.boton`, y el elemento
         sale sin estilo sin que nadie se entere.
+
+        SE BUSCAN EN TODA LA CLASE, NO SOLO EN LOS LITERALES
+        -----------------------------------------------------
+        La primera version del test solo miraba `clase: '...'` y se le
+        escaparon las clases que se arman por CONCATENACION
+        (`' cabecera__módulo--no-disponible'`), que son las que mas se
+        escapan.
+
+        EL PATRON Y LA COMPROBACION
+        ---------------------------
+        El patron es el del NOMBRE DE CLASE: tiene guion bajo
+        (`lista__titulo`, `cabecera__modulo`). La prosa en español casi
+        nunca lleva guion bajo, asi que el patron no da falsos positivos.
+
+        Y hay una comprobacion extra: solo se reporta si el CSS tiene la
+        version SIN ACENTOS. Sin ella, se reportarian cosas que no son
+        clases: un valor de enum de la base (`Daño_TOTAL`), el nombre de un
+        trigger (`incident_transición_válida`), una clave de un diccionario
+        (`en_tránsito`). Esos llevan guion bajo y acento, y no son clases:
+        son IDENTIFICADORES DEL NEGOCIO, donde el acento sí importa (es el
+        dato, no el estilo).
         """
         raiz = _raiz_del_front()
         archivos = list(raiz.rglob("*.js")) + [raiz.parent / "index.html"]
 
-        patrones = (
-            r"(clase:\s*')([^']*)(')",
-            r'(clase:\s*")([^"]*)(")',
-            r"(clase:\s*`)([^`]*)(`)",
-            r'(class=")([^"]*)(")',
-        )
+        # Un nombre de clase: palabras separadas por guion bajo (uno o dos:
+        # `lista__titulo`, `cabecera__modulo--activo`).
+        #
+        # Las letras acentuadas ESTAN en el patron: si no, el nombre se corta
+        # justo antes de la `ñ` y el acento pasa desapercibido (que es
+        # exactamente lo que hay que detectar).
+        letras = r"A-Za-z0-9áéíóúüñÁÉÍÓÚÜÑ"
+        nombre = rf"[A-Za-z][{letras}]*(?:__?[{letras}]+)+"
+
+        # Las clases que el CSS define: si el token sin acentos está entre
+        # ellas, el token con acentos es un nombre de clase con un error.
+        definidas = set(re.findall(r"\.([A-Za-z0-9_-]+)", self._css()))
 
         con_acento: dict[str, set[str]] = {}
         for archivo in archivos:
             if not archivo.exists():
                 continue
             texto = archivo.read_text(encoding="utf-8")
-            for patron in patrones:
-                for _, cuerpo, _ in re.findall(patron, texto):
-                    cuerpo = _sin_interpolaciones(cuerpo)
-                    for token in re.findall(
-                        r"[A-Za-z][A-Za-z0-9_áéíóúüñÁÉÍÓÚÜÑ-]*", cuerpo
-                    ):
-                        if any(ord(c) > 127 for c in token):
-                            con_acento.setdefault(token, set()).add(archivo.name)
+            for token in re.findall(nombre, texto):
+                if not any(ord(c) > 127 for c in token):
+                    continue
+                if _sin_acentos(token) in definidas:
+                    con_acento.setdefault(token, set()).add(archivo.name)
 
         assert not con_acento, (
-            "Estas clases del JavaScript llevan acentos. Los nombres de clase "
-            "son identificadores: van sin acentos, o el CSS no las encuentra.\n"
+            "Estos nombres de clase del JavaScript llevan acentos. Los "
+            "nombres de clase son identificadores: van sin acentos, o el CSS "
+            "no los encuentra y el elemento sale sin estilo.\n"
             + "\n".join(
                 f"  .{clase}  (en {', '.join(sorted(archivos))})"
                 for clase, archivos in sorted(con_acento.items())

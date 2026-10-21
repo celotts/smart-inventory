@@ -52,6 +52,9 @@ export function actualizarCabeceraUsuario() {
   const pestanaIncidencias = document.getElementById('pestana-incidencias');
   const pestanaUsuarios = document.getElementById('pestana-usuarios');
   const pestanaExistencia = document.getElementById('pestana-existencia');
+  const pestanaEscanear = document.getElementById('pestana-escanear');
+  const pestanaInventario = document.getElementById('pestana-inventario');
+  const pestanaConsultas = document.getElementById('pestana-consultas');
 
   if (!contenedor || !nombreEl || !rolEl) return;
 
@@ -102,6 +105,21 @@ export function actualizarCabeceraUsuario() {
     // para eso no hace falta permiso de escritura.
     if (pestanaExistencia) pestanaExistencia.hidden = !perms.includes('devices:read') || !permitidas.has('existencia');
 
+    // ESCANEAR: registrar un movimiento.
+    //
+    // Es la tarea del depósito: se escanea la etiqueta del equipo y se
+    // registra la salida. Un técnico no puede Crear movimientos (eso es de
+    // quien los hace), asi que la pestaña no le aparece: una pestaña que
+    // siempre responde 403 es ruido, y el operador la prueba y descarta.
+    if (pestanaEscanear) pestanaEscanear.hidden = !perms.includes('movements:create') || !permitidas.has('escanear');
+
+    // INVENTARIO: la flota. Se ve con permiso de LECTURA: el técnico la
+    // necesita para ver el equipo que esta fallando.
+    if (pestanaInventario) pestanaInventario.hidden = !perms.includes('devices:read') || !permitidas.has('inventario');
+
+    // CONSULTAS: la IA. Se ve con permiso de PREGUNTAR.
+    if (pestanaConsultas) pestanaConsultas.hidden = !perms.includes('ai:query') || !permitidas.has('consultas');
+
     // El selector de módulo se repinta acá: las pestañas y el selector tienen
     // que contar la misma historia, y si cada uno se dibuja por su lado
     // terminan mostrando cosas distintas.
@@ -126,6 +144,9 @@ export function actualizarCabeceraUsuario() {
     if (pestanaIncidencias) pestanaIncidencias.hidden = true;
     if (pestanaUsuarios) pestanaUsuarios.hidden = true;
     if (pestanaExistencia) pestanaExistencia.hidden = true;
+    if (pestanaEscanear) pestanaEscanear.hidden = true;
+    if (pestanaInventario) pestanaInventario.hidden = true;
+    if (pestanaConsultas) pestanaConsultas.hidden = true;
   }
 }
 
@@ -206,7 +227,7 @@ export function pintarSelectorModulo() {
     const boton = crear('button', {
       clase:
         `cabecera__modulo${activo ? ' cabecera__modulo--activo' : ''}` +
-        (permitido ? '' : ' cabecera__módulo--no-disponible'),
+        (permitido ? '' : ' cabecera__modulo--no-disponible'),
       atributos: {
         type: 'button',
         'aria-pressed': activo ? 'true' : 'false',

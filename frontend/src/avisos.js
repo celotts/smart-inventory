@@ -11,6 +11,8 @@
  * lo arma de datos de la base.
  */
 
+import { traducir } from './i18n.js';
+
 const contenedor = () => document.getElementById('avisos');
 
 /**
@@ -36,7 +38,8 @@ export function avisar(mensaje, tipo = 'info', duracion = 4000) {
   // `textContent`: el mensaje es texto, siempre. Un error de la API puede
   // contener el `detail` de Postgres, que es dato de la base.
   const cuerpo = document.createElement('span');
-  cuerpo.textContent = String(mensaje ?? '');
+  // El mensaje de un aviso es interfaz: se traduce.
+  cuerpo.textContent = traducir(String(mensaje ?? ''));
   nodo.append(cuerpo);
 
   destino.append(nodo);
@@ -70,9 +73,10 @@ export function marcarPendientes(cantidad) {
     return;
   }
 
-  nodo.textContent =
+  nodo.textContent = traducir(
     cantidad === 1
       ? '1 escaneo sin enviar'
-      : `${cantidad} escaneos sin enviar`;
+      : `${cantidad} escaneos sin enviar`,
+  );
   nodo.hidden = false;
 }

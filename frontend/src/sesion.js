@@ -33,7 +33,7 @@ import { crear, reemplazar } from './dom.js';
 import { estado, setUsuario } from './estado.js';
 import { mostrarVista } from './navegacion.js';
 import { moduloGuardado, pantallaDeEntrada, guardarModulo } from './vistas/lanzador.js';
-import { moduloPorDefecto } from './modulos.js';
+import { modulosDe, moduloPorDefecto } from './modulos.js';
 import { setModulo } from './estado.js';
 import { abrirDialogo } from './dialogo.js';
 import { avisar } from './avisos.js';
@@ -69,9 +69,32 @@ export function pintarLogin() {
       //
       // Con un solo módulo (operador o técnico) no hay nada que elegir y se
       // entra directo. Con dos (admin) se elige, y la eleccion se recuerda.
+      //
+      // LO QUE SE ARREGLA
+      // -----------------
+      // Antes, un operador o un técnico (que tienen UN solo módulo) caían
+      // igual en la pantalla de entrada, con una sola tarjeta para elegir.
+      // Un cartel que dice "elegí tu módulo" con una única opción no es una
+      // elección: es un clic de más en el camino del depósito, todas las
+      // veces que el operador abre la app.
+      //
+      // El criterio es el que ya usan `moduloGuardado` y
+      // `moduloPorDefecto`: si hay un solo módulo, se entra en ese.
+      const modulos = modulosDe(estado.usuario);
       const guardado = moduloGuardado(estado.usuario);
-      if (guardado) {
+
+      if (modulos.length <= 1) {
+        const unico = modulos[0] ?? moduloPorDefecto(estado.usuario);
+        setModulo(unico);
+        guardarModulo(unico);
+        // Las pestañas dependen del módulo: sin este repintado, un técnico
+        // (Service Desk) ve las pestañas de Inventario, porque `cargarUsuario`
+        // las pintó cuando el módulo todavía era el de por defecto.
+        actualizarCabeceraUsuario();
+        mostrarVista('inicio');
+      } else if (guardado) {
         setModulo(guardado);
+        actualizarCabeceraUsuario();
         mostrarVista('inicio');
       } else {
         mostrarPantallaDeEntrada();
@@ -398,6 +421,10 @@ export async function arrancar() {
     // corresponde por rol.
     const guardado = moduloGuardado(estado.usuario);
     setModulo(guardado ?? moduloPorDefecto(estado.usuario));
+    // Las pestañas dependen del módulo, y `cargarUsuario` las pintó cuando el
+    // módulo todavía era el de por defecto: sin este repintado, un técnico
+    // que recarga la pagina (F5) ve las pestañas de Inventario.
+    actualizarCabeceraUsuario();
 
     const destino = window.location.hash.replace('#', '');
     mostrarVista(destino && VISTAS_POR_NOMBRE[destino] ? destino : 'inicio');

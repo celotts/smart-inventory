@@ -34,6 +34,7 @@ import { reemplazar } from './dom.js';
 import { permisosDe, setModulo, setVistaActual, estado } from './estado.js';
 import { MODULOS, modulosDe, pestanasDelModulo } from './modulos.js';
 import { actualizarCabeceraUsuario } from './cabecera.js';
+import { traducirArbol } from './i18n.js';
 
 /** El registro de vistas. La clave es la que viaja en el hash de la URL. */
 export const VISTAS = {
@@ -112,6 +113,17 @@ export function mostrarVista(nombre, opciones = {}) {
 
   reemplazar(contenido, elemento);
 
+  // EL IDIOMA DE LA VISTA
+  //
+  // `crear()` ya traduce el texto que pasa por el helper, pero hay texto que
+  // se escapa: las asignaciones directas (`nodo.textContent = 'Inventario'`)
+  // y todo lo que la vista repinta cuando llegan los datos de la API.
+  //
+  // El observador traduce lo que aparece, sin importar de donde venga. Se
+  // desconecta con la vista: un observador que sobrevive a la vista que
+  // observa sigue traduciendo nodos que ya no existen.
+  observarIdioma(elemento);
+
   // La app empezo: la navegacion y el selector de módulo vuelven.
   cabecera.classList.remove('cabecera--lanzador');
 
@@ -131,6 +143,63 @@ export function mostrarVista(nombre, opciones = {}) {
 
   if (window.location.hash !== `#${nombre}`) {
     history.pushState({ vista: nombre }, '', `#${nombre}`);
+  }
+}
+
+/**
+ * Traduce lo que aparece en una vista, y lo que aparece despues.
+ *
+ * EL PORQUE DEL OBSERVADOR
+ * -----------------------
+ * Las vistas se pintan en dos tiempos: primero el esqueleto (sincrono) y
+ * despues los datos (cuando la API responde), que repintan secciones
+ * enteras. Traducir solo al montar dejaria la mitad de la vista en espanol
+ * hasta que el operador la recargara.
+ *
+ * El observador traduce cada nodo que se agrega o cambia. No hay loop: un
+ * texto ya traducido vuelve a pasar por el traductor, no cambia (las claves
+ * del diccionario son en espanol) y no dispara otra mutacion.
+ *
+ * @param {Element} elemento  La raiz de la vista.
+ */
+function observarIdioma(elemento) {
+  if (!elemento || typeof MutationObserver === 'undefined') return;
+
+  // Se traduce lo que ya esta.
+  traducirArbol(elemento);
+
+  const observador = new MutationObserver((mutaciones) => {
+    for (const mutacion of mutaciones) {
+      if (mutacion.type === 'characterData') {
+        // El texto de un nodo que ya existia cambio.
+        traducirArbol(mutacion.target.parentElement ?? mutacion.target);
+        continue;
+      }
+      for (const nodo of mutacion.addedNodes) {
+        traducirArbol(nodo);
+      }
+    }
+  });
+
+  observador.observe(elemento, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+
+  // Se desconecta con la vista.
+  const destruir = estado.vistaActual?.destruir;
+  if (typeof destruir === 'function') {
+    estado.vistaActual.destruir = () => {
+      observador.disconnect();
+      try {
+        destruir();
+      } catch (error) {
+        console.error('No se pudo limpiar la vista:', error);
+      }
+    };
+  } else if (estado.vistaActual && typeof estado.vistaActual === 'object') {
+    estado.vistaActual.destruir = () => observador.disconnect();
   }
 }
 

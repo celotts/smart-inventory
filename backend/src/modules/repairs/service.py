@@ -195,7 +195,7 @@ def listar_reparaciones(device_id: int) -> list[dict[str, Any]]:
                     r.entry_date,
                     r.exit_date,
                     r.incident_id,
-                    u.full_name AS técnico_nombre
+                    u.full_name AS tecnico_nombre
                 FROM repairs r
                 LEFT JOIN users u ON u.id = r.technician_id
                 WHERE r.device_id = :device_id

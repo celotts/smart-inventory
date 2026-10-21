@@ -32,6 +32,7 @@
  */
 
 import { crear } from './dom.js';
+import { traducir } from './i18n.js';
 import { conTooltip } from './tooltip.js';
 
 /**
@@ -131,7 +132,8 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
   sincronizarDescritos();
 
   const marcar = (mensaje) => {
-    nodoError.textContent = mensaje;
+    // El mensaje de error tambien es interfaz: se traduce.
+    nodoError.textContent = traducir(mensaje);
     nodoError.hidden = false;
     control.setAttribute('aria-invalid', 'true');
     descritos.push(idError);

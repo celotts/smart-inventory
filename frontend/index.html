@@ -83,8 +83,8 @@
     <!--
       LA SEGUNDA FILA DE LA CABECERA
       --
-      El usuario (a la izquierda) y el selector de modulo (CENTRADO respecto
-      de la PAGINA, no de lo que queda a su derecha).
+      El usuario (a la izquierda, con su "Rol: Admin") y el selector de
+      modulo (CENTRADO respecto de la PAGINA).
 
       El selector va centrado con una posicion absoluta: en una grilla, el
       centro de una celda no es el centro de la pagina, asi que "centrar la
@@ -104,13 +104,19 @@
       </div>
     </div>
 
-
     <!--
-      El selector de modulo. Es hijo DIRECTO de la cabecera (no del grupo de
-      la derecha) para que, en el celular, pueda bajar a su propia fila: en
-      390 px no entran el menu, los dos modulos, la campana y el boton de
-      salir en una sola linea.
+      El selector de modulo (Inventario | Service Desk), en la misma fila que
+      el bloque del usuario y CENTRADO en la pagina.
+
+      Va centrado con `position: absolute`: en una grilla, el centro de una
+      celda no es el centro de la pagina, y centrado dentro de la celda los
+      botones quedarian corridos hacia un lado.
+
+      Y al estar en la segunda fila NO SE MUEVE cuando cambia el modulo: el
+      menu de secciones cambia de ancho (son pestanas distintas) y, si el
+      selector estuviera en la primera fila, se moveria con el.
     -->
+    <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
     </div>
 
     <nav class="cabecera__nav" aria-label="Secciones">
@@ -124,7 +130,7 @@
         <span class="pestana__texto">Inicio</span>
       </button>
 
-      <button class="pestana" data-vista="escanear">
+      <button class="pestana" data-vista="escanear" id="pestana-escanear" hidden>
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke-linecap="round"/>
@@ -134,7 +140,7 @@
         <span class="pestana__texto">Escanear</span>
       </button>
 
-      <button class="pestana" data-vista="inventario">
+      <button class="pestana" data-vista="inventario" id="pestana-inventario" hidden>
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 7l9-4 9 4v10l-9 4-9-4z" stroke-linejoin="round"/>
@@ -178,7 +184,7 @@
         <span class="pestana__texto">Incidencias</span>
       </button>
 
-      <button class="pestana" data-vista="consultas">
+      <button class="pestana" data-vista="consultas" id="pestana-consultas" hidden>
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-linejoin="round"/>
@@ -230,13 +236,6 @@
       </button>
 
     </nav>
-
-    <!--
-      El selector de modulo, en la fila de ARRIBA: es una eleccion
-      operativa del dia a dia, y tiene que estar a la vista, al lado del
-      menu, sin tener que bajar a otra fila.
-    -->
-    <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
 
     <div class="cabecera__acciones">
     <!--

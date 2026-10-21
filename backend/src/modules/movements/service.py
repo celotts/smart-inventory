@@ -235,7 +235,7 @@ def mover_por_producto(
                 SELECT d.id, d.serial_number
                 FROM devices d
                 LEFT JOIN LATERAL (
-                    SELECT MAX(mh.movement_date) AS último
+                    SELECT MAX(mh.movement_date) AS ultimo
                     FROM movement_history mh
                     WHERE mh.device_id = d.id
                 ) h ON TRUE
@@ -675,7 +675,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
                     r.initial_diagnosis,
                     r.work_performed,
                     r.estimated_cost,
-                    u.full_name AS técnico_nombre
+                    u.full_name AS tecnico_nombre
                 FROM repairs r
                 LEFT JOIN users u ON u.id = r.technician_id
                 WHERE r.device_id = :device_id

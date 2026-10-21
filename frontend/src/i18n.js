@@ -537,6 +537,124 @@ export const TRADUCCIONES = {
   'registros': 'records',
   'existencias': 'stock entries',
   'componentes': 'devices',
+  // --- Textos agregados: el tablero, el escaner y los formularios ---
+  'Avisos de SLA: casos por vencer, vencidos y escalados.': 'SLA alerts: cases about to expire, overdue and escalated.',
+  'Equipos: {n}. Ver el detalle.': 'Devices: {n}. See the detail.',
+  'En depósito: {n}. Ver el detalle.': 'In warehouse: {n}. See the detail.',
+  'Por reponer: {n}. Ver el detalle.': 'To reorder: {n}. See the detail.',
+  'Instalados: {n}. Ver el detalle.': 'Installed: {n}. See the detail.',
+  'En tránsito: {n}. Ver el detalle.': 'In transit: {n}. See the detail.',
+  'Movimientos (30 d): {n}. Ver el detalle.': 'Movements (30 d): {n}. See the detail.',
+  'Equipos: {n}': 'Devices: {n}',
+  'En depósito: {n} equipos': 'In warehouse: {n} devices',
+  'En tránsito: {n} equipos': 'In transit: {n} devices',
+  'En taller: {n} equipos': 'In workshop: {n} devices',
+  'En depósito. Ver los equipos en depósito': 'In warehouse. See the devices in the warehouse',
+  'Ver los equipos en depósito': 'See the devices in the warehouse',
+  'En tránsito. Ver los equipos en tránsito': 'In transit. See the devices in transit',
+  'Ver los equipos en tránsito': 'See the devices in transit',
+  'En taller. Ver los equipos en taller': 'In workshop. See the devices in the workshop',
+  'Ver los equipos en taller': 'See the devices in the workshop',
+  'Products with stock at or below the minimum. Click to see them.': 'Products with stock at or below the minimum. Click to see them.',
+  'El minimo es {min} y hay {disp} disponibles.': 'The minimum is {min} and there are {disp} available.',
+  'Minimo {min}: hay {disp} disponibles.': 'Minimum {min}: there are {disp} available.',
+  'Hace {dias} dias esta bajo el minimo. El proveedor tarda {lead} dias.': 'It has been {dias} days below the minimum. The supplier takes {lead} days.',
+  'Hace {dias} dias esta bajo el minimo y el proveedor tarda {lead} dias: la reposicion llega TARDE.': 'It has been {dias} days below the minimum and the supplier takes {lead} days: the restock arrives LATE.',
+  'Disponibles {disp} · Minimo {min} · Lead time {lead} d': 'Available {disp} · Minimum {min} · Lead time {lead} d',
+  '{nombre}. Ver el detalle de este producto': '{name}. See the detail of this product',
+  'Ver el detalle de este producto': 'See the detail of this product',
+  '¿Que estás haciendo?': 'What are you doing?',
+  'Selecciona la accion antes de escanear': 'Select the action before scanning',
+  'Toca "Encender cámara" para escanear': 'Tap "Turn on camera" to scan',
+  'QR: encuadra la etiqueta dentro del cuadro. Código de barras: gira el celular en horizontal y llena la franja.': 'QR: frame the label inside the box. Barcode: turn the phone sideways and fill the strip.',
+  'Alternar cámara del escaner': 'Toggle the scanner camera',
+  'Enciende o apaga la camara. La camara se queda encendida entre escaneos: podés pasar el celu sobre las etiquetas sin tocar la pantalla.': 'Turns the camera on or off. The camera stays on between scans: you can move the phone over the labels without touching the screen.',
+  'Código de la etiqueta (manual)': 'Label code (manual)',
+  'Registrar código manualmente (Enter)': 'Register the code manually (Enter)',
+  'Registrar código ingresado manualmente': 'Register the code entered manually',
+  'Para etiquetas sucias, rotas o si la cámara no enfoca. Pulsa Enter para registrar.': 'For dirty or broken labels, or if the camera does not focus. Press Enter to register.',
+  'El código de la etiqueta: el QR (INV-...) o el serial del fabricante. También acepta el código de un producto del maestro (PRD-...).': 'The label code: the QR (INV-...) or the manufacturer serial. It also accepts the code of a master product (PRD-...).',
+  'Activar modo escaner con cámara': 'Turn on scanner mode with the camera',
+  'Usa la camara para leer las etiquetas. Es el modo principal.': 'Uses the camera to read the labels. This is the main mode.',
+  'Activar modo ingreso manual': 'Turn on manual entry mode',
+  'Escribe el código a mano. Para etiquetas sucias, rotas o si la camara no enfoca.': 'Type the code by hand. For dirty or broken labels, or if the camera does not focus.',
+  'Baja definitiva: El equipo se da de baja permanentemente': 'Permanent disposal: the device is permanently removed',
+  'El equipo vuelve al deposito desde el cliente': 'The device returns to the warehouse from the client',
+  'Devolucion a deposito: El equipo vuelve al deposito desde el cliente': 'Return to warehouse: the device returns to the warehouse from the client',
+  'Nuevo equipo ingresa al deposito': 'A new device enters the warehouse',
+  'Entrada a deposito: Nuevo equipo ingresa al deposito': 'Warehouse entry: a new device enters the warehouse',
+  'Instalacion: El equipo se instala en sitio del cliente': 'Installation: the device is installed at the client site',
+  'Se reemplaza un equipo por otro': 'One device replaces another',
+  'Reemplazo: Se reemplaza un equipo por otro': 'Replacement: one device replaces another',
+  'Retiro a taller': 'Withdrawal to the workshop',
+  'Retiro a taller: El equipo va a reparacion': 'Withdrawal to the workshop: the device goes for repair',
+  'Salida a cliente': 'Delivery to the client',
+  'Salida a cliente: El equipo sale del deposito hacia el cliente': 'Delivery to the client: the device leaves the warehouse towards the client',
+  'Sale a cliente': 'Delivery to the client',
+  'Encendiendo cámara…': 'Turning on the camera…',
+  'Acepta el permiso si el navegador lo pide.': 'Accept the permission if the browser asks for it.',
+  'No se pudo abrir la camara: {error}': 'Could not open the camera: {error}',
+  'No se pudo encender la cámara': 'Could not turn on the camera',
+  'Revisa el permiso de cámara del navegador o usa el ingreso manual.': 'Check the camera permission in the browser or use the manual entry.',
+  'Buscar por serial, QR, SKU o modelo': 'Search by serial, QR, SKU or model',
+  'Todas las categorías': 'All categories',
+  'Todas las ubicaciones': 'All locations',
+  'Busqueda de texto completo: serial, código de etiqueta, SKU, marca o modelo. También acepta un fragmento ("notebook dell" encuentra el "Dell Latitude").': 'Full text search: serial, label code, SKU, brand or model. It also accepts a fragment ("notebook dell" finds the "Dell Latitude").',
+  'Filtra por la categoría del producto. Trae también las subcategorias.': 'Filters by the product category. It also brings the subcategories.',
+  'Filtra por la ubicación. Trae también sus pasillos y estantes.': 'Filters by the location. It also brings its aisles and shelves.',
+  'Descarga el inventario completo en CSV, listo para abrir en Excel.': 'Downloads the full inventory as CSV, ready to open in Excel.',
+  'Resultados de la busqueda': 'Search results',
+  'Vuelve a la página anterior.': 'Goes back to the previous page.',
+  'Siguiente ›': 'Next ›',
+  '‹ Anterior': '‹ Previous',
+  'Página {p} de {t} · {a}-{b} de {c} componentes': 'Page {p} of {t} · {a}-{b} of {c} devices',
+  'Página {p} de {t} · {a}-{b} de {c} existencias': 'Page {p} of {t} · {a}-{b} of {c} stocks',
+  'Página {p} de {t} · {a}-{b} de {c} movimientos': 'Page {p} of {t} · {a}-{b} of {c} movements',
+  'Página {p} de {t} · {a}-{b} de {c} productos': 'Page {p} of {t} · {a}-{b} of {c} products',
+  'Página {p} de {t} · {a}-{b} de {c} ordenes': 'Page {p} of {t} · {a}-{b} of {c} orders',
+  'Buscar por SKU, marca o modelo': 'Search by SKU, brand or model',
+  'Busca por SKU, marca o modelo.': 'Searches by SKU, brand or model.',
+  'Sin existencias': 'No stock',
+  'Unidades listas para entregar hoy.': 'Units ready to deliver today.',
+  'Sin componentes': 'No devices',
+  'Vuelve a pedir el stock por producto al servidor.': 'Asks the server for the stock per product again.',
+  'Quien movio cada equipo, cuando y de donde a donde.': 'Who moved each device, when, and from where to where.',
+  'Descarga el historial de movimientos en CSV: quien, cuando, de donde a donde.': 'Downloads the movement history as CSV: who, when, from where to where.',
+  'Buscar por serial, SKU, modelo o ubicación': 'Search by serial, SKU, model or location',
+  'Busca en el historial por serial, QR, SKU, marca, modelo o ubicación.': 'Searches the history by serial, QR, SKU, brand, model or location.',
+  'Buscar por marca, modelo o SKU': 'Search by brand, model or SKU',
+  'Alta de un producto del maestro: marca, modelo, SKU, stock y códigos de etiqueta.': 'Create a product in the master: brand, model, SKU, stock and label codes.',
+  'Administra las categorías, sus subcategorias y los atributos que define cada una.': 'Manages the categories, their subcategories and the attributes each one defines.',
+  'Sin productos': 'No products',
+  'Min {min} · Max {max} · {n} equipos': 'Min {min} · Max {max} · {n} devices',
+  'Muestra la etiqueta del producto: QR y código de barras, listos para imprimir.': 'Shows the product label: QR and barcode, ready to print.',
+  'Edita el producto: precio, puntos de stock, códigos de etiqueta y atributos.': 'Edits the product: price, stock levels, label codes and attributes.',
+  'Abre el alta con los datos de este producto ya cargados (marca, modelo, variante, categoría, costo y stock). El SKU queda vacío: es lo único que hay que escribir.': 'Opens the form with this product data already filled in (brand, model, variant, category, cost and stock). The SKU is left empty: it is the only thing to type.',
+  'Deja de venderse el producto sin borrarlo: el historial de los equipos que lo têm no se pierde.': 'Stops the product from being sold without deleting it: the history of the devices that have it is not lost.',
+  'Borra el producto del maestro. Solo se puede si no tiene equipos ni movimientos.': 'Deletes the product from the master. Only possible if it has no devices or movements.',
+  'Órdenes de compra y recepcion de mercancia al inventario.': 'Purchase orders and receiving of goods into the inventory.',
+  'Sin ordenes': 'No orders',
+  'Serial *': 'Serial *',
+  'Ej: INV-a1b2c3 (se genera si vacío)': 'Ex: INV-a1b2c3 (generated if empty)',
+  'QR propio': 'Own QR',
+  'Opcional. Si lo dejas vacío, el sistema genera uno propio.': 'Optional. If you leave it empty, the system generates one.',
+  'Producto *': 'Product *',
+  'Ubicación inicial *': 'Initial location *',
+  'Donde queda el equipo. Se puede cambiar después.': 'Where the device is. It can be changed later.',
+  'Nuevo componente': 'New device',
+
+  // --- Los ultimos textos que faltaban ---
+  'No se pudo cargar el tablero: {error}': 'Could not load the dashboard: {error}',
+  'Tu sesión ha expirado. Inicia sesión para continuar.': 'Your session has expired. Sign in to continue.',
+  'Sesión expirada': 'Session expired',
+  'Reingreso a depósito': 'Return to warehouse',
+  'Reingreso a depósito: El equipo vuelve al depósito desde cliente': 'Return to warehouse: the device returns to the warehouse from the client',
+  'Avanza a la página siguiente.': 'Goes to the next page.',
+  'Vuelve a la página anterior.': 'Goes back to the previous page.',
+
+  'Error interno.': 'Internal error.',
+  'Not supported.': 'Not supported.',
+
   'casos': 'cases',
   'productos': 'products',
   'usuarios': 'users',
@@ -632,17 +750,292 @@ export function leerIdiomaGuardado() {
  */
 export function traducir(texto) {
   if (idiomaActual !== 'en' || typeof texto !== 'string' || !texto) return texto;
+
+  // La clave EXACTA primero: es la que se escribe a mano en el diccionario.
   const traduccion = TRADUCCIONES[texto];
   if (traduccion) return traduccion;
+
+  // Y si no, la NORMALIZADA.
+  //
+  // POR QUE
+  // -------
+  // El español de los textos de la app no es uniforme en las tildes: la
+  // misma frase aparece unas veces con tilde y otras sin ella ("Dónde está
+  // cada equipo" y "Donde esta cada equipo"). Con la clave exacta, una de
+  // las dos formas no encontraba su traduccion y se quedaba en espanol en
+  // una pantalla que ya estaba en ingles: el menu traducido y el titulo de
+  // la tarjeta sin traducir.
+  //
+  // La normalizacion (sin tildes, sin distinguir mayusculas) hace que las
+  // dos formas sean la MISMA clave. El precio es que dos frases que solo
+  // difieran en tildes comparten traduccion: en una interfaz de inventario,
+  // eso no pasa.
+  const porNormalizar = TRADUCCIONES_NORMALIZADAS.get(_normalizar(texto));
+  if (porNormalizar) return porNormalizar;
+
+  // Y si no, una PLANTILLA: "Equipos: 5. Ver el detalle." casa con
+  // "Equipos: {n}. Ver el detalle.".
+  const conPlantilla = _traducirConPlantilla(texto);
+  if (conPlantilla !== null) return conPlantilla;
+
   // Un texto con datos ("${nombre}") no se puede traducir: el diccionario
   // tiene las frases, no las frases con datos. No avisa, porque no es un
   // texto sin traducir: es un texto que no se puede traducir.
   if (texto.includes('${')) return texto;
+  // SOLO AVISA DE LAS FRASES
+  // -----------------------
+  // El aviso es util ("este texto se queda en espanol"), pero si avisa de
+  // TODO lo que no esta en el diccionario, la consola se llena de ruido con
+  // los textos que son datos ("5 equipos", "En deposito", el nombre de un
+  // producto) y el aviso real se pierde en el ruido.
+  //
+  // Una frase de interfaz empieza con mayuscula, sigue con minuscula y
+  // tiene mas de una palabra: "Guardar producto" avisa, "5 equipos" y
+  // "En deposito" no.
+  // Si el texto YA es una traduccion (esta en ingles), no avisa: el aviso
+  // es para los textos que se quedaron en espanol.
+  if (TRADUCCIONES_EN.has(texto)) return texto;
+  // Y si es el resultado de una plantilla ya aplicada, tampoco.
+  if (_yaTraducidoPorPlantilla(texto)) return texto;
+  if (!_pareceFrase(texto)) return texto;
   if (!textosSinTraducir.has(texto)) {
     textosSinTraducir.add(texto);
     console.warn(`[i18n] Falta la traduccion de: "${texto}"`);
   }
   return texto;
+}
+
+/**
+ * Los textos que YA son traducciones (los valores del diccionario).
+ *
+ * Sirven para una cosa: que el aviso de "falta la traduccion" no se dispare
+ * al recorrer el DOM, donde el texto traducido se vuelve a pasar por el
+ * traductor y se creeria que le falta su traduccion.
+ */
+const TRADUCCIONES_EN = new Set(Object.values(TRADUCCIONES));
+
+/**
+ * Traduce el texto de un ARBOL de nodos.
+ *
+ * POR QUE HACE FALTA
+ * ------------------
+ * `crear()` traduce, y con eso se cubren los textos que se pasan por el
+ * helper. Pero hay dos que se escapan:
+ *
+ *  - las asignaciones directas (`nodo.textContent = 'Inventario'`), que son
+ *    muchas (mas de cien) y van apareciendo, y
+ *  - los textos que llegan despues, cuando la vista recibe los datos de la
+ *    API y repinta una seccion.
+ *
+ * Recorrer el arbol y traducir lo que este en el diccionario cubre las dos
+ * cosas de una: no hay que acordarse de traducir en cada sitio.
+ *
+ * LO QUE NO TOCA
+ * --------------
+ * Los DATOS: el nombre de un producto, el titulo de un caso, el nombre de
+ * un cliente. Se dejan como estan, y para eso la traduccion solo pasa si la
+ * frase esta EXACTA en el diccionario (o su version sin tildes). Un producto
+ * que se llama "Inventario" se traduciria, y es un caso tan raro que no
+ * justifica una excepcion.
+ *
+ * @param {Node} raiz  El nodo desde el que se recorre.
+ */
+export function traducirArbol(raiz) {
+  if (!raiz) return;
+
+  // Los NODOS DE TEXTO.
+  //
+  // Un nodo de texto suele tener espacios y saltos de linea alrededor del
+  // texto real ("\n  Inventario\n"), asi que se busca la frase.trim() y se
+  // reemplaza DENTRO del valor original: los espacios se conservan.
+  if (raiz.nodeType === Node.TEXT_NODE) {
+    _traducirNodoDeTexto(raiz);
+  } else {
+    const walker = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) _traducirNodoDeTexto(walker.currentNode);
+
+    // Los ATRIBUTOS con texto.
+    for (const elemento of raiz.querySelectorAll?.('[title], [aria-label], [placeholder]') ?? []) {
+      for (const atributo of ['title', 'aria-label', 'placeholder']) {
+        const valor = elemento.getAttribute(atributo);
+        if (!valor) continue;
+        const traduccion = traducir(valor);
+        if (traduccion !== valor) elemento.setAttribute(atributo, traduccion);
+      }
+    }
+  }
+}
+
+/**
+ * Traduce el contenido de un nodo de texto.
+ *
+ * @param {Node} nodo
+ */
+function _traducirNodoDeTexto(nodo) {
+  const original = nodo.nodeValue;
+  if (!original) return;
+
+  const limpio = original.trim();
+  if (!limpio) return;
+
+  const traduccion = traducir(limpio);
+  if (traduccion !== limpio) {
+    nodo.nodeValue = original.replace(limpio, traduccion);
+  }
+}
+
+/**
+ * ¿El texto parece una FRASE de interfaz (y no un dato)?
+ *
+ * EL CRITERIO
+ * -----------
+ * Un DATO (el nombre de un cliente, un SKU, el nombre de una ubicacion) no
+ * se traduce, y avisar que le falta la traduccion es ruido: el aviso real
+ * se pierde entre los datos.
+ *
+ * Por eso se descartan:
+ *
+ *  - lo que tiene un SKU ("DEMO-CATALYST-1", "SN-DEMO-0001"),
+ *  - lo que son datos compuestos ("Cliente Acme SA · Notebook"),
+ *  - los nombres propios ("Deposito Central", "Taller Norte"),
+ *  - las palabras sueltas ("Notebook", "Equipos"),
+ *  - lo que tiene numeros ("Min 1 · Max 100 · 0 equipos"): eso lo cubren las
+ *    plantillas, y si no casa con ninguna es un dato.
+ *
+ * @param {string} texto
+ * @returns {boolean}
+ */
+function _pareceFrase(texto) {
+  const limpio = texto.trim();
+  if (limpio.length < 8) return false;                 // "Guardar" (corto)
+  if (!/^[A-ZÁÉÍÓÚÑ¿]/.test(limpio)) return false;     // "5 equipos", "En deposito"
+  if (!limpio.includes(' ')) return false;              // una sola palabra
+  if (/\d/.test(limpio)) return false;                 // tiene numeros
+  if (limpio.includes(' · ')) return false;            // datos compuestos
+  if (/\b[A-Z]{2,}-[A-Z0-9]/.test(limpio)) return false; // tiene un SKU
+  // Un nombre propio: dos palabras que empiezan con mayuscula
+  // ("Deposito Central", "Cliente Acme"). Con una sola mayuscula inicial
+  // ("Guardar producto") NO es un nombre propio.
+  if (/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+/.test(limpio)) return false;
+  return true;
+}
+
+/**
+ * LAS PLANTILLAS: frases con DATOS
+ * ---------------------------------
+ * "Equipos: 5. Ver el detalle." es una frase con un dato. No puede ser una
+ * clave del diccionario (el 5 cambia), pero su ESQUELETO si: "Equipos: {n}.
+ * Ver el detalle."
+ *
+ * Con una plantilla, el diccionario traduce el esqueleto y el dato queda
+ * como estaba. Asi, en vez de una entrada por cada numero posible, hay una.
+ *
+ * COMO CASAN
+ * ----------
+ * La plantilla se convierte en una expresion regular: las partes fijas se
+ * escapan y cada `{dato}` se convierte en un grupo que captura lo que haya
+ * en ese lugar. El grupo es PEREGUOSO (no `(.+)`), asi que captura lo
+ * minimo: "Equipos: 5. Ver el detalle." no se come el resto.
+ *
+ * Y el dato capturado se traduce TAMBIEN, por si mismo: a veces el dato es
+ * una frase (el nombre de un estado) y a veces no (un numero). Si no esta
+ * en el diccionario, queda como esta.
+ */
+
+/** Las partes fijas de una plantilla, con sus marcadores. */
+function _plantilla_a_regex(plantilla) {
+  const partes = plantilla.split(/(\{[a-zA-Z0-9_]+\})/);
+  let patron = '^';
+  for (const parte of partes) {
+    if (/^\{[a-zA-Z0-9_]+\}$/.test(parte)) {
+      patron += '(.+?)';
+    } else {
+      patron += parte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(patron + '$');
+}
+
+/** Las plantillas del diccionario, con su expresion regular. */
+const PLANTILLAS = [];
+for (const [clave, valor] of Object.entries(TRADUCCIONES)) {
+  if (!clave.includes('{')) continue;
+  PLANTILLAS.push({ regex: _plantilla_a_regex(clave), valor, clave });
+}
+
+/**
+ * Los patrones de las plantillas YA TRADUCIDAS.
+ *
+ * "Page 1 of 1 · 1-5 of 5 devices" es el resultado de aplicar una
+ * plantilla. Cuando el recorrido del DOM lo vuelve a traducir, no tiene
+ * que avisar que le falta la traduccion: ya esta traducido.
+ */
+const PLANTILLAS_TRADUCIDAS = [];
+for (const plantilla of PLANTILLAS) {
+  PLANTILLAS_TRADUCIDAS.push(_plantilla_a_regex(plantilla.valor));
+}
+
+/**
+ * ¿El texto ya esta traducido (por una plantilla)?
+ *
+ * @param {string} texto
+ * @returns {boolean}
+ */
+function _yaTraducidoPorPlantilla(texto) {
+  return PLANTILLAS_TRADUCIDAS.some((regex) => regex.test(texto));
+}
+
+/**
+ * Traduce un texto con una plantilla.
+ *
+ * @param {string} texto
+ * @returns {string|null}  La traducción, o null si ninguna plantilla casa.
+ */
+function _traducirConPlantilla(texto) {
+  for (const plantilla of PLANTILLAS) {
+    const coincidencia = plantilla.regex.exec(texto);
+    if (!coincidencia) continue;
+
+    // Se reemplaza cada `{dato}` por lo capturado, ya traducido.
+    let salida = plantilla.valor;
+    let i = 1;
+    salida = salida.replace(/\{[a-zA-Z0-9_]+\}/g, () => {
+      const dato = coincidencia[i];
+      i += 1;
+      return dato === undefined ? '' : traducir(dato);
+    });
+    return salida;
+  }
+  return null;
+}
+
+/**
+ * La clave "plana" de un texto: sin tildes, en minusculas, sin espacios de
+ * sobra.
+ *
+ * @param {string} texto
+ * @returns {string}
+ */
+function _normalizar(texto) {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // los diacriticos
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * El diccionario-indexado por clave normalizada.
+ *
+ * Se arma UNA vez, al cargar el modulo: es un `Map` con la clave normalizada
+ * de cada frase. La primera gana si hay dos frases que solo difieren en
+ * tildes (no deberia pasar).
+ */
+const TRADUCCIONES_NORMALIZADAS = new Map();
+for (const [clave, valor] of Object.entries(TRADUCCIONES)) {
+  const n = _normalizar(clave);
+  if (!TRADUCCIONES_NORMALIZADAS.has(n)) TRADUCCIONES_NORMALIZADAS.set(n, valor);
 }
 
 // Los textos ya avisados: la consola no se llena del mismo aviso 200 veces.

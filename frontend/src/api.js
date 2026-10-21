@@ -38,6 +38,8 @@
 
 
 
+import { traducir } from './i18n.js';
+
 /** Base de la API. */
 const BASE = new URL('/api', window.location.origin).toString();
 
@@ -492,7 +494,7 @@ function mensajeDeError(datos, status) {
       const extra = Array.isArray(detalle.faltantes) && detalle.faltantes.length
         ? ` (te falta: ${detalle.faltantes.join(', ')})`
         : '';
-      return `${detalle.mensaje}${extra}`;
+      return `${traducir(detalle.mensaje)}${extra}`;
     }
 
     // Validación de pydantic: [{loc: [...], msg: "..."}]
@@ -505,8 +507,8 @@ function mensajeDeError(datos, status) {
     }
   }
 
-  if (status === 429) return 'Demasiadas solicitudes. Espera un momento.';
-  if (status >= 500) return 'El servidor tiene un problema. Intenta de nuevo.';
+  if (status === 429) return traducir('Demasiadas solicitudes. Espera un momento.');
+  if (status >= 500) return traducir('El servidor tiene un problema. Intenta de nuevo.');
   return `Error ${status}`;
 }
 
