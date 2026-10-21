@@ -1,18 +1,18 @@
 /**
- * El gestor de categorias y sus atributos.
+ * El gestor de categorías y sus atributos.
  *
  * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
  * ---------------------------------------
- * Son DOS pantallas (la lista de categorias y la de atributos) y un formulario
- * (alta y edicion de una categoria), con sus propios datos y sus propias
+ * Son DOS pantallas (la lista de categorías y la de atributos) y un formulario
+ * (alta y edicion de una categoría), con sus propios datos y sus propias
  * validaciones. Estaban dentro de `productos.js`, que tiene la lista de
  * productos, la etiqueta, el alta, la edicion y las confirmaciones: mil
- * lineas donde un cambio en la etiqueta podia romper la edicion.
+ * líneas donde un cambió en la etiqueta podia romper la edicion.
  *
- * LAS CATEGORIAS SON UN ARBOL
+ * LAS Categorías SON UN Árbol
  * --------------------------
- * Una categoria puede colgar de otra (`parent_id`), y el filtro por
- * categoria trae tambien las subcategorias. Por eso las rutas se muestran
+ * Una categoría puede colgar de otra (`parent_id`), y el filtro por
+ * categoría trae también las subcategorias. Por eso las rutas se muestran
  * completas ("Notebook > Notebooks 14\"").
  */
 
@@ -23,25 +23,25 @@ import { avisar } from '../avisos.js';
 import { conTooltip } from '../tooltip.js';
 import { campoTexto } from '../formulario.js';
 
-  // --- Categorias y atributos ------------------------------------------------
+  // --- Categorías y atributos ------------------------------------------------
   //
-  // La jerarquia y los atributos se administran desde la MISMA vista de
+  // La jerarquía y los atributos se administran desde la MISMA vista de
   // productos: son parte del maestro. Uma pantalla aparte obligaria al
-  // operador a saltar de una pestana a otra para agregar un campo de
-  // "caducidad" a la categoria de consumibles.
+  // operador a saltar de una pestaña a otra para agregar un campo de
+  // "caducidad" a la categoría de consumibles.
   async function abrirCategorias() {
     const cuerpo = crear('div', { clase: 'apilado' });
     const zonaLista = crear('div');
     cuerpo.append(zonaLista);
 
     async function pintar() {
-      zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando categorias…' }));
+      zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando categorías…' }));
       try {
         const categorias = await api.categorias();
         zonaLista.replaceChildren();
 
         if (!categorias.length) {
-          zonaLista.append(crear('p', { clase: 'tenue', texto: 'No hay categorias.' }));
+          zonaLista.append(crear('p', { clase: 'tenue', texto: 'No hay categorías.' }));
           return;
         }
 
@@ -55,13 +55,13 @@ import { campoTexto } from '../formulario.js';
           );
 
           const btnAtributos = crear('button', {
-            clase: 'boton boton--suave boton--chico',
+            clase: 'botón botón--suave botón--chico',
             texto: 'Atributos',
             atributos: { type: 'button', onclick: () => abrirAtributos(c) },
           });
 
           const btnEditar = crear('button', {
-            clase: 'boton boton--suave boton--chico',
+            clase: 'botón botón--suave botón--chico',
             texto: 'Editar',
             atributos: { type: 'button', onclick: () => abrirEdicionCategoria(c, pintar) },
           });
@@ -79,20 +79,20 @@ import { campoTexto } from '../formulario.js';
 
     const btnNueva = crear('button', {
       clase: 'boton',
-      texto: 'Nueva categoria',
+      texto: 'Nueva categoría',
       atributos: { type: 'button', onclick: () => abrirEdicionCategoria(null, pintar) },
     });
-    conTooltip(btnNueva, 'Crea una categoria. Si le pones una categoria padre, pasa a ser una subcategoria.');
+    conTooltip(btnNueva, 'Crea una categoría. Si le pones una categoría padre, pasa a ser una subcategoria.');
 
     const btnCerrar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
 
     abrirDialogo({
-      titulo: 'Categorias y atributos',
-      nota: 'Una categoria puede colgar de otra (subcategoria) y definir sus propios atributos.',
+      titulo: 'Categorías y atributos',
+      nota: 'Una categoría puede colgar de otra (subcategoria) y definir sus propios atributos.',
       cuerpo: [cuerpo],
       clase: 'modal--formulario',
       acciones: [btnCerrar, btnNueva],
@@ -105,10 +105,10 @@ import { campoTexto } from '../formulario.js';
   }
 
   /**
-   * Alta o edicion de una categoria.
+   * Alta o edicion de una categoría.
    *
-   * @param {object|null} categoria  La categoria a editar, o null para una nueva.
-   * @param {Function} alGuardar     Se llama despues de guardar, para repintar.
+   * @param {object|null} categoría  La categoría a editar, o null para una nueva.
+   * @param {Function} alGuardar     Se llama después de guardar, para repintar.
    */
   async function abrirEdicionCategoria(categoria, alGuardar) {
     let categorias = [];
@@ -122,15 +122,15 @@ import { campoTexto } from '../formulario.js';
     const campoNombre = campoTexto({ etiqueta: 'Nombre *', placeholder: 'Ej: Notebooks 14"' });
     if (categoria) campoNombre.input.value = categoria.name || '';
 
-    const campoCodigo = campoTexto({ etiqueta: 'Codigo corto', placeholder: 'Ej: NB14', mono: true });
+    const campoCodigo = campoTexto({ etiqueta: 'Código corto', placeholder: 'Ej: NB14', mono: true });
     if (categoria) campoCodigo.input.value = categoria.code || '';
 
-    // La ruta de la categoria editada: sus descendientes no pueden ser su padre.
+    // La ruta de la categoría editada: sus descendientes no pueden ser su padre.
     const rutaPadre = categoria?.ruta ?? '';
     const selectPadre = crear('select', { clase: 'campo__control' });
-    selectPadre.append(crear('option', { texto: 'Sin categoria padre', atributos: { value: '' } }));
+    selectPadre.append(crear('option', { texto: 'Sin categoría padre', atributos: { value: '' } }));
     for (const c of categorias) {
-      // Una categoria no puede colgar de si misma, y tampoco de una de sus
+      // Una categoría no puede colgar de si misma, y tampoco de una de sus
       // hijas: el backend lo rechaza, pero es mejor no ofrecerlo.
       if (categoria && (c.id === categoria.id || (rutaPadre && c.ruta?.startsWith(rutaPadre)))) continue;
       selectPadre.append(crear('option', { texto: c.ruta || c.name, atributos: { value: c.id } }));
@@ -152,13 +152,13 @@ import { campoTexto } from '../formulario.js';
       campoCodigo.campo,
       crear('label', {
         clase: 'campo',
-        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoria padre' }), selectPadre],
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Categoría padre' }), selectPadre],
       }),
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
-      texto: categoria ? 'Guardar cambios' : 'Crear categoria',
+      clase: 'botón botón--bloque',
+      texto: categoria ? 'Guardar cambios' : 'Crear categoría',
       atributos: { type: 'submit' },
     });
     form.append(btnGuardar);
@@ -186,27 +186,27 @@ import { campoTexto } from '../formulario.js';
         } else {
           await api.pedir('/catalog/categories', { metodo: 'POST', cuerpo: cuerpoPeticion });
         }
-        avisar(categoria ? 'Categoria actualizada' : 'Categoria creada', 'exito', 2500);
+        avisar(categoria ? 'Categoría actualizada' : 'Categoría creada', 'exito', 2500);
         cerrarModal();
         alGuardar?.();
       } catch (error) {
         avisar(error.message, 'error');
         btnGuardar.disabled = false;
-        btnGuardar.textContent = categoria ? 'Guardar cambios' : 'Crear categoria';
+        btnGuardar.textContent = categoria ? 'Guardar cambios' : 'Crear categoría';
       }
     }
 
-    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // El botón de CERRAR. Un modal sin salida visible solo se cierra con la
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
 
     cerrarModal = abrirDialogo({
-      titulo: categoria ? `Editar ${categoria.name}` : 'Nueva categoria',
+      titulo: categoria ? `Editar ${categoria.name}` : 'Nueva categoría',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -218,7 +218,7 @@ import { campoTexto } from '../formulario.js';
   }
 
   /**
-   * Los atributos de una categoria: los que tiene y los que se le pueden
+   * Los atributos de una categoría: los que tiene y los que se le pueden
    * agregar.
    */
   async function abrirAtributos(categoria) {
@@ -236,7 +236,7 @@ import { campoTexto } from '../formulario.js';
           zonaLista.append(
             crear('p', {
               clase: 'tenue',
-              texto: 'Esta categoria no define atributos. Un producto de esta categoria no tendra campos extra.',
+              texto: 'Está categoría no define atributos. Un producto de está categoría no tendrá campos extra.',
             }),
           );
           return;
@@ -307,7 +307,7 @@ import { campoTexto } from '../formulario.js';
     );
 
     const btnAgregar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Agregar atributo',
       atributos: { type: 'submit' },
     });
@@ -353,14 +353,14 @@ import { campoTexto } from '../formulario.js';
     }
 
     const btnCerrar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
 
     abrirDialogo({
       titulo: `Atributos de ${categoria.name}`,
-      nota: 'Los atributos son los campos extra que pide un producto de esta categoria.',
+      nota: 'Los atributos son los campos extra que pide un producto de está categoría.',
       cuerpo: [cuerpo, form],
       clase: 'modal--formulario',
       acciones: [btnCerrar],
@@ -372,7 +372,7 @@ import { campoTexto } from '../formulario.js';
     await pintar();
   }
 
-// La vista de productos las llama. Se exportan para que este modulo sea
+// La vista de productos las llama. Se exportan para que este módulo sea
 // testeable por separado y para que el orden de lectura del archivo sea el
 // mismo que el del flujo.
 export { abrirCategorias, abrirEdicionCategoria, abrirAtributos };

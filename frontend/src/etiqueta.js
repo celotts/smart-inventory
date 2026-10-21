@@ -1,30 +1,30 @@
 /**
- * La etiqueta del producto: su QR y su codigo de barras.
+ * La etiqueta del producto: su QR y su código de barras.
  *
  * QUE ES ESTO
  * -----------
  * Un producto del maestro ("una notebook tal modelo: hay cinco en el
- * deposito") tiene su propia etiqueta, distinta de la etiqueta del equipo:
+ * depósito") tiene su propia etiqueta, distinta de la etiqueta del equipo:
  * la del equipo es la que ya existe, con el `qr_code` del componente y su
- * serial. Esta es la de la CAJA, la del rack, la del estante: lo que se
+ * serial. Está es la de la CAJA, la del rack, la del estante: lo que se
  * imprime y se pega para reconocer el producto sin abrir el inventario.
  *
- * LOS DOS CODIGOS
+ * LOS DOS Códigos
  * ---------------
  * - El QR (`PRD-<sku>` por defecto) se escanea con la camara del celular.
- * - El codigo de barras (Code 128, con el SKU) se escanea con un lector
- *   lineal, que es lo que hay en el mostrador de un deposito.
+ * - El código de barras (Code 128, con el SKU) se escanea con un lector
+ *   lineal, que es lo que hay en el mostrador de un depósito.
  *
  * Los dos los dibuja el BACKEND, en SVG. Ver `src/modules/catalog/qr.py` y
- * `src/modules/catalog/barcode.py` del backend: es codigo de la etiqueta, y
- * la etiqueta tiene que salir IDENTICA en la pantalla y en la impresora.
+ * `src/modules/catalog/barcode.py` del backend: es código de la etiqueta, y
+ * la etiqueta tiene que salir Idéntica en la pantalla y en la impresora.
  *
  * POR QUE EL SVG VA INLINE
  * ------------------------
  * La API exige el token en el header `Authorization`, y un `<img>` no puede
- * mandarlo: pediria el recurso y recibiria un 401. Ademas la CSP de la app
+ * mandarlo: pediria el recurso y recibiria un 401. Además la CSP de la app
  * prohibe los `data:` URL. Un SVG inline es parte del documento: no lo
- * alcanza la CSP, y se ve nitido a cualquier tamano.
+ * alcanza la CSP, y se ve nitido a cualquier tamaño.
  *
  * El SVG se parsea con `DOMParser` —que NO ejecuta scripts, a diferencia de
  * `innerHTML`— y se le borra cualquier `<script>` que viniera dentro, por
@@ -51,10 +51,10 @@ async function svgComoNodo(ruta, alt) {
   // parseo en la etiqueta.
   const raiz = doc.documentElement;
   if (!raiz || raiz.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) {
-    throw new Error('El backend no devolvio un SVG valido.');
+    throw new Error('El backend no devolvio un SVG válido.');
   }
 
-  // Nada de scripts. Es codigo de nuestro propio backend, pero un SVG no
+  // Nada de scripts. Es código de nuestro propio backend, pero un SVG no
   // tiene por que traerlos.
   for (const script of raiz.querySelectorAll('script')) script.remove();
 
@@ -70,9 +70,9 @@ async function svgComoNodo(ruta, alt) {
  * LA LISTA DE PRODUCTOS
  * ---------------------
  * La lista puede tener cincuenta productos, y cada uno con su QR: cincuenta
- * peticiones a la API para mostrar imagenes que el operador todavia no miro.
+ * peticiones a la API para mostrar imagenes que el operador todavía no miro.
  * Con este observador, la imagen se pide cuando el producto entra en la
- * pantalla (o esta a punto de entrar), no antes.
+ * pantalla (o está a punto de entrar), no antes.
  *
  * @param {Element} contenedor
  * @param {Function} alEntrar
@@ -103,8 +103,8 @@ export function cuandoVisible(contenedor, alEntrar) {
  * El QR del producto, en un contenedor listo para insertar.
  *
  * @param {number} productoId
- * @param {string} texto       El codigo que codifica, para el texto alternativo.
- * @param {number} [tamano]    Lado en px.
+ * @param {string} texto       El código que codifica, para el texto alternativo.
+ * @param {number} [tamaño]    Lado en px.
  * @param {boolean} [perezoso] Si es true, la imagen se pide recien cuando el
  *                             contenedor aparece en pantalla.
  * @returns {HTMLElement}
@@ -131,7 +131,7 @@ function cargarQr(contenedor, productoId, texto, tamano) {
       contenedor.replaceChildren(nodo);
     })
     .catch(() => {
-      // El QR es una ayuda, no el dato: si falla, el codigo en texto sigue
+      // El QR es una ayuda, no el dato: si falla, el código en texto sigue
       // estando al lado. No se avisa, porque seria un error por cada producto
       // sin imagen, en cada lista.
       contenedor.classList.add('qr-etiqueta--vacia');
@@ -139,7 +139,7 @@ function cargarQr(contenedor, productoId, texto, tamano) {
 }
 
 /**
- * El codigo de barras del producto, en un contenedor listo para insertar.
+ * El código de barras del producto, en un contenedor listo para insertar.
  *
  * @param {number} productoId
  * @param {string} texto
@@ -165,9 +165,9 @@ export function imagenBarcodeProducto(productoId, texto, ancho = 280) {
 }
 
 /**
- * El SVG crudo de los dos codigos, para imprimir.
+ * El SVG crudo de los dos códigos, para imprimir.
  *
- * La ventana de impresion no puede pedir nada a la API: no tiene el token.
+ * La ventana de impresión no puede pedir nada a la API: no tiene el token.
  * Por eso se Trae el SVG ya descargado y se lo escribe tal cual.
  *
  * @param {number} productoId

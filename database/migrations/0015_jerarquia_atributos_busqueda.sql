@@ -1,35 +1,35 @@
 -- ===========================================================================
--- 0015 - Jerarquia de categorias y ubicaciones, atributos por categoria y
+-- 0015 - Jerarquía de categorías y ubicaciones, atributos por categoría y
 --        busqueda de texto completo
 -- ===========================================================================
 -- Objetivo:
---   1. Que las categorias y las ubicaciones formen arboles (subcategorias,
+--   1. Que las categorías y las ubicaciones formen árboles (subcategorias,
 --      pasillos, estantes, bins).
---   2. Que cada categoria pueda definir sus propios atributos (caducidad, lote,
---      dimensiones, garantia, especificaciones...).
+--   2. Que cada categoría pueda definir sus propios atributos (caducidad, lote,
+--      dimensiones, garantía, especificaciones...).
 --   3. Que la busqueda sea de texto COMPLETO, y no un ILIKE que no encuentra
 --      "notebook dell" cuando el producto se llama "Dell Latitude 5520".
 --
--- QUE ES UNA JERARQUIA Y POR QUE LA NECESITA UN INVENTARIO
+-- QUE ES UNA Jerarquía Y POR QUE LA NECESITA UN INVENTARIO
 -- --------------------------------------------------------
--- Sin arbol, "Notebook" y "Notebook / i5" conviven en la misma lista y el
--- operador no puede decir "todo lo que esta en el pasillo 3" ni "los
--- portatiles de 14 pulgadas". Con arbol, el filtro por "Deposito Central"
+-- Sin árbol, "Notebook" y "Notebook / i5" conviven en la misma lista y el
+-- operador no puede decir "todo lo que está en el pasillo 3" ni "los
+-- portatiles de 14 pulgadas". Con árbol, el filtro por "Depósito Central"
 -- trae sus pasillos y estantes, y el filtro por "Portatiles" trae sus
 -- subcategorias.
 --
 -- POR QUE `parent_id` Y NO UNA TABLA `category_paths`
 -- ---------------------------------------------------
--- El arbol es de una sola padre: una categoria cuelga de otra categoria. Un
--- "path" materializado (Ltree) es para arboles de profundidad arbitraria con
--- consultas por prefijo; aqui la profundidad es de 2 o 3 niveles y el filtro
+-- El árbol es de una sola padre: una categoría cuelga de otra categoría. Un
+-- "path" materializado (Ltree) es para árboles de profundidad arbitraria con
+-- consultas por prefijo; aquí la profundidad es de 2 o 3 niveles y el filtro
 -- por descendientes se resuelve con un CTE recursivo, que es lo que hace
 -- `_ids_descendientes` en el service de locations.
 --
--- POR QUE LAS UBICACIONES TIENEN `location_type`
+-- POR QUE LAS Ubicaciones TIENEN `location_type`
 -- ----------------------------------------------
--- "Deposito Central" y "Deposito Norte" son bodegas: tienen equipos.
--- "Pasillo 3" y "Estante A" son parte de una bodega: tambien. Pero un
+-- "Depósito Central" y "Depósito Norte" son bodegas: tienen equipos.
+-- "Pasillo 3" y "Estante A" son parte de una bodega: también. Pero un
 -- "Sitio del cliente" es otra cosa (tiene `client_id`), y un filtro por
 -- "bodega" no debe traer los equipos instalados en el cliente. El tipo
 -- permite que la interfaz pregunte lo correcto en cada caso.
@@ -38,44 +38,44 @@
 -- -----------------------------------------------------
 -- Un `tsvector` GENERATED ALWAYS ... STORED se calcula UNA vez, cuando se
 -- escribe la fila, y se indexa con GIN. Es lo que hace que la busqueda sea
--- instantanea con miles de equipos, y que el indice no se pueda desincronizar
+-- instantanea con miles de equipos, y que el índice no se pueda desincronizar
 -- con el dato: Postgres lo recalcula solo.
 --
--- El indice va sobre el texto que el operador REALMENTE escribe en el
--- scanner: el serial y el codigo de etiqueta del equipo, y el SKU, la marca,
+-- El índice va sobre el texto que el operador REALMENTE escribe en el
+-- scanner: el serial y el código de etiqueta del equipo, y el SKU, la marca,
 -- el modelo y la variante del producto. Con "spanish" porque el operador
 -- escribe en castellano: sin el diccionario, "portatil" no encuentra
 -- "portátil".
 -- ===========================================================================
 
--- --- 1. Jerarquia de categorias --------------------------------------------
+-- --- 1. Jerarquía de categorías --------------------------------------------
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES categories(id) ON DELETE RESTRICT;
 CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
 
--- --- 2. Jerarquia de ubicaciones -------------------------------------------
+-- --- 2. Jerarquía de ubicaciones -------------------------------------------
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES locations(id) ON DELETE RESTRICT;
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE';
 CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id);
 
--- CHECK del tipo: los valores que la API acepta. Un typo en el codigo
--- ("ALMACEN" en vez de "WAREHOUSE") dejaba una ubicacion sin tipo y sin
+-- CHECK del tipo: los valores que la API acepta. Un typo en el código
+-- ("Almacén" en vez de "WAREHOUSE") dejaba una ubicación sin tipo y sin
 -- filtro, y el error seedia en un reporte, no en el alta.
 ALTER TABLE locations DROP CONSTRAINT IF EXISTS ck_locations_type;
 ALTER TABLE locations ADD CONSTRAINT ck_locations_type CHECK (
     location_type IN ('WAREHOUSE', 'AISLE', 'SHELF', 'BIN', 'CLIENT')
 );
 
--- --- 3. Atributos personalizados por categoria -----------------------------
+-- --- 3. Atributos personalizados por categoría -----------------------------
 --
--- La DEFINICION de los atributos vive en `category_attributes`; los VALORES
+-- La Definición de los atributos vive en `category_attributes`; los VALORES
 -- de cada producto viven en `models.specifications` (JSONB, que ya estaba y
--- ya tenia su indice GIN).
+-- ya tenia su índice GIN).
 --
 -- POR QUE SEPARADAS Y NO EN LA MISMA TABLA
 -- -----------------------------------------
--- La definicion es de la CATEGORIA ("un monitor tiene alto y ancho") y el
+-- La definición es de la Categoría ("un monitor tiene alto y ancho") y el
 -- valor es del PRODUCTO ("este monitor mide 60x40"). Juntas, cada producto
--- tendria que volver a declarar los campos de su categoria.
+-- tendria que volver a declarar los campos de su categoría.
 CREATE TABLE IF NOT EXISTS category_attributes (
     id SERIAL PRIMARY KEY,
     category_id INT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -111,7 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_category_attributes_category ON category_attribut
 -- --- 4. Busqueda de texto completo -----------------------------------------
 --
 -- El vector del EQUIPO: lo que el operador tiene en la mano, el serial y el
--- codigo de la etiqueta.
+-- código de la etiqueta.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS search_vector tsvector
     GENERATED ALWAYS AS (
         to_tsvector('spanish', coalesce(serial_number, '') || ' ' || coalesce(qr_code, ''))
@@ -119,7 +119,7 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS search_vector tsvector
 
 CREATE INDEX IF NOT EXISTS idx_devices_search ON devices USING GIN (search_vector);
 
--- El vector del PRODUCTO: SKU, marca, modelo, variante y sus dos codigos de
+-- El vector del PRODUCTO: SKU, marca, modelo, variante y sus dos códigos de
 -- etiqueta.
 ALTER TABLE models ADD COLUMN IF NOT EXISTS search_vector tsvector
     GENERATED ALWAYS AS (

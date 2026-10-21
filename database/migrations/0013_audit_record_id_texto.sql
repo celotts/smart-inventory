@@ -11,8 +11,8 @@
 --
 --     column "record_id" is of type uuid but expression is of type text
 --
--- Como el trigger es AFTER, el error no.cancelaba la operacion: el UPDATE
--- habia quedado hecho y la transaccion moria igual. En la practica, fallaba
+-- Como el trigger es AFTER, el error no.cancelaba la operación: el UPDATE
+-- habia quedado hecho y la transaccion moria igual. En la práctica, fallaba
 -- TODO lo que actualiza una tabla auditada —editar un producto, editar un
 -- equipo, editar un cliente, cambiar un password— con un 500 "Error interno."
 --
@@ -22,21 +22,21 @@
 -- el mismo UUID no puede apuntar a devices.id (INT) y a users.id (UUID) con
 -- una sola restriccion. Por eso se guarda como texto y el `table_name` dice de
 -- que tabla es." El DML hace lo que el comentario dice; el DDL no. Y el
--- comentario tiene razon: de las nueve tablas auditadas, SIETE tienen id
+-- comentario tiene razón: de las nueve tablas auditadas, SIETE tienen id
 -- entero (devices, models, clients, vendors, categories, locations,
 -- purchase_orders) y solo dos lo tienen uuid (roles, users).
 --
 -- Un solo tipo uuid no puede guardar las dos cosas. TEXT si: guarda el id
 -- entero como '42' y el uuid como su texto, y `table_name` dice de que tabla
--- es cada fila. El indice `(table_name, record_id)` sigue sirviendo igual.
+-- es cada fila. El índice `(table_name, record_id)` sigue sirviendo igual.
 --
--- QUE HACE ESTA MIGRACION
+-- QUE HACE Está Migración
 -- -----------------------
 --  1. Cambia la columna a TEXT, preservando lo que haya.
---  2. Crea la funcion `audit_soft_delete()`, que antes vivia SOLO en la base
+--  2. Crea la función `audit_soft_delete()`, que antes vivia Solo en la base
 --     y no en el repo: una base creada desde `init.sql` no tenia triggers de
---     auditoria, y una migrada los tenia con una funcion que no podia
---     ejecutarse. Con la funcion aca, las dos caminos quedan iguales.
+--     auditoría, y una migrada los tenia con una función que no podia
+--     ejecutarse. Con la función acá, las dos caminos quedan iguales.
 --  3. Crea los nueve triggers.
 -- ============================================================================
 
@@ -44,25 +44,25 @@
 -- 1. La columna
 -- ---------------------------------------------------------------------------
 -- `USING record_id::text` es obligatorio: sin el, Postgres no sabe como pasar
--- de uuid a text y se niega a hacer la conversion.
+-- de uuid a text y se niega a hacer la conversión.
 ALTER TABLE audit_logs
     ALTER COLUMN record_id TYPE TEXT USING record_id::text;
 
 
 -- ---------------------------------------------------------------------------
--- 2. La funcion
+-- 2. La función
 -- ---------------------------------------------------------------------------
 -- POR QUE `v_record_id` ES TEXT Y NO UUID
 -- --------------------------------------
--- La funcion es generica: la misma sirve para `devices` (id entero) y para
+-- La función es generica: la misma sirve para `devices` (id entero) y para
 -- `users` (id uuid). Guardar el id en una variable TEXT y castearlo al
--- insertar deja que cada tabla use su tipo sin que la funcion tenga que
+-- insertar deja que cada tabla use su tipo sin que la función tenga que
 -- saberlo.
 --
 -- El cast de `NEW.id::uuid` a `v_user_id` va envuelto en un bloque con
 -- EXCEPTION: no todas las tablas auditadas tienen `deleted_by`,
--- `updated_by` ni `created_by`, y en las que no estan, el error se
--- convierte en NULL en vez de tumbar la operacion.
+-- `updated_by` ni `created_by`, y en las que no están, el error se
+-- convierte en NULL en vez de tumbar la operación.
 CREATE OR REPLACE FUNCTION audit_soft_delete()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -158,9 +158,9 @@ $$ LANGUAGE plpgsql;
 -- 3. Los triggers
 -- ---------------------------------------------------------------------------
 -- `CREATE OR REPLACE TRIGGER` es de Postgres 14 en adelante. Se usa en vez de
--- `DROP TRIGGER` + `CREATE` porque es atomico: si la migracion se corta a
+-- `DROP TRIGGER` + `CREATE` porque es atomico: si la migración se corta a
 -- mitad, no queda la tabla sin trigger, que es el estado en el que la
--- auditoria deja de registrar sin que nadie se entere.
+-- auditoría deja de registrar sin que nadie se entere.
 CREATE OR REPLACE TRIGGER audit_devices
     AFTER INSERT OR DELETE OR UPDATE ON devices
     FOR EACH ROW EXECUTE FUNCTION audit_soft_delete();

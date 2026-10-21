@@ -1,5 +1,5 @@
 """
-Schemas del modulo de dispositivos.
+Schemas del módulo de dispositivos.
 
 POR QUE NO SE USA `dict` COMO TIPO DE ENTRADA
 ---------------------------------------------
@@ -63,8 +63,8 @@ class CrearDispositivoRequest(BaseModel):
         El QR no puede llevar espacios en los bordes.
 
         Un lector con la camara mal enfocada devuelve " INV-123 " con espacios, y
-        si eso se guarda tal cual, el mismo equipo tiene dos codigos distintos
-        segun como se escanee. El `strip` de `model_config` ya lo cubre, pero
+        si eso se guarda tal cual, el mismo equipo tiene dos códigos distintos
+        según como se escanee. El `strip` de `model_config` ya lo cubre, pero
         se deja explicito porque es una regla del dominio y no un limpieza.
         """
         return valor.strip() if valor else valor
@@ -81,7 +81,7 @@ class ActualizarDispositivoRequest(BaseModel):
     serial el equipo cambiaria de modelo. Editar un campo no puede alterar los
     demas.
 
-    `current_status` es opcional pero se valida contra la matriz de transiciones
+    `current_status` es opcional pero se válida contra la matriz de transiciones
     en el service: pasar de `IN_WAREHOUSE` a `INSTALLED` en un solo salto es un
     dato que nadie vivio, y el trigger de la base lo rechazaria igual.
     """
@@ -105,7 +105,7 @@ class ActualizarDispositivoRequest(BaseModel):
 
 
 class BajaDispositivoRequest(BaseModel):
-    """Baja logica de un componente. El motivo queda en el certificado."""
+    """Baja lógica de un componente. El motivo queda en el certificado."""
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -118,7 +118,7 @@ class BajaDispositivoRequest(BaseModel):
 
 
 class DispositivoResumen(BaseModel):
-    """Lo que devuelve el escaner: lo minimo para confirmar en pantalla."""
+    """Lo que devuelve el escaner: lo mínimo para confirmar en pantalla."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -137,7 +137,7 @@ class DispositivoResumen(BaseModel):
 
 
 class DispositivoDetalle(DispositivoResumen):
-    """Mas datos, para la pantalla de ficha."""
+    """Más datos, para la pantalla de ficha."""
 
     descripcion: str | None = None
     dias_instalado: int | None = Field(
@@ -163,7 +163,7 @@ class UnidadProducto(BaseModel):
 
 class ProductoResuelto(BaseModel):
     """
-    Un producto del maestro, resuelto desde el codigo de su etiqueta.
+    Un producto del maestro, resuelto desde el código de su etiqueta.
 
     Es la CAJA, no el equipo. La etiqueta del producto no identifica a una
     unidad: por eso viene con la lista de sus unidades, para que el operador
@@ -187,20 +187,20 @@ class ProductoResuelto(BaseModel):
 
 class ResolverCodigoResponse(BaseModel):
     """
-    Respuesta de la resolucion de un codigo.
+    Respuesta de la resolucion de un código.
 
     `encontrado` va explicito en lugar de devolver 404. Un escaner que no
     encuentra una etiqueta necesita distinguir tres cosas que para el operador
     son distintas:
 
-      - no existe ese codigo  -> probablemente etiqueta de otro sistema
-      - existe pero esta dado de baja -> hay que emitir un certificado nuevo
-      - existe y esta activo -> se puede mover
+      - no existe ese código  -> probablemente etiqueta de otro sistema
+      - existe pero está dado de baja -> hay que emitir un certificado nuevo
+      - existe y está activo -> se puede mover
 
     Con un 404 para todo, el operador ve el mismo error para las tres y no sabe
     que hacer. Con el campo, el frontend puede dar la instruccion correcta.
 
-    `producto` es el caso aparte: el codigo existe y es la etiqueta de un
+    `producto` es el caso aparte: el código existe y es la etiqueta de un
     PRODUCTO del maestro (la caja), no la de un equipo. Viene con `dispositivo`
     en None, porque un movimiento no se puede registrar sin saber a que unidad
     pertenece.

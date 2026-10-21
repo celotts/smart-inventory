@@ -10,22 +10,22 @@
 -- QUE ES "HORARIO LABORAL" Y POR QUE NO ES 24H
 -- ----------------------------------------------
 -- Un SLA de 4 horas para una S1 (sistema caido) a las 3 de la madrugada
--- significa "a las 7 de la manana". Con 24h, significa "a las 3 de la
+-- significa "a las 7 de la mañana". Con 24h, significa "a las 3 de la
 -- madrugada", cuando no hay nadie. El cliente que firma el SLA cuenta horas
 -- de trabajo, y el sistema tiene que contar lo mismo.
 --
 -- LO QUE FALTA Y NO SE INVENTA
 -- ------------------------------
 -- Los FERIADOS. Un calendario de feriados de un pais es un dato que cambia
--- todos los años y que nadie mantiene en un archivo de configuracion. Por eso
+-- todos los años y que nadie mantiene en un archivo de configuración. Por eso
 -- hay una lista `holidays` editable: lo que no este cargado, el sistema no lo
 -- sabe. Es una limitacion CONOCIDA y visible, no un olvido.
 --
 -- LA ZONA HORARIA
 -- ---------------
 -- IANA (`America/Argentina/Buenos_Aires`), guardada en la base y no en el
--- codigo: el cliente puede estar en otro pais, y la regla del SLA es de el.
--- Postgres trae la base de zonas horarias, asi que el calculo se hace con
+-- código: el cliente puede estar en otro pais, y la regla del SLA es de el.
+-- Postgres trae la base de zonas horarias, así que el calculo se hace con
 -- `AT TIME ZONE`, que respeta la hora de verano.
 -- ===========================================================================
 
@@ -33,17 +33,17 @@
 -- 1. CALENDARIO LABORAL
 -- ===========================================================================
 --
--- Una sola fila (id = 1): la configuracion del negocio. Si un dia hacen
--- falta varias zonas, la tabla esta preparada para crecer por `client_id`.
+-- Una sola fila (id = 1): la configuración del negocio. Si un día hacen
+-- falta varias zonas, la tabla está preparada para crecer por `client_id`.
 
 CREATE TABLE IF NOT EXISTS business_calendar_settings (
     id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     -- Zona horaria IANA. Postgres la conoce: `AT TIME ZONE` la usa.
     timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
-    -- Ventana de trabajo de cada dia laborable.
+    -- Ventana de trabajo de cada día laborable.
     day_start TIME NOT NULL DEFAULT '09:00',
     day_end TIME NOT NULL DEFAULT '18:00',
-    -- Dias laborables: 0 = domingo, 6 = sabado. Postgres cuenta asi.
+    -- Días laborables: 0 = domingo, 6 = sabado. Postgres cuenta así.
     workdays SMALLINT[] NOT NULL DEFAULT '{1,2,3,4,5}',
     -- Feriados. Los que no esten cargados, el sistema no los sabe.
     holidays DATE[] NOT NULL DEFAULT '{}',
@@ -56,19 +56,19 @@ INSERT INTO business_calendar_settings (id) VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
 -- ===========================================================================
--- 2. POLITICAS DE ESCALAMIENTO
+-- 2. Políticas DE ESCALAMIENTO
 -- ===========================================================================
 --
 -- Que pasa cuando un caso se pasa de plazo sin respuesta.
 --
 -- `escalate_to_role` y `escalate_to_user` son ALTERNATIVAS: si hay un
 -- responsable fijo, se escala a el; si no, al primer ADMIN (o al rol que se
--- indique). La eleccion es del dato, no del codigo: "escalar a soporte" o
--- "escalar al gerente de turno" es una decision de cada cliente.
+-- indique). La eleccion es del dato, no del código: "escalar a soporte" o
+-- "escalar al gerente de turno" es una decisión de cada cliente.
 
 CREATE TABLE IF NOT EXISTS incident_escalation_policies (
     severity incident_severity PRIMARY KEY,
-    -- Minutos despues del plazo de RESPUESTA en los que se escala.
+    -- Minutos después del plazo de RESPUESTA en los que se escala.
     -- 0 significa "escala en cuanto se pasa el plazo": es lo que corresponde
     -- a una S1 (sistema caido), donde esperar 15 minutos para avisarle a
     -- alguien es esperar 15 minutos con el cliente sin servicio.
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS incident_escalation_policies (
     escalate_to_role VARCHAR(40),
     escalate_to_user UUID REFERENCES users(id) ON DELETE SET NULL,
     -- Cuantas veces se puede escalar el mismo caso. Un caso que se escala
-    -- tres veces no esta escalando: esta en un loop.
+    -- tres veces no está escalando: está en un loop.
     max_escalations INT NOT NULL DEFAULT 1 CHECK (max_escalations >= 0),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -94,7 +94,7 @@ ON CONFLICT (severity) DO UPDATE SET
     updated_at = NOW();
 
 -- ===========================================================================
--- 3. NOTIFICACIONES
+-- 3. Notificaciones
 -- ===========================================================================
 --
 -- El aviso que le llega al operador. Es una TABLA y no un `avisar()` del
@@ -103,7 +103,7 @@ ON CONFLICT (severity) DO UPDATE SET
 -- dio y cuando.
 --
 -- `user_id` es el destinatario. NULL significa "para todos los que pueden
--- ver el caso" (un aviso general de la operacion).
+-- ver el caso" (un aviso general de la operación).
 --
 -- `dedup_key` es la IDEMPOTENCIA: el mismo aviso no se duplica. Sin eso, un
 -- barrido cada minuto crearia 60 avisos por caso y la bandeja seria un
@@ -135,15 +135,15 @@ CREATE INDEX IF NOT EXISTS idx_incident_notifications_incident
 -- 4. EL SLA EN HORARIO LABORAL
 -- ===========================================================================
 --
--- La funcion que suma "minutos habiles" a un instante.
+-- La función que suma "minutos habiles" a un instante.
 --
 -- EL ALGORITMO
 -- ------------
--- Dia por dia, no minuto por minuto: se calcula la ventana laboral de cada
--- dia (de `day_start` a `day_end`), se le resta al remanente lo que entre,
+-- Día por día, no minuto por minuto: se calcula la ventana laboral de cada
+-- día (de `day_start` a `day_end`), se le resta al remanente lo que entre,
 -- y cuando el remanente entra en una ventana, el plazo cae adentro de ella.
 --
--- `FOR i IN 1..366` es el tope: un remanente de mas de un ano de trabajo no
+-- `FOR i IN 1..366` es el tope: un remanente de más de un ano de trabajo no
 -- se calcula (y sale por el fallback de abajo).
 CREATE OR REPLACE FUNCTION incident_agrega_minutos_habiles(
     p_desde TIMESTAMPTZ,
@@ -188,8 +188,8 @@ BEGIN
             v_inicio := (v_fecha + v_day_start) AT TIME ZONE v_tz;
             v_fin := (v_fecha + v_day_end) AT TIME ZONE v_tz;
 
-            -- Si todavia no empezo la ventana del dia, el cursor arranca en su
-            -- inicio: un reporte de las 3 de la manana no cuenta las horas
+            -- Si todavía no empezo la ventana del día, el cursor arranca en su
+            -- inicio: un reporte de las 3 de la mañana no cuenta las horas
             -- hasta las 9.
             IF v_cursor < v_inicio THEN
                 v_cursor := v_inicio;
@@ -207,19 +207,19 @@ BEGIN
         END IF;
 
         v_fecha := v_fecha + 1;
-        -- El cursor arranca en la ventana del dia siguiente; el `IF` de arriba
+        -- El cursor arranca en la ventana del día siguiente; el `IF` de arriba
         -- lo ajusta si hace falta.
         v_cursor := (v_fecha + v_day_start) AT TIME ZONE v_tz;
     END LOOP;
 
-    -- Mas de un ano de horario laboral: no se calcula, se cae al reloj. Es
+    -- Más de un ano de horario laboral: no se calcula, se cae al reloj. Es
     -- un caso patologico (un SLA de dos años), y es preferible un plazo
     -- aproximado a un error.
     RETURN p_desde + make_interval(mins => p_minutos);
 END;
 $$ LANGUAGE plpgsql;
 
--- El trigger del SLA ahora usa la funcion.
+-- El trigger del SLA ahora usa la función.
 CREATE OR REPLACE FUNCTION incident_calcula_sla()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -233,7 +233,7 @@ BEGIN
      WHERE severity = NEW.severity AND is_active = TRUE;
 
     IF v_response IS NULL THEN
-        -- Sin politica para esa severidad, el alta tiene que fallar: es
+        -- Sin política para esa severidad, el alta tiene que fallar: es
         -- preferible un error claro a una incidencia sin plazo de respuesta.
         RAISE EXCEPTION
             'No hay politica de SLA activa para la severidad %', NEW.severity
@@ -255,13 +255,13 @@ $$ LANGUAGE plpgsql;
 -- 5. EL EVENTO DE ALTA, LO ESCRIBE LA BASE
 -- ===========================================================================
 --
--- El alta se registra en la linea de tiempo con un trigger AFTER INSERT, y no
+-- El alta se registra en la línea de tiempo con un trigger AFTER INSERT, y no
 -- desde la API.
 --
 -- POR QUE EN LA BASE Y NO EN LA API
 -- ---------------------------------
--- Por la misma razon que los cambios de estado: si el evento lo escribe la
--- API, una fila creada por otro camino (un script, una migracion, un `psql`)
+-- Por la misma razón que los cambios de estado: si el evento lo escribe la
+-- API, una fila creada por otro camino (un script, una migración, un `psql`)
 -- queda SIN su evento de alta, y el historial queda incompleto sin que nadie
 -- lo note. Un historial incompleto es peor que ninguno: parece confiable.
 --
@@ -287,7 +287,7 @@ CREATE TRIGGER trigger_incident_registra_creacion
     FOR EACH ROW EXECUTE FUNCTION incident_registra_creacion();
 
 -- ===========================================================================
--- 6. INDICES
+-- 6. Índices
 -- ===========================================================================
 
 -- Los casos que hay que mirar en el barrido: sin respuesta, con el plazo

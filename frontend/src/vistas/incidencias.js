@@ -4,23 +4,23 @@
  * QUE ES
  * ------
  * Un caso: "este equipo no prende", "el cliente no tiene internet". Es la
- * unidad de trabajo del dia a dia del soporte, y la vista tiene que ayudar a
+ * unidad de trabajo del día a día del soporte, y la vista tiene que ayudar a
  * responder tres preguntas, en este orden:
  *
- *   1. ¿Que se esta rompiendo? (la lista, ordenada por gravedad y por SLA)
- *   2. ¿Que caso es este y que le hicieron? (el detalle, con la linea de tiempo)
+ *   1. ¿Que se está rompiendo? (la lista, ordenada por gravedad y por SLA)
+ *   2. ¿Que caso es este y que le hicieron? (el detalle, con la línea de tiempo)
  *   3. ¿Que hago con el? (cambiar el estado, comentar, asignar)
  *
  * EL SLA A LA VISTA
  * -----------------
  * El plazo de respuesta y de resolucion se calculan en el servidor (son un
- * COMPROMISO con el cliente, no una regla del codigo) y llegan ya resueltos.
- * Aca solo se muestran: cuanto falta, o cuanto se paso.
+ * COMPROMISO con el cliente, no una regla del código) y llegan ya resueltos.
+ * Acá solo se muestran: cuanto falta, o cuanto se paso.
  *
  * EL ORDEN DE LA LISTA
  * --------------------
  * Lo decide el backend, y es el que un operador necesita: las VENCIDAS
- * primero, y dentro de cada grupo, las mas graves y las mas antiguas. Reordenar
+ * primero, y dentro de cada grupo, las más graves y las más antiguas. Reordenar
  * en el front seria duplicar la regla y terminar con dos criterios distintos.
  */
 
@@ -44,7 +44,7 @@ const CATEGORIAS = [
   { valor: 'SOFTWARE', texto: 'Software' },
   { valor: 'NETWORK', texto: 'Red' },
   { valor: 'PERIPHERAL', texto: 'Periferico' },
-  { valor: 'PHYSICAL', texto: 'Dano fisico' },
+  { valor: 'PHYSICAL', texto: 'Daño físico' },
   { valor: 'ACCESS', texto: 'Accesos / permisos' },
   { valor: 'OTHER', texto: 'Otro' },
 ];
@@ -125,17 +125,17 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   // Los KPIs: lo que hay que mirar primero.
   const zonaKpis = crear('div', { clase: 'rejilla-kpi' });
 
-  // --- La bandeja: el trabajo sin dueno -------------------------------------
+  // --- La bandeja: el trabajo sin dueño -------------------------------------
   //
   // QUE ES LA BANDEJA
   // ------------------
-  // Los casos reportados que NADIE TOMO todavia. No es un filtro mas: es el
+  // Los casos reportados que NADIE Tomó todavía. No es un filtro más: es el
   // trabajo que se pierde. Por eso es la vista con la que arranca la
-  // pantalla: el tecnico tiene que ver primero lo que nobody esta atendiendo.
+  // pantalla: el técnico tiene que ver primero lo que nobody está atendiendo.
   //
   // LAS TRES VISTAS
   // ---------------
-  // - Bandeja: lo que nadie tomo. Se vacia con "Tomar el caso".
+  // - Bandeja: lo que nadie tomó. Se vacía con "Tomar el caso".
   // - Mis casos: lo que ya tengo asignado y sigue abierto.
   // - Todas: todo, para el supervisor.
   const VISTAS_CASOS = [
@@ -145,23 +145,23 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   ];
   // La vista con la que se llega desde el tablero decide el segmento.
   //
-  // - Si se pidio la BANDEJA, se cae en la bandeja.
-  // - Si se pidio "mis casos", se cae en mis casos.
+  // - Si se pidió la BANDEJA, se cae en la bandeja.
+  // - Si se pidió "mis casos", se cae en mis casos.
   // - Con CUALQUIER otro filtro (las vencidas, las criticas, las abiertas),
-  //   se cae en "todas": la lista tiene que ser EXACTAMENTE la que se pidio.
-  //   Filtrar la bandeja con "vencidas" daria una lista vacia, y el operador
+  //   se cae en "todas": la lista tiene que ser EXACTAMENTE la que se pidió.
+  //   Filtrar la bandeja con "vencidas" daria una lista vacía, y el operador
   //   pensaria que no hay casos.
   let vistaCasos = 'bandeja';
   if (filtros?.mias) vistaCasos = 'mias';
   else if (filtros?.sin_atender) vistaCasos = 'bandeja';
   else if (filtros) vistaCasos = 'todas';
 
-  // EL FILTRO DE LLEGADA SOLO APLICA A LA PRIMERA CARGA
+  // EL FILTRO DE LLEGADA Solo APLICA A LA PRIMERA CARGA
   //
   // Si el filtro del tablero (por ejemplo "sin atender") se quedara pegado
   // para siempre, cambiar de vista a "Mis casos" daria la interseccion de los
-  // dos filtros: casi siempre, una lista vacia. El filtro con el que se llega
-  // es para la primera pantalla; despues, manda el segmento.
+  // dos filtros: casi siempre, una lista vacía. El filtro con el que se llega
+  // es para la primera pantalla; después, manda el segmento.
   let primerCarga = true;
 
   const segmentado = crear('div', { clase: 'segmented-control' });
@@ -189,7 +189,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     clase: 'campo__control',
     atributos: {
       type: 'search',
-      placeholder: 'Buscar por codigo, titulo o descripcion',
+      placeholder: 'Buscar por código, título o descripción',
       autocomplete: 'off',
       spellcheck: 'false',
     },
@@ -221,7 +221,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   const etiquetaBusqueda = crear('label', { clase: 'campo' });
   const textoBusqueda = crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' });
   etiquetaBusqueda.append(textoBusqueda, inputBuscar);
-  conTooltip(textoBusqueda, 'Busqueda de texto completo: alcanza con un par de palabras del titulo.');
+  conTooltip(textoBusqueda, 'Busqueda de texto completo: alcanza con un par de palabras del título.');
 
   const etiquetaEstado = crear('label', { clase: 'campo' });
   etiquetaEstado.append(
@@ -243,10 +243,10 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  // LA PAGINACION
+  // LA Paginación
   //
   // El listado ya venia limitado a 50 casos del lado del servidor, pero sin
-  // paginacion el operador no podia llegar al caso 51: la lista terminaba y
+  // paginación el operador no podia llegar al caso 51: la lista terminaba y
   // no habia como seguir. Con la barra, se ve cuantos hay y se llega a
   // cualquiera.
   let pagina = 0;
@@ -286,8 +286,8 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
           severidad: selectSeveridad.value || undefined,
           solo_vencidas: chkVencidas.checked || undefined,
           // Los filtros que solo se aplican al llegar desde el tablero (no
-          // tienen un control en la pantalla). SOLO en la primera carga: si
-          // se quedaran, cambiar de vista daria una lista vacia.
+          // tienen un control en la pantalla). Solo en la primera carga: si
+          // se quedaran, cambiar de vista daria una lista vacía.
           solo_abiertas: (primerCarga ? filtros?.solo_abiertas : undefined) || undefined,
           solo_sin_asignar: (primerCarga ? filtros?.solo_sin_asignar : undefined) || undefined,
           fuera_de_sla: (primerCarga ? filtros?.fuera_de_sla : undefined) || undefined,
@@ -318,7 +318,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   /**
    * Los filtros que imponen la vista activa.
    *
-   * La bandeja son los casos ABIERTOS que NADIE RESPONDIO todavia. No es lo
+   * La bandeja son los casos ABIERTOS que NADIE Respondió todavía. No es lo
    * mismo que "sin asignar": un caso asignado a alguien que lo tiene
    * abandonado sigue sin atendido, y es el que de verdad se pierde.
    */
@@ -334,14 +334,14 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
 
     const r = metricas.resumen ?? {};
 
-    // Un KPI que NO lleva a ningun lado es decoracion. Cada uno que se puede
+    // Un KPI que NO lleva a ningún lado es decoracion. Cada uno que se puede
     // filtrar, filtra: y el que trae la bandeja, deja la pantalla en la
     // bandeja.
     const tarjetas = [
       {
         etiqueta: 'Sin atender',
         valor: r.sin_atender ?? 0,
-        ayuda: 'Casos abiertos que NADIE respondio todavia. Es el trabajo sin dueno: se van a perder si no se toman.',
+        ayuda: 'Casos abiertos que NADIE respondió todavía. Es el trabajo sin dueño: se van a perder si no se toman.',
         ir: () => irAVista('bandeja'),
       },
       {
@@ -371,19 +371,19 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       {
         etiqueta: 'Sin asignar',
         valor: r.sin_asignar ?? 0,
-        ayuda: 'Nadie las tomo todavia.',
+        ayuda: 'Nadie las tomó todavía.',
         ir: () => irAVista('bandeja'),
       },
       {
         etiqueta: 'Fuera de SLA',
         valor: r.fuera_de_sla ?? 0,
-        ayuda: 'Se resolvieron despues del plazo.',
+        ayuda: 'Se resolvieron después del plazo.',
         ir: () => irAVista('todas'),
       },
       {
         etiqueta: 'MTTR',
         valor: r.mttr_horas !== null && r.mttr_horas !== undefined ? `${r.mttr_horas} h` : '—',
-        ayuda: 'Horas promedio entre el reporte y la resolucion. El numero que le importa al responsable.',
+        ayuda: 'Horas promedio entre el reporte y la resolucion. El número que le importa al responsable.',
       },
     ];
 
@@ -407,9 +407,9 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   /**
    * Cambia de vista y recarga la lista.
    *
-   * Los botones del segmentado se actualizan tambien: si el KPI te deja en
+   * Los botones del segmentado se actualizan también: si el KPI te deja en
    * "Bandeja", el segmentado tiene que decir "Bandeja", o el operador no sabe
-   * donde esta parado.
+   * donde está parado.
    */
   function irAVista(clave) {
     vistaCasos = clave;
@@ -421,9 +421,9 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
 
   function pintarLista(incidencias) {
     if (!incidencias.length) {
-      // El estado vacio dice QUE no hay. "No hay incidencias con esos filtros"
+      // El estado vacío dice QUE no hay. "No hay incidencias con esos filtros"
       // es un mensaje de error de filtros: el operador no sabe si la bandeja
-      // esta vacia de verdad o si el filtro esta mal.
+      // está vacía de verdad o si el filtro está mal.
       const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
       vacio.append(
         icono(ICONOS.ok, { tamano: 28 }),
@@ -475,10 +475,10 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
 
       // La marca de SLA: lo que hay que ver primero.
       //
-      // UN CASO YA RESUELTO NO ESTA "EN PLAZO": el plazo dejo de correr
-      // cuando se resolvio. Decirle "En plazo, faltan 2 dias" a un caso
-      // cerrado hace pensar al operador que todavia falta trabajo, y lo
-      // lleva a buscar por algo que ya esta hecho.
+      // UN CASO YA RESUELTO NO Está "EN PLAZO": el plazo dejo de correr
+      // cuando se resolvio. Decirle "En plazo, faltan 2 días" a un caso
+      // cerrado hace pensar al operador que todavía falta trabajo, y lo
+      // lleva a buscar por algo que ya está hecho.
       const resuelto = i.status === 'RESOLVED' || i.status === 'CLOSED';
       const vencida = crear('span', {
         clase: `insignia ${
@@ -502,7 +502,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
         vencida,
         resuelto
           ? i.fuera_de_sla
-            ? 'Se resolvio despues de su plazo.'
+            ? 'Se resolvio después de su plazo.'
             : 'Resuelta dentro del plazo.'
           : i.vencido
             ? 'Paso su plazo de resolucion y sigue sin resolverse.'
@@ -510,21 +510,21 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       );
 
       const btnVer = crear('button', {
-        clase: 'boton boton--suave boton--chico',
+        clase: 'botón botón--suave botón--chico',
         texto: 'Ver',
         atributos: { type: 'button', onclick: () => abrirDetalle(i) },
       });
-      conTooltip(btnVer, 'Abre el caso con su linea de tiempo.');
+      conTooltip(btnVer, 'Abre el caso con su línea de tiempo.');
       item.append(cuerpo, insignia, vencida, btnVer);
 
-      // TOMAR EL CASO
+      // Tomar EL CASO
       //
-      // El caso sin dueno se toma con un clic, sin abrir el detalle primero:
-      // el tecnico que arranca el turno recorre la bandeja y toma lo que
-      // puede, y abrir cada caso para leerlo antes seria un paso de mas.
+      // El caso sin dueño se toma con un clic, sin abrir el detalle primero:
+      // el técnico que arranca el turno recorre la bandeja y toma lo que
+      // puede, y abrir cada caso para leerlo antes seria un paso de más.
       if (puedeGestionar && !i.assigned_to && i.status === 'OPEN') {
         const btnTomar = crear('button', {
-          clase: 'boton boton--chico',
+          clase: 'botón botón--chico',
           texto: 'Tomar',
           atributos: { type: 'button' },
         });
@@ -567,13 +567,13 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
 
   // --- Reportar una incidencia ----------------------------------------------
   async function abrirReporte() {
-    const campoTitulo = campoTexto('Ej: El portatil del cliente Acme no prende', 'Titulo *', {
+    const campoTitulo = campoTexto('Ej: El portatil del cliente Acme no prende', 'Título *', {
       requerido: true,
-      descripcion: 'Una linea que diga que pasa. Es lo primero que se lee.',
+      descripcion: 'Una línea que diga que pasa. Es lo primero que se lee.',
     });
 
     const campoDescripcion = campoTexto('Ej: Al enchufarlo no enciende ni el led.', 'Descripcion', {
-      descripcion: 'El detalle: cuando pasa, que se probo, que dice el cliente.',
+      descripcion: 'El detalle: cuando pasa, que se probó, que dice el cliente.',
     });
 
     const campoSeveridad = campoSelect({
@@ -586,7 +586,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     campoSeveridad.control.value = 'S3';
 
     const campoCategoria = campoSelect({
-      etiqueta: 'Categoria *',
+      etiqueta: 'Categoría *',
       opciones: CATEGORIAS,
       requerido: true,
       vacio: 'Seleccionar…',
@@ -615,7 +615,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Reportar incidencia',
       atributos: { type: 'submit' },
     });
@@ -633,8 +633,8 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       campoCategoria.limpiar();
       zonaResumen.replaceChildren();
 
-      if (!titulo) campoTitulo.marcar('El titulo es obligatorio.');
-      if (!severidad) campoSeveridad.marcar('Elegi la severidad: define el SLA.');
+      if (!titulo) campoTitulo.marcar('El título es obligatorio.');
+      if (!severidad) campoSeveridad.marcar('Elegí la severidad: define el SLA.');
 
       const resumen = resumenDeErrores([campoTitulo, campoSeveridad, campoCategoria]);
       if (resumen) {
@@ -661,14 +661,14 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       }
     }
 
-    // EL BOTON DE CERRAR
+    // EL Botón DE CERRAR
     // -----------------
-    // Un modal sin boton de cerrar solo se cierra con la tecla Escape, y en
+    // Un modal sin botón de cerrar solo se cierra con la tecla Escape, y en
     // un celular no hay tecla Escape: el operador queda trapped en el
     // formulario y no puede volver a la lista. Todo modal con formulario
     // tiene que tener una salida visible.
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -692,9 +692,9 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   if (filtros?.severidad) selectSeveridad.value = filtros.severidad;
   if (filtros?.solo_vencidas) chkVencidas.checked = true;
 
-  // Al cambiar un filtro, se vuelve a la primera pagina: si no, el operador
-  // esta en la pagina 7 de un filtro que tiene 2 paginas, y ve una lista
-  // vacia sin entender por que.
+  // Al cambiar un filtro, se vuelve a la primera página: si no, el operador
+  // está en la página 7 de un filtro que tiene 2 páginas, y ve una lista
+  // vacía sin entender por que.
   const volverAPrimera = () => {
     pagina = 0;
     cargar();
@@ -713,13 +713,13 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
 // EL DETALLE DE UNA INCIDENCIA
 // ===========================================================================
 //
-// Son funciones de MODULO y no de la vista, porque la campana de avisos las
-// abre tambien: duplicar el modal seria dos lugares que se desincronizan.
+// Son funciones de Módulo y no de la vista, porque la campana de avisos las
+// abre también: duplicar el modal seria dos lugares que se desincronizan.
 
 /**
  * Las transiciones posibles desde el estado actual.
  *
- * Son las MISAS que acepta la base (trigger `incident_transicion_valida`).
+ * Son las MISAS que acepta la base (trigger `incident_transición_válida`).
  * No es una reimplementacion: es el subconjunto que tiene sentido ofrecer, y
  * si la base lo rechaza, el 409 con el motivo se muestra.
  */
@@ -762,7 +762,7 @@ function descripcionDeEvento(evento) {
     case 'SEVERITY_CHANGED':
       return `Cambio de severidad a ${evento.payload?.severidad ?? '—'}`;
     case 'ESCALATED':
-      return 'Escalamiento automatico por SLA vencido';
+      return 'Escalamiento automático por SLA vencido';
     case 'COMMENT':
       return 'Nota';
     default:
@@ -773,11 +773,11 @@ function descripcionDeEvento(evento) {
 /**
  * El modal del detalle de una incidencia.
  *
- * @param {object} detalle           La incidencia, con su linea de tiempo.
+ * @param {object} detalle           La incidencia, con su línea de tiempo.
  * @param {object} [opciones]
  * @param {boolean} [opciones.puedeGestionar]  Si el usuario puede cambiar el
  *                                             estado y comentar.
- * @param {Function} [opciones.alCambiar]       Se llama despues de un cambio,
+ * @param {Function} [opciones.alCambiar]       Se llama después de un cambió,
  *                                             para refrescar la lista.
  */
 export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = {}) {
@@ -797,7 +797,7 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
   //
   // Si el caso ya se resolvio, el texto de la resolucion es lo primero que
   // tiene que ver quien lo abre: dice que se hizo. Sin esto, el caso
-  // resuelto se ve como un caso mas, y hay que ir a la linea de tiempo a
+  // resuelto se ve como un caso más, y hay que ir a la línea de tiempo a
   // buscarlo.
   if (detalle.resolution) {
     const resolucion = crear('div', { clase: 'incidencia__resolucion' });
@@ -856,14 +856,14 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
   datos.append(sla);
   cuerpo.append(datos);
 
-  // La linea de tiempo.
+  // La línea de tiempo.
   const linea = crear('div', { clase: 'incidencia__linea' });
   linea.append(crear('h3', { clase: 'tarjeta__titulo', texto: 'Historial' }));
 
   if (!detalle.eventos?.length) {
     linea.append(crear('p', { clase: 'tenue', texto: 'Sin movimientos.' }));
   } else if (detalle.eventos_omitidos > 0) {
-    // La linea de tiempo viene acotada: si no, un caso con años de historia
+    // La línea de tiempo viene acotada: si no, un caso con años de historia
     // es una lista interminable. Se dice cuantos faltan, para que el
     // operador sepa que el historial no termina abajo.
     linea.append(
@@ -896,7 +896,7 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
   }
 
   const btnCerrar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Cerrar',
     atributos: { type: 'button' },
   });
@@ -923,7 +923,7 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
 function accionesDe(detalle, alCambiar) {
   const zona = crear('div', { clase: 'incidencia__acciones' });
 
-  // Cambiar el estado: solo las transiciones que la base permite desde aca.
+  // Cambiar el estado: solo las transiciones que la base permite desde acá.
   const transiciones = transicionesDesde(detalle.status);
   if (transiciones.length) {
     const selectEstado = crear('select', { clase: 'campo__control' });
@@ -935,20 +935,20 @@ function accionesDe(detalle, alCambiar) {
     }
 
     const btnCambiar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cambiar estado',
       atributos: { type: 'button' },
     });
 
     btnCambiar.addEventListener('click', async () => {
       const nuevo = selectEstado.value;
-      if (!nuevo) return avisar('Elegi el estado nuevo.', 'alerta');
+      if (!nuevo) return avisar('Elegí el estado nuevo.', 'alerta');
 
       btnCambiar.disabled = true;
       try {
         const actualizado = await api.cambiarEstadoIncidencia(detalle.id, { estado: nuevo });
         avisar('Estado actualizado.', 'exito', 2500);
-        // El modal se refresca con el caso nuevo: el que esta en pantalla
+        // El modal se refresca con el caso nuevo: el que está en pantalla
         // ya no es el mismo.
         cerrarYReabrir(actualizado, alCambiar);
       } catch (error) {
@@ -970,20 +970,20 @@ function accionesDe(detalle, alCambiar) {
   // ------------------
   // Resolver un caso de este Service Desk NO es poner un texto y listo: es
   // decir que paso con el EQUIPO. El equipo roto tiene que salir del stock
-  // (taller), el reparado vuelve al deposito, y el danado de forma total se
+  // (taller), el reparado vuelve al depósito, y el danado de forma total se
   // desincorpora. Sin esto, el inventario no se entera y el KPI de "en
-  // deposito" cuenta equipos que estan rotos.
+  // depósito" cuenta equipos que están rotos.
   if (detalle.device_id && transiciones.some((t) => t.valor === 'RESOLVED')) {
     zona.append(cierreDe(detalle, alCambiar));
   }
 
   // Comentar.
-  const campoNota = campoTexto('Ej: Se cambio el disco y quedo funcionando.', 'Nota', {
+  const campoNota = campoTexto('Ej: Se cambió el disco y quedó funcionando.', 'Nota', {
     type: 'text',
   });
 
   const btnComentar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Comentar',
     atributos: { type: 'button' },
   });
@@ -1010,13 +1010,13 @@ function accionesDe(detalle, alCambiar) {
 /**
  * EL DESTINO DEL EQUIPO AL CERRAR EL CASO
  * ---------------------------------------
- * Las tres salidas posibles, en el lenguaje del deposito:
+ * Las tres salidas posibles, en el lenguaje del depósito:
  *
- * - TALLER: el equipo esta roto y va al taller. Deja de contar como
- *   disponible (eso es lo que hace que el "en deposito" sea verdad).
- * - REPARADO: se arreglo y vuelve al deposito.
- * - DANO_TOTAL: no se arregla. El equipo sale del stock con su certificado
- *   de baja: es la unica forma de que un equipo inservible no siga
+ * - TALLER: el equipo está roto y va al taller. Deja de contar como
+ *   disponible (eso es lo que hace que el "en depósito" sea verdad).
+ * - REPARADO: se arreglo y vuelve al depósito.
+ * - Daño_TOTAL: no se arregla. El equipo sale del stock con su certificado
+ *   de baja: es la única forma de que un equipo inservible no siga
  *   contando como disponible para siempre.
  *
  * Y una cuarta, "sin cambios": cuando el caso no tiene equipo, o cuando el
@@ -1030,17 +1030,17 @@ const DESTINOS_EQUIPO = [
   },
   {
     valor: 'TALLER',
-    texto: 'Quedo roto: va al taller',
+    texto: 'Quedó roto: va al taller',
     ayuda: 'El equipo pasa a "en taller" y deja de contar como disponible.',
   },
   {
     valor: 'REPARADO',
-    texto: 'Se reparo: vuelve al deposito',
-    ayuda: 'El equipo vuelve al deposito y vuelve a estar disponible.',
+    texto: 'Se reparo: vuelve al depósito',
+    ayuda: 'El equipo vuelve al depósito y vuelve a estar disponible.',
   },
   {
     valor: 'DANO_TOTAL',
-    texto: 'Dano total: sale del stock',
+    texto: 'Daño total: sale del stock',
     ayuda: 'El equipo no se arregla: se da de baja y sale del inventario, con su certificado.',
   },
 ];
@@ -1049,7 +1049,7 @@ const DESTINOS_EQUIPO = [
  * El formulario de cierre del caso.
  *
  * @param {object} detalle   La incidencia.
- * @param {Function} alCambiar  Se llama despues de cerrar, para refrescar.
+ * @param {Function} alCambiar  Se llama después de cerrar, para refrescar.
  */
 function cierreDe(detalle, alCambiar) {
   const zona = crear('div', { clase: 'apilado incidencia__cierre' });
@@ -1060,7 +1060,7 @@ function cierreDe(detalle, alCambiar) {
 
   const campoResolucion = campoArea({
     etiqueta: 'Como se resolvio *',
-    placeholder: 'Ej: Se cambio la placa madre y el equipo quedo funcionando.',
+    placeholder: 'Ej: Se cambió la placa madre y el equipo quedó funcionando.',
     requerido: true,
     filas: 3,
     descripcion: 'Lo que se hizo. Es lo que lee el que reporto el problema.',
@@ -1082,7 +1082,7 @@ function cierreDe(detalle, alCambiar) {
   zona.append(campoResolucion.campo, zonaDestino);
 
   const btnResolver = crear('button', {
-    clase: 'boton boton--bloque',
+    clase: 'botón botón--bloque',
     texto: 'Resolver el caso',
     atributos: { type: 'button' },
   });
@@ -1104,9 +1104,9 @@ function cierreDe(detalle, alCambiar) {
         estado: 'RESOLVED',
         destino_equipo: selectDestino.value,
       });
-      // El backend devuelve que paso con el EQUIPO ("quedo en el taller con la
-      // orden #12"). Se muestra: el tecnico tiene que ver que el equipo se
-      // movio de verdad, no solo que el caso se cerro.
+      // El backend devuelve que paso con el EQUIPO ("quedó en el taller con la
+      // orden #12"). Se muestra: el técnico tiene que ver que el equipo se
+      // movio de verdad, no solo que el caso se cerró.
       avisar(
         actualizado.mensaje_equipo
           ? `Caso resuelto. ${actualizado.mensaje_equipo} Se aviso al que lo reporto.`
@@ -1129,8 +1129,8 @@ function cierreDe(detalle, alCambiar) {
 /**
  * Cierra el modal del detalle y lo reabre con los datos nuevos.
  *
- * Es mas simple que parchar el DOM: el modal se reconstruye entero con la
- * linea de tiempo al dia.
+ * Es más simple que parchar el DOM: el modal se reconstruye entero con la
+ * línea de tiempo al día.
  */
 function cerrarYReabrir(detalle, alCambiar) {
   const modales = document.querySelectorAll('.modal');
@@ -1138,7 +1138,7 @@ function cerrarYReabrir(detalle, alCambiar) {
   const botonCerrar = ultimo?.querySelector('.modal__acciones button');
   botonCerrar?.click();
 
-  // El cierre del modal es asincrono (la animacion): se espera un cambio de
+  // El cierre del modal es asincrono (la animacion): se espera un cambió de
   // cuadro antes de abrir el nuevo, o se apilan dos.
   setTimeout(() => {
     abrirDetalleDe(detalle, { puedeGestionar: true, alCambiar });

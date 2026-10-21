@@ -15,12 +15,12 @@ from src.db.session import get_db_session
 def reporte_operativo() -> dict[str, Any]:
     """
     Genera reporte ejecutivo completo.
-    Combina datos de múltiples vistas y delega redacción a LLM (endpoint /ai/reporte).
+    Combina datos de múltiples vistas y delega redaccion a LLM (endpoint /ai/reporte).
     Aquí solo preparamos los datos estructurados.
     """
     db = get_db_session()
     try:
-        # 1. Alertas críticas
+        # 1. Alertas criticas
         alertas = _get_alertas_criticas(db)
 
         # 2. KPIs principales
@@ -64,7 +64,7 @@ def _get_alertas_criticas(db: Session) -> list[dict]:
             -- integer and text cannot be matched" y el reporte entero
             -- devuelve 500.
             sl.available_count::text AS actual,
-            m.min_stock::text         AS minimo,
+            m.min_stock::text         AS mínimo,
             l.store_name AS ubicacion
         FROM stock_levels sl
         JOIN models m ON m.id = sl.model_id AND m.is_active
@@ -152,7 +152,7 @@ def _get_mantenimientos_overdue(db: Session) -> list[dict]:
             mo.model,
             mp.name AS plan,
             m.due_date,
-            CURRENT_DATE - m.due_date AS dias_vencido,
+            CURRENT_DATE - m.due_date AS días_vencido,
             l.store_name AS ubicacion
         FROM maintenance m
         JOIN devices d ON d.id = m.device_id
@@ -173,7 +173,7 @@ def _get_pos_pendientes(db: Session) -> list[dict]:
             v.name AS proveedor,
             po.status,
             po.expected_date,
-            CURRENT_DATE - po.expected_date AS dias_retraso
+            CURRENT_DATE - po.expected_date AS días_retraso
         FROM purchase_orders po
         LEFT JOIN vendors v ON v.id = po.vendor_id
         WHERE po.status IN ('ENVIADA', 'CONFIRMADA')
@@ -197,11 +197,11 @@ def dashboard() -> dict[str, Any]:
 
     QUE TIENE
     ---------
-    - Los KPIs: quantos equipos hay, cuantos estan en deposito, el valor.
-    - El stock por estado, para ver de un vistazo como esta repartido.
+    - Los KPIs: quantos equipos hay, cuantos están en depósito, el valor.
+    - El stock por estado, para ver de un vistazo como está repartido.
     - Las alertas: stock bajo y mantenimiento vencido.
-    - Los ultimos movimientos: lo que paso hace un rato.
-    - Los productos criticos: los que estan por quedarse sin stock.
+    - Los últimos movimientos: lo que paso hace un rato.
+    - Los productos criticos: los que están por quedarse sin stock.
     """
     db = get_db_session()
     try:
@@ -212,8 +212,8 @@ def dashboard() -> dict[str, Any]:
             "movimientos_recientes": _get_ultimos_movimientos(db, limite=8),
             "productos_criticos": _get_productos_criticos(db, limite=8),
             "mantenimientos_overdue": _get_mantenimientos_overdue(db),
-            # Las alertas de stock bajo PERSISTIDAS: el producto bajo minimo,
-            # desde cuando, y si la reposicion llega a tiempo. El calculo
+            # Las alertas de stock bajo PERSISTIDAS: el producto bajo mínimo,
+            # desde cuando, y si la reposición llega a tiempo. El calculo
             # (`productos_criticos`) dice QUE falta; esto dice desde CUANDO y
             # si hay que correr.
             "alertas_stock": _get_alertas_stock(db, limite=8),
@@ -226,9 +226,9 @@ def dashboard() -> dict[str, Any]:
 
 def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
     """
-    Las alertas de stock bajo que estan ABIERTAS.
+    Las alertas de stock bajo que están ABIERTAS.
 
-    Que el producto este bajo el minimo ya lo dice `productos_criticos`. Lo
+    Que el producto este bajo el mínimo ya lo dice `productos_criticos`. Lo
     que NO decia es DESDE CUANDO: sin esa fecha, el operador ve "6 productos
     por reponer" y no sabe si hay que comprar hoy o el jueves.
     """
@@ -245,14 +245,14 @@ def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
                 a.faltante,
                 a.lead_time_days,
                 a.created_at,
-                GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS dias_bajo_minimo,
+                GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS días_bajo_minimo,
                 CASE
                     WHEN a.lead_time_days IS NULL OR a.lead_time_days <= 0 THEN FALSE
                     ELSE EXTRACT(DAYS FROM (NOW() - a.created_at))::INT > a.lead_time_days
                 END AS reposicion_tarde
             FROM stock_alerts a
             WHERE a.resuelto = FALSE AND a.model_id IS NOT NULL
-            ORDER BY reposicion_tarde DESC, dias_bajo_minimo DESC, a.faltante DESC
+            ORDER BY reposicion_tarde DESC, días_bajo_minimo DESC, a.faltante DESC
             LIMIT :limite
             """
         ),
@@ -263,11 +263,11 @@ def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
 
 def _get_valor_libro(db: Session) -> dict:
     """
-    El valor libro de la flota, en un solo numero.
+    El valor libro de la flota, en un solo número.
 
     Es la pregunta que hace el cliente: "cuanto vale mi flota hoy". Se
     calcula con la misma formula del reporte (`reporting/valor_libro.py`),
-    pero aqui en SQL y sin el detalle, porque el tablero necesita el numero,
+    pero aquí en SQL y sin el detalle, porque el tablero necesita el número,
     no la lista.
     """
     fila = db.execute(
@@ -324,7 +324,7 @@ def _get_valor_libro(db: Session) -> dict:
 
 
 def _get_ultimos_movimientos(db: Session, limite: int = 8) -> list[dict]:
-    """Los ultimos movimientos, con el equipo y de donde a donde."""
+    """Los últimos movimientos, con el equipo y de donde a donde."""
     query = """
         SELECT
             mh.movement_date,
@@ -349,11 +349,11 @@ def _get_ultimos_movimientos(db: Session, limite: int = 8) -> list[dict]:
 
 def _get_productos_criticos(db: Session, limite: int = 8) -> list[dict]:
     """
-    Los productos que estan por quedarse sin stock.
+    Los productos que están por quedarse sin stock.
 
-    "Critico" es "por debajo del minimo" o "sin unidades en deposito": un
-    producto con stock 0 en el deposito y 5 instalados no es un problema de
-    reposicion, es un producto que no se puede entregar.
+    "Critico" es "por debajo del mínimo" o "sin unidades en depósito": un
+    producto con stock 0 en el depósito y 5 instalados no es un problema de
+    reposición, es un producto que no se puede entregar.
 
     USA LA MISMA CONSULTA QUE EL MODAL (stock/productos_por_reponer): la
     tarjeta del tablero y el detalle que se abre al pulsarla tienen que decir
@@ -366,7 +366,7 @@ def _get_productos_criticos(db: Session, limite: int = 8) -> list[dict]:
 
 
 def estadisticas_inventario() -> dict[str, Any]:
-    """KPIs numéricos puros para dashboards."""
+    """KPIs numericos puros para dashboards."""
     db = get_db_session()
     try:
         return _get_kpis_principales(db)
@@ -375,7 +375,7 @@ def estadisticas_inventario() -> dict[str, Any]:
 
 
 def rotacion_modelos(dias: int = 30, top: int = 10) -> list[dict]:
-    """Modelos con más movimientos en período."""
+    """Modelos con más movimientos en periodo."""
     db = get_db_session()
     try:
         query = """

@@ -1592,6 +1592,35 @@ textarea.campo__control {
   gap: 1rem;
 }
 
+/* LA FILA QUE ES UN BOTON
+ *
+ * Las filas del tablero que muestran un detalle son botones: se pulsan y se
+ * abre lo que muestran. Sin afordancia (el cursor, el cambio de fondo al
+ * pasar el mouse) el operador no sabe que son pulsables. */
+.boton-lista {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out;
+}
+.boton-lista:hover {
+  background: var(--superficie-2);
+  border-color: var(--borde);
+}
+.boton-lista:focus-visible {
+  outline: 2px solid var(--primario);
+  outline-offset: 2px;
+}
+
 /* ---------------------------------------------------------------------------
    La tabla de datos de la IA
    ---------------------------------------------------------------------------

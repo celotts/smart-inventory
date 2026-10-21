@@ -1,8 +1,8 @@
 """
 CRUD de usuarios.
 
-TODAS las escrituras pasan por acá, y las tres hacen lo mismo ademas de su SQL:
-`created_by_user_id` / `updated_by_user_id` / `deleted_by_user_id` mas el
+TODAS las escrituras pasan por aca, y las tres hacen lo mismo ademas de su SQL:
+`created_by_user_id` / `updated_by_user_id` / `deleted_by_user_id` más el
 usuario actual.
 
 POR QUE IMPORTA TANTO
@@ -16,10 +16,10 @@ irreparable: no se sabe QUIEN dio de alta a ese usuario. Por eso no hay un
 EL BORRADO ES LOGICO, SIEMPRE
 -----------------------------
 `users` tiene `deleted_at` y todas las lecturas filtran por el. No hay un
-`DELETE` físico en este archivo, y no es una decisión de estilo: un usuario es
-la llave foránea de `movement_history` y `repairs`. Con `ON DELETE RESTRICT`
-un borrado físico de un usuario con historial falla, y con CASCADE llevaría
-consigo el historial de todos los equipos que movió.
+`DELETE` físico en este archivo, y no es una decision de estilo: un usuario es
+la llave foranea de `movement_history` y `repairs`. Con `ON DELETE RESTRICT`
+un borrado físico de un usuario con historial falla, y con CASCADE llevaria
+consigo el historial de todos los equipos que movio.
 """
 
 from typing import Any
@@ -42,11 +42,11 @@ def _exigir_actor(actor_id: str) -> str:
     El actor no puede ser opcional en ninguna escritura.
 
     Un `actor_id = None` que pasa: eso es un endpoint que deja un hueco en la
-    bitácora. Que sea un `str` sin default obliga a pasar uno.
+    bitacora. Que sea un `str` sin default obliga a pasar uno.
     """
     if not actor_id:
         raise ErrorDeUsuario(
-            "Falta el actor de la operación. No se puede auditar sin él."
+            "Falta el actor de la operacion. No se puede auditar sin él."
         )
     return actor_id
 
@@ -60,7 +60,7 @@ def crear_usuario(datos: dict[str, Any], actor_id: str) -> dict[str, Any]:
     """
     Alta de usuario.
 
-    Valida el email ANTES de insertar, no confía en el UNIQUE de la base: el
+    Válida el email ANTES de insertar, no confia en el UNIQUE de la base: el
     error de Postgres (`duplicate key value violates unique constraint`) es un
     500 para el cliente y no dice que el problema es el email.
     """
@@ -76,12 +76,12 @@ def crear_usuario(datos: dict[str, Any], actor_id: str) -> dict[str, Any]:
     if not nombre:
         raise ErrorDeUsuario("El nombre completo es obligatorio.")
 
-    # `phone2` es NOT NULL sin default en el esquema. Si se lo deja vacio y se
+    # `phone2` es NOT NULL sin default en el esquema. Si se lo deja vacío y se
     # manda "", el INSERT funciona; si se manda NULL, revienta con un error de
-    # constraint que no dice qué columna es.
+    # constraint que no dice que columna es.
     telefono = (datos.get("phone") or "").strip()
     if not telefono:
-        raise ErrorDeUsuario("El teléfono es obligatorio.")
+        raise ErrorDeUsuario("El telefono es obligatorio.")
     telefono2 = (datos.get("phone2") or "").strip()
 
     password = datos.get("password") or ""
@@ -91,7 +91,7 @@ def crear_usuario(datos: dict[str, Any], actor_id: str) -> dict[str, Any]:
     role_id = resolver_rol_id(datos.get("role_name") or "OPERATOR")
 
     # Se hashea ANTES de abrir la conexión. Si hashear es lo más caro (lo es:
-    # ~250 ms), hacerlo dentro de una transacción abierta mantiene taken un
+    # ~250 ms), hacerlo dentro de una transaccion abierta mantiene taken un
     # connection del pool doing work that doesn't need the database.
     password_hash = hashear_password(password)
 
@@ -136,7 +136,7 @@ def crear_usuario(datos: dict[str, Any], actor_id: str) -> dict[str, Any]:
         # El UNIQUE de email. Se traduce a 409 con un mensaje que el frontend
         # pueda mostrar tal cual.
         if "users_email_key" in str(exc.orig) or "duplicate key" in str(exc.orig):
-            raise ErrorDeUsuario(f"El email '{email}' ya está registrado.") from exc
+            raise ErrorDeUsuario(f"El email '{email}' ya esta registrado.") from exc
         raise
     except SQLAlchemyError as exc:
         raise ErrorDeUsuario(f"No se pudo crear el usuario: {exc}") from exc
@@ -166,8 +166,8 @@ def listar_usuarios(
     """
     Listado paginado con filtros.
 
-    Los filtros van con PARAMETROS, nunca interpolados. Es la regla basica de
-    SQL y aqui se cumple a proposito: `busqueda` viene del body de una request.
+    Los filtros van con Parámetros, nunca interpolados. Es la regla básica de
+    SQL y aquí se cumple a propósito: `busqueda` viene del body de una request.
     """
     condiciones = ["1=1"]
     parametros: dict[str, Any] = {}
@@ -175,7 +175,7 @@ def listar_usuarios(
     if solo_activos:
         condiciones.append("u.deleted_at IS NULL")
     if busqueda:
-        # ILIKE con el % en el PARAMETRO. Ponerlo en el f-string sería SQL
+        # ILIKE con el % en el Parámetro. Ponerlo en el f-string seria SQL
         # injection directo, y aunque se sanitice, es un mal habito que se
         # copia.
         condiciones.append("(u.full_name ILIKE :busqueda OR u.email ILIKE :busqueda)")
@@ -237,7 +237,7 @@ def actualizar_usuario(
     """
     Actualizacion parcial: solo los campos presentes en `cambios`.
 
-    Se construye el SET dinámicamente con nombres de columna de una lista
+    Se construye el SET dinamicamente con nombres de columna de una lista
     blanca. Un bucle sobre las claves del body, sin lista blanca, es un SQL
     injection: el cliente puede mandar `{"role_id": "x", "email = evil, ...": 1}`
     y el nombre de columna se interpola.
@@ -268,10 +268,10 @@ def actualizar_usuario(
             # quede sin nadie que lo administre.
             #
             # Se permite con `forzar_degradacion_admin=True`, que usa un
-            # endpoint aparte que pide confirmación mas fuerte.
+            # endpoint aparte que pide confirmacion más fuerte.
             raise ErrorDeUsuario(
                 "No se puede quitar el rol ADMIN por esta vía. "
-                "Usá POST /api/users/{id}/degradar-admin."
+                "Usa POST /api/users/{id}/degradar-admin."
             )
         asignaciones.append("role_id = :role_id")
         parametros["role_id"] = resolver_rol_id(nuevo_rol)
@@ -280,17 +280,17 @@ def actualizar_usuario(
         if campo in cambios:
             valor = transformar(cambios[campo])
             if campo in ("full_name", "phone") and not valor:
-                raise ErrorDeUsuario(f"El campo '{campo}' no puede quedar vacío.")
+                raise ErrorDeUsuario(f"El campo '{campo}' no puede quedar vacio.")
             asignaciones.append(f"{campo} = :{campo}")
             parametros[campo] = valor
 
     if not asignaciones:
-        raise ErrorDeUsuario("No se envió ningún campo para actualizar.")
+        raise ErrorDeUsuario("No se envio ningun campo para actualizar.")
 
     asignaciones.append("updated_by_user_id = :actor_id")
 
     # `updated_at` NO se toca: lo setea el trigger `set_audit_role_id` en cada
-    # UPDATE. Si se lo definiera acá, el trigger lo pisaria con su propio NOW()
+    # UPDATE. Si se lo definiera aca, el trigger lo pisaria con su propio NOW()
     # — o peor, al reves, y la columna quedaria con la fecha de la app.
 
     try:
@@ -318,7 +318,7 @@ def cambiar_password(
     password_actual: str | None = None,
 ) -> None:
     """
-    Cambio de contraseña.
+    Cambió de contraseña.
 
     `password_actual` es obligatoria cuando el usuario se cambia a SÍ MISMO, y
     opcional cuando lo cambia un ADMIN. Esa diferencia es el ataque de
@@ -335,7 +335,7 @@ def cambiar_password(
     if es_actor_mismo:
         if not password_actual:
             raise ErrorDeUsuario(
-                "Para cambiar tu propia contraseña necesitás la contraseña actual."
+                "Para cambiar tu propia contraseña necesitas la contraseña actual."
             )
         from src.core.security import verificar_password
         from src.modules.users.models import buscar_usuario_por_email
@@ -392,7 +392,7 @@ def degradar_admin(user_id: str, actor_id: str) -> dict[str, Any]:
 
     if admins <= 1:
         raise ErrorDeUsuario(
-            "Es el último administrador activo. Creá otro antes de degradar a este."
+            "Es el último administrador activo. Crea otro antes de degradar a este."
         )
 
     rol_operador = resolver_rol_id("OPERATOR")
@@ -429,11 +429,11 @@ def desactivar_usuario(user_id: str, actor_id: str) -> dict[str, Any]:
     objetivo = obtener_usuario(user_id)
 
     if str(objetivo["id"]) == str(actor_id):
-        raise ErrorDeUsuario("No podés desactivar tu propia cuenta.")
+        raise ErrorDeUsuario("No podes desactivar tu propia cuenta.")
 
-    # El SELECT va en SU PROPIA conexión, y el UPDATE en otra.
+    # El SELECT va en SU PROPIA conexion, y el UPDATE en otra.
     #
-    # En SQLAlchemy 2.0 un `execute()` abre una transacción implícita
+    # En SQLAlchemy 2.0 un `execute()` abre una transaccion implicita
     # ("autobegin"). Si después, sobre la MISMA conexión, se llama a
     # `begin()`, revienta con:
     #
@@ -441,7 +441,7 @@ def desactivar_usuario(user_id: str, actor_id: str) -> dict[str, Any]:
     #     SQLAlchemy Transaction() object via begin() or autobegin
     #
     # Es un error que no dice nada del problema real: dice "transaccion", y lo
-    # que uno busca es "por qué hay dos".
+    # que uno busca es "por que hay dos".
     with get_db().connect() as conexion:
         admins = (
             conexion.execute(
@@ -459,7 +459,7 @@ def desactivar_usuario(user_id: str, actor_id: str) -> dict[str, Any]:
 
     if objetivo["role_name"].upper() == "ADMIN" and admins <= 1:
         raise ErrorDeUsuario(
-            "Es el último administrador activo. No podés desactivarlo."
+            "Es el último administrador activo. No podes desactivarlo."
         )
 
     with get_db().connect() as conexion:
@@ -517,10 +517,10 @@ def revocar_todas_las_sesiones(user_id: str, motivo: str = "") -> int:
 
     `revoked_before = NOW()` y NO `revoked_at = NOW()`: la diferencia es que
     `revoked_at` mata una sesión (su refresh deja de valer) pero deja vivo el
-    access token que ya se entregó. `revoked_before` mata los dos, porque el
+    access token que ya se entrego. `revoked_before` mata los dos, porque el
     chequeo compara `iat` del access contra esa marca.
 
-    Por eso desactivar un usuario tiene que llamar a esta función y no quedarse
+    Por eso desactivar un usuario tiene que llamar a está función y no quedarse
     con marcar la sesión actual.
     """
     with get_db().connect() as conexion:
@@ -552,10 +552,10 @@ def registrar_auditoria(
     """
     Escribe en `audit_logs`.
 
-    NUNCA propaga una excepcion. Es un registro: si falla, el login o el cambio
-    de contraseña ya ocurrió y devolver un 500 "no pude auditar" hace que el
+    NUNCA propaga una excepción. Es un registro: si falla, el login o el cambió
+    de contraseña ya ocurrio y devolver un 500 "no pude auditar" hace que el
     operador reintente la operación, que se aplica dos veces. Un hueco en la
-    bitácora es malo; una acción ejecutada dos veces es peor.
+    bitacora es malo; una accion ejecutada dos veces es peor.
     """
     try:
         with get_db().connect() as conexion:
@@ -594,7 +594,7 @@ def _a_bool(valor: Any, default: bool) -> bool:
     """
     Convierte a bool aceptando strings.
 
-    pydantic ya convierte en el schema, pero estas funciones se llaman tambien
+    pydantic ya convierte en el schema, pero estás funciones se llaman también
     desde tests y scripts. "false" es True en Python — es decir, si el body
     manda `{"is_active": "false"}` como texto, sin esto el usuario queda
     activo cuando pidió lo contrario.

@@ -1,12 +1,12 @@
 """
-Service de auditoria: arma la linea de tiempo de lo que paso en el sistema.
+Service de auditoria: arma la línea de tiempo de lo que paso en el sistema.
 
 POR QUE UNIR DOS TABLAS Y NO MOSTRAR UNA SOLA
 ----------------------------------------------
 El sistema guarda las operaciones en dos lugares, y cada uno tiene la mitad de
 la respuesta:
 
-  `movement_history`  -> TODO lo que paso con un equipo fisico: quien lo movio,
+  `movement_history`  -> TODO lo que paso con un equipo físico: quien lo movio,
                          de que sede a que sede, cuando, si estaba fuera del
                          radio de la sede. Es la trazabilidad del INVENTARIO, y
                          su `user_id` es NOT NULL: un movimiento siempre tiene
@@ -21,7 +21,7 @@ Quien audita no busca "movement_history" ni "audit_logs": busca que paso con el
 equipo, o quien entro al sistema. Si la pantalla lo obligara a elegir la tabla,
 le estaria pasando el trabajo de conocer el esquema.
 
-LO QUE ESTA UNION NO ES
+LO QUE Esta UNION NO ES
 -----------------------
 No es un JOIN: es una UNION de dos consultas a la misma forma. Las dos tienen
 que devolver `fecha, categoria, accion, actor, detalle`, y el detalle es un
@@ -46,8 +46,8 @@ from sqlalchemy import text
 from src.modules.ai.executor import get_ai_engine
 
 # Los tipos de movimiento, en el texto que usa la pantalla. Repetido de
-# `movements/router.py` a proposito: este modulo no deberia depender del router
-# (es una capa de lectura), y la traduccion es una tabla de tres lineas.
+# `movements/router.py` a propósito: este módulo no deberia depender del router
+# (es una capa de lectura), y la traduccion es una tabla de tres líneas.
 TEXTO_MOVIMIENTO: dict[str, str] = {
     "WAREHOUSE_ENTRY": "Entrada a deposito",
     "WAREHOUSE_REENTRY": "Devolucion a deposito",
@@ -83,11 +83,11 @@ def linea_de_tiempo(
     busqueda: str | None = None,
 ) -> dict[str, Any]:
     """
-    Los eventos del sistema, del mas reciente al mas antiguo.
+    Los eventos del sistema, del más reciente al más antiguo.
 
     DOS CONSULTAS Y NO UNA
     ----------------------
-    La linea de tiempo son dos SELECT unidos con `UNION ALL` en un subselect, y
+    La línea de tiempo son dos SELECT unidos con `UNION ALL` en un subselect, y
     el total es un `COUNT` sobre ese subselect. Escribirlos como una sola
     consulta con `UNION ALL` no se puede filtrar por el alias de la columna
     calculada sin envolver todo, y el `LIMIT` del `UNION` aplica al resultado,
@@ -114,7 +114,7 @@ def linea_de_tiempo(
 
     if busqueda:
         # El `ILIKE` con el comodin escapado. Sin escapar, un `%` devuelve todo,
-        # que en una pantalla de auditoria se ve como "no hay filtro" y hace
+        # que en una pantalla de auditoría se ve como "no hay filtro" y hace
         # creer que el rango de fechas no funciona.
         patron = f"%{_escapar_like(busqueda)}%"
         condiciones_mov.append(
@@ -127,8 +127,8 @@ def linea_de_tiempo(
         )
         parametros["busqueda"] = patron
 
-    # `categoria` separa inventario de cuentas. Es lo que usa el filtro de la
-    # pantalla, y se aplica con un `WHERE` externo para no duplicar la logica en
+    # `categoría` separa inventario de cuentas. Es lo que usa el filtro de la
+    # pantalla, y se aplica con un `WHERE` externo para no duplicar la lógica en
     # las dos ramas.
     filtro_categoria = ""
     if categoria == "inventario":
@@ -253,11 +253,11 @@ def _a_evento(fila: dict[str, Any]) -> dict[str, Any]:
 
 def resumen() -> dict[str, Any]:
     """
-    Las cifras del encabezado de auditoria.
+    Las cifras del encabezado de auditoría.
 
-    Cuatro numeros que responden "que tan activo esta el sistema" antes de
+    Cuatro números que responden "que tan activo está el sistema" antes de
     mirar la lista: cuanto se movio hoy, en la semana, y quienes son los tres
-    usuarios que mas operaron. Sin esto, la pantalla abre con una lista larga y
+    usuarios que más operaron. Sin esto, la pantalla abre con una lista larga y
     el auditor tiene que contar a mano.
     """
     with _conexion() as conexion:
@@ -295,7 +295,7 @@ def resumen() -> dict[str, Any]:
             )
         ).scalar_one()
 
-        # Los tres que mas movieron en la semana. `LEFT JOIN` porque un usuario
+        # Los tres que más movieron en la semana. `LEFT JOIN` porque un usuario
         # dado de baja (soft delete) sigue siendo el autor de sus movimientos, y
         # esconder el nombre convertiria el ranking en "y tres anonimos".
         top = conexion.execute(

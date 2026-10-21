@@ -1,1 +1,1 @@
-"""Modulo de IA: preguntas en lenguaje natural, analisis y reportes."""
+"""Módulo de IA: preguntas en lenguaje natural, análisis y reportes."""

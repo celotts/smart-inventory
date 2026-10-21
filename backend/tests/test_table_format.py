@@ -5,10 +5,10 @@ POR QUE ESTOS CASOS EXISTEN
 --------------------------
 El formato de los datos no es un detalle de presentacion: decidia si el modelo
 reportaba las cifras correctas o no. Con JSON de diccionarios, llama3.1:8b
-reporto "no hay equipos en reparacion" habiendo uno. Estos tests fijan el
-comportamiento del formateador, que es lo que se cambio para arreglarlo.
+reporto "no hay equipos en reparación" habiendo uno. Estos tests fijan el
+comportamiento del formateador, que es lo que se cambió para arreglarlo.
 
-El modelo NO se prueba aca: un test que depende de un LLM es un test que falla
+El modelo NO se prueba acá: un test que depende de un LLM es un test que falla
 por la mitad de las veces y deja de頸 leerse. Eso lo cubre `make ai-test`.
 """
 
@@ -21,7 +21,7 @@ from src.modules.ai.table_format import formatear_tabla
 
 
 def test_agregado_usa_formato_vertical():
-    """Una fila con pocas columnas: `nombre: valor`, etiqueta pegada al numero."""
+    """Una fila con pocas columnas: `nombre: valor`, etiqueta pegada al número."""
     texto = formatear_tabla(
         ["equipos_activos", "en_reparacion"],
         [{"equipos_activos": 5, "en_reparacion": 1}],
@@ -32,8 +32,8 @@ def test_agregado_usa_formato_vertical():
 
 def test_valor_cero_no_se_confunde_con_nulo():
     """
-    Un 0 y un NULL son cosas distintas. Un equipo que existe pero no esta en
-    ningun estado es distinto de cero equipos, y el reporte tiene que poder
+    Un 0 y un NULL son cosas distintas. Un equipo que existe pero no está en
+    ningún estado es distinto de cero equipos, y el reporte tiene que poder
     decirlo.
     """
     texto = formatear_tabla(
@@ -70,7 +70,7 @@ def test_sin_filas():
 
 def test_una_fila_con_muchas_columnas_usa_horizontal():
     """El corte es por columnas, no solo por filas: 13 columnas en una fila ya
-    es mas legible horizontal."""
+    es más legible horizontal."""
     columnas = [f"c{i}" for i in range(13)]
     fila = {c: i for i, c in enumerate(columnas)}
     texto = formatear_tabla(columnas, [fila])

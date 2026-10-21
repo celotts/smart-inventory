@@ -10,9 +10,9 @@
  *
  * POR QUE UN POLLING Y NO UN WEBSOCKET
  * ------------------------------------
- * Un websocket mantiene una conexion abierta por operador, y en un deposito
- * con mala cobertura eso es una conexion que se cae y se re-establece. El
- * polling cada 30 segundos es una peticion chica que se reintenta sola, y
+ * Un websocket mantiene una conexión abierta por operador, y en un depósito
+ * con mala cobertura eso es una conexión que se cae y se re-establece. El
+ * polling cada 30 segundos es una petición chica que se reintenta sola, y
  * con la app en segundo plano no cuesta nada.
  *
  * Y el badge se actualiza AL VOLVER A LA APP: el `visibilitychange` es el
@@ -26,7 +26,7 @@ import { conTooltip } from './tooltip.js';
 
 const INTERVALO_MS = 30000;
 
-/** El estado del modulo: el boton, el contador y el timer. */
+/** El estado del módulo: el botón, el contador y el timer. */
 let boton = null;
 let contador = null;
 let timer = null;
@@ -47,7 +47,7 @@ export function iniciarCampana() {
   conTooltip(boton, 'Avisos de SLA: casos por vencer, vencidos y escalados.');
 
   // El badge se pregunta al volver a la app: si el operador estuvo en otra
-  // pestana veinte minutos, el numero que ve tiene que ser el de ahora.
+  // pestaña veinte minutos, el número que ve tiene que ser el de ahora.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') actualizarContador();
   });
@@ -58,10 +58,10 @@ export function iniciarCampana() {
 }
 
 /**
- * Pide el numero de avisos sin leer y lo pinta.
+ * Pide el número de avisos sin leer y lo pinta.
  *
  * Un error de red NO puede romper la app: la campana es un extra, y si
- * falla se oculta y listo. El proximo polling lo reintenta.
+ * falla se oculta y listo. El próximo polling lo reintenta.
  */
 async function actualizarContador() {
   if (!boton) return;
@@ -80,8 +80,8 @@ async function actualizarContador() {
       noLeidos === 0 ? 'Avisos de SLA (ninguno)' : `Avisos de SLA (${noLeidos} sin leer)`,
     );
   } catch {
-    // Sin conexion con la API: la campana se oculta y el proximo intento
-    // la vuelve a mostrar. Un badge con un numero viejo es peor que no
+    // Sin conexión con la API: la campana se oculta y el próximo intento
+    // la vuelve a mostrar. Un badge con un número viejo es peor que no
     // tener badge.
     boton.hidden = true;
   }
@@ -103,7 +103,7 @@ async function abrirAvisos() {
 
   if (!avisos.length) {
     cuerpo.append(
-      crear('p', { clase: 'tenue', texto: 'No hay avisos. Todos los casos estan en plazo.' }),
+      crear('p', { clase: 'tenue', texto: 'No hay avisos. Todos los casos están en plazo.' }),
     );
   }
 
@@ -131,13 +131,13 @@ async function abrirAvisos() {
     );
     fila.append(cuerpoFila);
 
-    // Al tocar el aviso, se marca como leido y se abre el caso.
+    // Al tocar el aviso, se marca como leído y se abre el caso.
     fila.addEventListener('click', async () => {
       try {
         await api.pedir(`/incidents/notifications/${aviso.id}/leer`, { metodo: 'POST' });
       } catch {
-        // Si no se puede marcar como leido, el aviso se abre igual: el
-        // operador tiene que ver el caso, el "leido" es cosmetico.
+        // Si no se puede marcar como leído, el aviso se abre igual: el
+        // operador tiene que ver el caso, el "leído" es cosmetico.
       }
       actualizarContador();
       cerrar();
@@ -148,7 +148,7 @@ async function abrirAvisos() {
   }
 
   const btnCerrar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Cerrar',
     atributos: { type: 'button' },
   });
@@ -174,7 +174,7 @@ async function abrirAvisos() {
  *
  * Se importa en el momento y no arriba del archivo: la campana y la vista
  * de incidencias se usan siempre juntos, y un import estatico los ataria
- * (y con el, el modulo de incidencias se cargaria en toda app, incluso sin
+ * (y con el, el módulo de incidencias se cargaria en toda app, incluso sin
  * el permiso para verlo).
  */
 async function mostrarIncidencia(incidenciaId) {

@@ -6,9 +6,9 @@
 --
 -- EL ORDEN IMPORTA y es al reves de lo que parece.
 --
--- audit_logs NO tiene DROP aqui a proposito: es la bitacora de auditoria. Si se
+-- audit_logs NO tiene DROP aquí a propósito: es la bitacora de auditoría. Si se
 -- borra al recrear la base, se pierde el registro de quien borro que, que es
--- justamente el unico motivo por el que existe. Por eso las tablas de negocio
+-- justamente el único motivo por el que existe. Por eso las tablas de negocio
 -- caen de abajo hacia arriba (hijas antes que padres, por las FK), pero
 -- audit_logs se respeta.
 DROP TABLE IF EXISTS sessions CASCADE;
@@ -27,7 +27,7 @@ DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS clients CASCADE;
 
 -- roles y users son autocreferenciales (users.created_by_user_id -> users.id),
--- asi que users cae antes que roles.
+-- así que users cae antes que roles.
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS roles CASCADE;
 
@@ -37,15 +37,15 @@ DROP TYPE IF EXISTS movement_type CASCADE;
 DROP TYPE IF EXISTS device_status CASCADE;
 
 -- ============================================================================
--- EXTENSION: pgcrypto
+-- Extensión: pgcrypto
 -- ============================================================================
 --
 -- Se necesita por DOS motivos, y conviene separarlos:
 --
---   1. gen_random_uuid(). Desde Postgres 13 esta en el core, asi que en la 15
---      de este compose no haria falta la extension. Se deja explicito para
---      que el UUID por defecto no dependa de la version.
---   2. crypt()/gen_salt() para bcrypt. ESTE si la necesita: es la unica forma
+--   1. gen_random_uuid(). Desde Postgres 13 está en el core, así que en la 15
+--      de este compose no haria falta la extensión. Se deja explicito para
+--      que el UUID por defecto no dependa de la versión.
+--   2. crypt()/gen_salt() para bcrypt. ESTE si la necesita: es la única forma
 --      de sembrar un password sin meter el hash a mano en el .sql.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -91,14 +91,14 @@ CREATE TYPE repair_status AS ENUM (
 -- ============================================================================
 --
 -- POR QUE EXISTE
--- Cada alta, cambio y baja copia el rol de quien la hizo al lado del dato, en
--- la fila misma. Es mas caro que guardar solo el user_id: si despues se le
+-- Cada alta, cambió y baja copia el rol de quien la hizo al lado del dato, en
+-- la fila misma. Es más caro que guardar solo el user_id: si después se le
 -- cambia el rol a alguien, el "quien lo borro" conserva el rol que tenia EN EL
 -- MOMENTO de la accion. Para una bitacora de inventario, un rol que cambia
--- despues hace que la evidencia valga menos, no mas.
+-- después hace que la evidencia valga menos, no más.
 --
 -- POR QUE VA PRIMERO, ANTES DE LAS TABLAS
--- plpgsql no valida las referencias del cuerpo al crear la funcion: parsea la
+-- plpgsql no válida las referencias del cuerpo al crear la función: parsea la
 -- sintaxis pero no comprueba que `users` exista. Por eso `CREATE FUNCTION`
 -- puede ir antes que las tablas, y el orden real de creacion lo fija el orden
 -- del resto de este script.
@@ -120,7 +120,7 @@ BEGIN
             NEW.updated_by_role_id = v_role_id;
         END IF;
         -- Soft delete: una fila con deleted_at ya no aparece en las consultas
-        -- normales (siempre WHERE deleted_at IS NULL) pero queda para auditoria.
+        -- normales (siempre WHERE deleted_at IS NULL) pero queda para auditoría.
         --
         -- El `OR NEW.deleted_by_user_id IS NOT NULL` permite setear el actor de
         -- la baja en una UPDATE posterior, cuando el DELETE logico ya se habia
@@ -146,9 +146,9 @@ $$ LANGUAGE plpgsql;
 -- Y users.id tiene DEFAULT gen_random_uuid(): sin eso, cada INSERT tiene que
 -- inventar el UUID a mano y el primer forgot de clave se vuelve un problema.
 --
--- `password TEXT NOT NULL` sin DEFAULT a proposito. Un usuario sin password es
+-- `password TEXT NOT NULL` sin DEFAULT a propósito. Un usuario sin password es
 -- un usuario que no puede loguearse, y el error debe ser el INSERT, no un
--- login fallido tres dias despues.
+-- login fallido tres días después.
 CREATE TABLE roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(50) UNIQUE NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE roles (
 
 
 -- Las columnas created_by_user_id de `roles` NO llevan REFERENCES a users a
--- proposito: `users` todavia no existe en este punto del script, y porque un
+-- propósito: `users` todavía no existe en este punto del script, y porque un
 -- rol es anterior a cualquier usuario, su creador no puede ser un usuario. El
 -- trigger es lo que lo resuelve en runtime, cuando ya existe.
 CREATE TRIGGER trigger_roles_audit
@@ -179,9 +179,9 @@ CREATE TABLE users (
     password TEXT NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     -- address tiene DEFAULT pero phone y phone2 no. Es una inconsistencia que
-    -- viene del diseno original; se deja como esta porque el frontend puede
+    -- viene del diseno original; se deja como está porque el frontend puede
     -- depender de los dos telefonos siendo obligatorios. Si molesta, el
-    -- DEFAULT es una migracion de una linea.
+    -- DEFAULT es una migración de una línea.
     address VARCHAR(255) NOT NULL DEFAULT 'N/A',
     phone VARCHAR(255) NOT NULL,
     phone2 VARCHAR(255) NOT NULL,
@@ -191,7 +191,7 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
-    -- Autorreferencia. Valida porque la tabla ya existe cuando se resuelve la
+    -- Autorreferencia. Válida porque la tabla ya existe cuando se resuelve la
     -- FK, a diferencia de las columnas de `roles`.
     created_by_user_id UUID REFERENCES users(id),
     updated_by_user_id UUID REFERENCES users(id),
@@ -215,9 +215,9 @@ CREATE TYPE audit_action AS ENUM ('INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT
 
 -- Por que NO hay FOREIGN KEY en user_id
 -- --------------------------------------
--- Es la unica tabla del esquema sin FK, y es deliberado: es el unico registro
+-- Es la única tabla del esquema sin FK, y es deliberado: es el único registro
 -- que tiene que SOBREVIVIR a la baja del usuario. Si user_id fuera FK, un
--- `DELETE FROM users` (no el logico, el fisico) dejaria la bitacora huerfana o
+-- `DELETE FROM users` (no el logico, el físico) dejaria la bitacora huerfana o
 -- la borraria en cascada, que es justo el escenario para el que existe.
 --
 -- `record_id` tampoco lleva FK porque es POLIMORFICO: el mismo UUID no puede
@@ -225,8 +225,8 @@ CREATE TYPE audit_action AS ENUM ('INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT
 -- eso se guarda como texto y el `table_name` dice de que tabla es.
 --
 -- `record_id` es TEXT y no UUID por eso mismo: de las nueve tablas auditadas,
--- siete tienen id entero y solo dos lo tienen uuid. Un unico tipo uuid no
--- puede guardar las dos cosas; el texto si. (La migracion 0013 corrige el
+-- siete tienen id entero y solo dos lo tienen uuid. Un único tipo uuid no
+-- puede guardar las dos cosas; el texto si. (La migración 0013 corrige el
 -- DDL de las bases que ya tenian la columna como uuid.)
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -244,58 +244,58 @@ CREATE TABLE audit_logs (
 
 CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_record ON audit_logs(table_name, record_id);
--- El indice que hace que la bitacora de una tabla sea barata de leer:
+-- El índice que hace que la bitacora de una tabla sea barata de leer:
 -- `WHERE table_name = 'devices' ORDER BY created_at DESC`.
 CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);
 
 
 -- ============================================================================
--- SESIONES (migracion 0003, replicada aca)
+-- Sesiones (migración 0003, replicada acá)
 -- ============================================================================
 --
--- POR QUE ESTA TABLA ESTA EN init.sql Y NO SOLO EN 0003_sessions.sql
+-- POR QUE Está TABLA Está EN init.sql Y NO Solo EN 0003_sessions.sql
 -- -------------------------------------------------------------------
--- Porque el compose monta UN SOLO archivo en `/docker-entrypoint-initdb.d/`:
+-- Porque el compose monta UN Solo archivo en `/docker-entrypoint-initdb.d/`:
 -- `./database/init.sql`. Los archivos de `migrations/` NO se ejecutan en una
 -- instalacion nueva; solo corren con `make migrar`.
 --
--- El efecto de que faltara aca era este: `make up` creaba una base SIN tabla
--- `sessions`, y `POST /api/auth/login` fallaba al intentar insertar la sesion.
--- O sea, una instalacion nueva segun el README ("make up, no hacen falta
+-- El efecto de que faltara acá era este: `make up` creaba una base SIN tabla
+-- `sessions`, y `POST /api/auth/login` fallaba al intentar insertar la sesión.
+-- O sea, una instalacion nueva según el README ("make up, no hacen falta
 -- migraciones") dejaba la API sin login. No es un caso raro: es el camino que
 -- sigue todo el mundo la primera vez.
 --
--- La regla que se respeta aca es la del propio proyecto: `init.sql` y una base
+-- La regla que se respeta acá es la del propio proyecto: `init.sql` y una base
 -- que corrio TODAS las migraciones terminan con el MISMO esquema. Por eso la
--- tabla va integra aca y 0003 queda registrada mas abajo como ya aplicada.
+-- tabla va integra acá y 0003 queda registrada más abajo como ya aplicada.
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- A quien pertenece. CASCADE: si borran al usuario (hard delete), sus
     -- sesiones tienen que morir con el o quedan sesiones huerfanas de un id que
-    -- no existe. Es el unico CASCADE del schema, y es correcto aca: una sesion
+    -- no existe. Es el único CASCADE del schema, y es correcto acá: una sesión
     -- sin usuario no tiene a quien servirle.
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
     -- SHA-256 del refresh token, NO el token. Si alguien lee la base con un
     -- SELECT no puede autenticarse con lo que hay: el hash sirve para comparar,
-    -- no para iniciar sesion.
+    -- no para iniciar sesión.
     --
     -- UNIQUE: dos filas con el mismo token es un dato corrupto, y con el UNIQUE
-    -- el error aparece al insertar y no como un fallo raro tres dias despues.
+    -- el error aparece al insertar y no como un fallo raro tres días después.
     token_hash VARCHAR(64) NOT NULL,
 
     expires_at TIMESTAMPTZ NOT NULL,
 
     -- Informativo: para la lista "mis sesiones abiertas". No es un dato de
-    -- autenticacion.
+    -- autenticación.
     user_agent TEXT,
     ip_address VARCHAR(45),
 
-    -- Logout de ESTA sesion.
+    -- Logout de Está sesión.
     revoked_at TIMESTAMPTZ,
 
-    -- Logout de TODAS las del usuario. Es la unica forma de cortar un access
+    -- Logout de TODAS las del usuario. Es la única forma de cortar un access
     -- token ya entregado sin esperar a que expire: es exactamente el caso de
     -- "le robaron el token".
     revoked_before TIMESTAMPTZ,
@@ -306,8 +306,8 @@ CREATE TABLE sessions (
 
 CREATE UNIQUE INDEX idx_sessions_token_hash ON sessions(token_hash);
 CREATE INDEX idx_sessions_user ON sessions(user_id);
--- Indice PARCIAL: solo las vivas, que son pocas. Las muertas se pueden borrar
--- sin esperar, y no hace falta que un indice las tenga adentro.
+-- Índice PARCIAL: solo las vivas, que son pocas. Las muertas se pueden borrar
+-- sin esperar, y no hace falta que un índice las tenga adentro.
 CREATE INDEX idx_sessions_vivas ON sessions(expires_at)
     WHERE revoked_at IS NULL;
 
@@ -337,7 +337,7 @@ INSERT INTO roles (name) VALUES ('OPERATOR') ON CONFLICT (name) DO NOTHING;
 -- ============================================================================
 --
 -- El password se calcula con crypt() de pgcrypto (bcrypt, costo 10) en vez de
--- dejar el hash escrito a mano. Es mas legible y se puede cambiar leyendo una
+-- dejar el hash escrito a mano. Es más legible y se puede cambiar leyendo una
 -- frase en vez de comparando hashes.
 --
 -- CAMBIAR ESTO ANTES DE CUALQUIER COSA QUE NO SEA LOCAL. Es una credencial
@@ -372,14 +372,14 @@ END $$;
 -- ============================================================================
 -- 2. Clients and Locations
 --
--- BORRADO LOGICO: `deleted_at` mas el filtro `WHERE deleted_at IS NULL`.
+-- BORRADO LOGICO: `deleted_at` más el filtro `WHERE deleted_at IS NULL`.
 --
--- Por que tambien en clients y no solo en users: un cliente con 5 locales y 400
+-- Por que también en clients y no solo en users: un cliente con 5 locales y 400
 -- dispositivos que se borra en cascada se lleva su historial entero. En un
--- sistema cuya razon de ser es la trazabilidad, "lo borro porque ya no
+-- sistema cuya razón de ser es la trazabilidad, "lo borro porque ya no
 -- trabajamos con ellos" y "nunca existio" tienen que ser cosas distintas.
 -- `is_active` sigue existiendo y significa otra cosa: el cliente sigue con
--- nosotros pero esa sede esta dada de baja.
+-- nosotros pero esa sede está dada de baja.
 CREATE TABLE clients (
     id SERIAL PRIMARY KEY,
     commercial_name VARCHAR(150) NOT NULL,
@@ -394,9 +394,9 @@ CREATE TABLE clients (
 
 CREATE TABLE locations (
     id SERIAL PRIMARY KEY,
-    -- Nullable a proposito: la sede del almacen central no pertenece a ningun
+    -- Nullable a propósito: la sede del almacén central no pertenece a ningún
     -- cliente. Por eso `devices.is_warehouse` tiene sentido como columna y no
-    -- como un dato derivable de esta FK.
+    -- como un dato derivable de está FK.
     client_id INT REFERENCES clients(id) ON DELETE RESTRICT,
     store_name VARCHAR(100) NOT NULL,
     address TEXT NOT NULL,
@@ -420,11 +420,11 @@ CREATE TABLE categories (
 );
 
 
--- SEED DE CATEGORIAS, antes de los dispositivos.
+-- SEED DE Categorías, antes de los dispositivos.
 --
 -- `devices.model_id` y `models.category_id` son NOT NULL: sin al menos una
 -- fila en `categories` no se puede crear ni un modelo ni un equipo, y el
--- primer INSERT falla. Este es el minimo para que el sistema arranque con
+-- primer INSERT falla. Este es el mínimo para que el sistema arranque con
 -- datos.
 --
 -- El `ON CONFLICT DO NOTHING` lo hace idempotente por si el seed corre dos
@@ -441,7 +441,7 @@ ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE models (
     id SERIAL PRIMARY KEY,
-    -- NOT NULL: un modelo sin categoria no se puede reportar. Antes admitia
+    -- NOT NULL: un modelo sin categoría no se puede reportar. Antes admitia
     -- NULL y esos equipos desaparecian de cualquier agrupacion por tipo.
     category_id INT NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
     brand VARCHAR(100) NOT NULL,
@@ -467,11 +467,11 @@ CREATE TABLE devices (
     qr_code VARCHAR(150) UNIQUE NOT NULL,
     current_status device_status DEFAULT 'IN_WAREHOUSE',
     current_location_id INT REFERENCES locations(id) ON DELETE RESTRICT,
-    -- DENORMALIZADO A PROPOSITO: es `current_status = 'IN_WAREHOUSE'`.
+    -- DENORMALIZADO A Propósito: es `current_status = 'IN_WAREHOUSE'`.
     --
-    -- Se conserva porque el indice parcial de abajo necesita una columna
+    -- Se conserva porque el índice parcial de abajo necesita una columna
     -- booleana: Postgres no puede usar una comparacion de ENUM en la predicado
-    -- de un indice parcial. El CHECK de abajo es lo que impide que las dos
+    -- de un índice parcial. El CHECK de abajo es lo que impide que las dos
     -- fuentes de verdad se separen.
     is_warehouse BOOLEAN DEFAULT TRUE,
     warehouse_entry_date TIMESTAMPTZ DEFAULT NOW(),
@@ -483,7 +483,7 @@ CREATE TABLE devices (
     -- CONSISTENCIA DE LAS DOS FUENTES DE VERDAD.
     -- Si alguien hace UPDATE devices SET current_status = 'IN_REPAIR' sin tocar
     -- is_warehouse, la fila no entra. Sin este CHECK el sistema tiene un flag
-    -- que dice "esta en el almacen" y un status que dice "esta en taller", y
+    -- que dice "está en el almacén" y un status que dice "está en taller", y
     -- los dos aparecen en reportes distintos.
     CONSTRAINT ck_devices_warehouse_status CHECK (
         is_warehouse = (current_status = 'IN_WAREHOUSE')
@@ -494,17 +494,17 @@ CREATE TABLE devices (
 -- 3b. Tipos de movimiento personalizables (configurables por cliente)
 -- ============================================================================
 --
--- ANTES esto era un ENUM (`movement_type`) con los valores fijos en el codigo.
--- Un cliente cuyo flujo no calzaba — "prestado en sitio", "en garantia del
--- proveedor" — no podia registrar su operacion: el sistema no tenia nombre para
+-- ANTES esto era un ENUM (`movement_type`) con los valores fijos en el código.
+-- Un cliente cuyo flujo no calzaba — "prestado en sitio", "en garantía del
+-- proveedor" — no podia registrar su operación: el sistema no tenia nombre para
 -- ese movimiento, y un movimiento sin nombre no se puede reportar.
 --
 -- Ahora los tipos base viven como filas con `is_system = TRUE` (client_id NULL,
 -- no editables ni borrables) y cada cliente agrega los suyos con su client_id.
 -- La FK de movement_history pasa a apuntar al id, no a un string.
 --
--- POR QUE ESTA AQUI Y NO SOLO EN 0010: init.sql es el instalador de una base
--- nueva. Si esta tabla viviera solo en la migracion, una instalacion limpia
+-- POR QUE Está Aquí Y NO Solo EN 0010: init.sql es el instalador de una base
+-- nueva. Si está tabla viviera solo en la migración, una instalacion limpia
 -- -- que monte init.sql sin aplicar migraciones -- crearia movement_history con
 -- una FK a una tabla inexistente y fallaria.
 CREATE TABLE movement_types (
@@ -536,7 +536,7 @@ CREATE INDEX idx_movement_types_active ON movement_types(is_active);
 CREATE UNIQUE INDEX uq_movement_type_system_name ON movement_types(name) WHERE (is_system = TRUE);
 
 -- Seed de los tipos del sistema. Los nombres coinciden 1:1 con los valores del
--- ENUM que reemplazaron, asi que el mapeo nombre -> estado no se negocia.
+-- ENUM que reemplazaron, así que el mapeo nombre -> estado no se negocia.
 INSERT INTO movement_types (name, label, target_status, icon, color, sort_order, is_system, is_active) VALUES
     ('WAREHOUSE_ENTRY', 'Entrada a depósito', 'IN_WAREHOUSE', 'package', '#2e7d32', 1, TRUE, TRUE),
     ('OUT_TO_CLIENT', 'Sale a cliente', 'IN_TRANSIT', 'truck', '#b45309', 2, TRUE, TRUE),
@@ -567,15 +567,15 @@ CREATE TABLE movement_history (
     scan_longitude NUMERIC(11, 8),
     is_valid_location BOOLEAN DEFAULT TRUE,
     observations TEXT,
-    -- SIN coma al final. La tabla no tiene ninguna columna mas despues de
-    -- esta: el CHECK de REPLACEMENT que venia aca se movio al trigger de mas
+    -- SIN coma al final. La tabla no tiene ninguna columna más después de
+    -- está: el CHECK de REPLACEMENT que venia acá se movio al trigger de más
     -- abajo, y al sacarlo se dejo la coma colgante. Postgres la rechaza con
-    -- "syntax error at or near )" y el init.sql entero muere en esa linea:
+    -- "syntax error at or near )" y el init.sql entero muere en esa línea:
     -- una base nueva no se creaba, y el contenedor de postgres salia con
-    -- codigo 3 sin que el error llegara a la consola.
+    -- código 3 sin que el error llegara a la consola.
     movement_date TIMESTAMPTZ DEFAULT NOW()
 
-    -- REPLACEMENT es la unica operacion con equipo reemplazado y la unica que
+    -- REPLACEMENT es la única operación con equipo reemplazado y la única que
     -- necesita motivo. La regla tiene las DOS direcciones, que es lo que hace
     -- falta:
     --
@@ -585,7 +585,7 @@ CREATE TABLE movement_history (
     -- Con una sola de las dos, un WAREHOUSE_ENTRY con replacement_reason
     -- "se rayo" pasa el filtro y queda un movimiento con un motivo que no
     -- corresponde a su tipo.
--- La validacion REPLACEMENT NO puede ser un CHECK: un CHECK no admite
+-- La validación REPLACEMENT NO puede ser un CHECK: un CHECK no admite
     -- subconsultas, y la regla necesita preguntar el nombre del tipo a
     -- movement_types. Por eso vive en el trigger de abajo.
 );
@@ -595,7 +595,7 @@ CREATE TABLE movement_history (
 -- ============================================================================
 --
 -- Implementa la misma regla que antes era el CHECK ck_movement_replacement,
--- pero con la diferencia que obliga: el tipo ahora es una FK, no un ENUM, asi
+-- pero con la diferencia que obliga: el tipo ahora es una FK, no un ENUM, así
 -- que "es REPLACEMENT" ya no se puede responder leyendo la fila -- hay que
 -- preguntar a movement_types.
 --
@@ -660,20 +660,20 @@ CREATE TABLE disposal_certificates (
 
 
 -- ============================================================================
--- 6. OPERACIONES (migracion 0005, replicada aca)
+-- 6. Operaciones (migración 0005, replicada acá)
 -- ============================================================================
 --
 -- Mismo motivo que `sessions`: el compose solo monta `init.sql` en
--- `/docker-entrypoint-initdb.d/`, asi que sin este bloque una instalacion
+-- `/docker-entrypoint-initdb.d/`, así que sin este bloque una instalacion
 -- nueva se levanta sin `transfers`, `maintenance` ni `stock_alerts`, y los
 -- endpoints `/api/ops/*` devuelven 500 con "relation does not exist".
 
 -- Transferencia entre ubicaciones: un pedido, su aprobacion y su resolucion.
 --
 -- `from_location` / `to_location` guardan el NOMBRE de la sede y no el id. Es
--- una decision discutible —un id no se renombra y puede desincronizarse del
--- texto— pero cambiarla ahora es una migracion con datos ya escritos. Lo que si
--- se hace aca es dejar las dos columnas NOT NULL: antes el endpoint aceptaba
+-- una decisión discutible —un id no se renombra y puede desincronizarse del
+-- texto— pero cambiarla ahora es una migración con datos ya escritos. Lo que si
+-- se hace acá es dejar las dos columnas NOT NULL: antes el endpoint aceptaba
 -- un payload incompleto y creaba una transferencia sin origen ni destino.
 CREATE TABLE IF NOT EXISTS transfers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -693,7 +693,7 @@ ALTER TABLE transfers ADD CONSTRAINT ck_transfers_distintas
     CHECK (from_location <> to_location);
 
 -- El estado es un conjunto CERRADO. Sin este CHECK un typo como 'aprovado'
--- crea una fila que ningun reporte cuenta y que nadie sabe como resolver.
+-- crea una fila que ningún reporte cuenta y que nadie sabe como resolver.
 ALTER TABLE transfers DROP CONSTRAINT IF EXISTS ck_transfers_status;
 ALTER TABLE transfers ADD CONSTRAINT ck_transfers_status
     CHECK (status IN ('pending', 'approved', 'rejected', 'completed'));
@@ -717,7 +717,7 @@ CREATE TABLE IF NOT EXISTS maintenance (
 CREATE INDEX IF NOT EXISTS idx_maintenance_scheduled ON maintenance(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_maintenance_device ON maintenance(device_id);
 
--- Alerta de stock minimo.
+-- Alerta de stock mínimo.
 CREATE TABLE IF NOT EXISTS stock_alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ubicacion VARCHAR(128) NOT NULL,
@@ -727,8 +727,8 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- `minimo` negativo o `actual` negativo son datos imposibles, y una alerta con
--- minimo 0 salta siempre: no informa nada.
+-- `mínimo` negativo o `actual` negativo son datos imposibles, y una alerta con
+-- mínimo 0 salta siempre: no informa nada.
 ALTER TABLE stock_alerts DROP CONSTRAINT IF EXISTS ck_stock_alerts_minimo;
 ALTER TABLE stock_alerts ADD CONSTRAINT ck_stock_alerts_minimo
     CHECK (minimo >= 0 AND actual >= 0);
@@ -737,28 +737,28 @@ CREATE INDEX IF NOT EXISTS idx_stock_alerts_resuelto ON stock_alerts(resuelto);
 
 
 -- ============================================================================
--- INDICES
+-- Índices
 -- ============================================================================
 --
 -- POR QUE ESTE BLOQUE EXISTE
--- Postgres NO crea indices en columnas foraneas. La FK se verifica con una
+-- Postgres NO crea índices en columnas foraneas. La FK se verifica con una
 -- busqueda en la tabla referenciada y, para las declaradas con REFERENCES, no
--- se arma indice automatico en la que las referencia. El resultado es que cada
--- JOIN que entra por una FK sin indice es un seq scan.
+-- se arma índice automático en la que las referencia. El resultado es que cada
+-- JOIN que entra por una FK sin índice es un seq scan.
 --
 -- Y eso pega justo donde pega la IA: las consultas que genera el modelo
 -- llegan por `devices.model_id`, `movement_history.device_id` y
 -- `locations.client_id` todo el tiempo.
 --
--- Indice UNIQUE PARCIAL: indice con WHERE, que solo indexa las filas que
--- cumplen la condicion. Es mas chico que uno completo y por eso es mas rapido,
+-- Índice UNIQUE PARCIAL: índice con WHERE, que solo indexa las filas que
+-- cumplen la condición. Es más chico que uno completo y por eso es más rápido,
 -- y es lo que permite escribir reglas de negocio sin ponerlas como CHECK.
 --
 -- `idx_repairs_open` es el ejemplo: sin el, "un equipo no puede tener dos
 -- reparaciones abiertas" se implementaria con UNIQUE(device_id) y eso
 -- PROHIBIRIA el historial completo, porque el tercer equipo que vuelve al
--- taller despues de dos reparaciones anteriores fallaria al insertar. El
--- indice parcial restringe solo las filas abiertas.
+-- taller después de dos reparaciones anteriores fallaria al insertar. El
+-- índice parcial restringe solo las filas abiertas.
 
 -- --- Localizaciones ---
 CREATE INDEX idx_locations_client ON locations(client_id);
@@ -767,20 +767,20 @@ CREATE INDEX idx_locations_active ON locations(is_active) WHERE is_active;
 -- --- Catalogos ---
 CREATE INDEX idx_models_category ON models(category_id);
 -- GIN sobre JSONB: sin esto, buscar un modelo por una clave de
--- `specifications` es un seq scan sobre el JSON completo. Es el indice que
+-- `specifications` es un seq scan sobre el JSON completo. Es el índice que
 -- hace que "equipos con pantalla de 6 pulgadas" sea una consulta y no un
 -- escaneo.
 CREATE INDEX idx_models_specs ON models USING GIN (specifications);
 
 -- --- Dispositivos ---
--- El indice por el que existe `is_warehouse`: responde "que hay disponible
+-- El índice por el que existe `is_warehouse`: responde "que hay disponible
 -- para salir hoy" sin recorrer la flota entera.
 CREATE INDEX idx_devices_warehouse ON devices(is_warehouse) WHERE is_warehouse;
 CREATE INDEX idx_devices_model ON devices(model_id);
 CREATE INDEX idx_devices_location ON devices(current_location_id);
 CREATE INDEX idx_devices_status ON devices(current_status);
 -- Todos los listados de dispositivos son de activos, o sea `deleted_at IS
--- NULL`. Es un indice parcial sobre la condicion mas frecuente.
+-- NULL`. Es un índice parcial sobre la condición más frecuente.
 CREATE INDEX idx_devices_active ON devices(deleted_at) WHERE deleted_at IS NULL;
 
 -- --- Movimientos ---
@@ -799,10 +799,10 @@ CREATE INDEX idx_repairs_technician ON repairs(technician_id);
 -- UNIQUE PARCIAL: un equipo no puede tener dos reparaciones abiertas a la vez.
 -- Quedaria indefinido cual es la vigente, y `devices.current_status =
 -- 'IN_REPAIR'` no sabria a cual se refiere. Las ya CERRADAS si se acumulan sin
--- limite, que es el comportamiento correcto.
+-- límite, que es el comportamiento correcto.
 CREATE UNIQUE INDEX idx_repairs_open ON repairs(device_id)
     WHERE status NOT IN ('REPAIRED', 'UNREPAIRABLE');
--- "Equipos esperando repuestos" es de las preguntas mas frecuentes del taller.
+-- "Equipos esperando repuestos" es de las preguntas más frecuentes del taller.
 CREATE INDEX idx_repairs_waiting ON repairs(entry_date DESC)
     WHERE status = 'WAITING_FOR_PARTS';
 
@@ -816,7 +816,7 @@ CREATE INDEX idx_disposal_repair ON disposal_certificates(repair_id);
 -- ============================================================================
 --
 -- `updated_at DEFAULT NOW()` solo aplica en el INSERT. Sin un trigger, la
--- columna queda congelada en la fecha de creacion para siempre: un "ultima
+-- columna queda congelada en la fecha de creacion para siempre: un "última
 -- actualizacion" que nunca cambia es peor que no tener la columna.
 --
 -- users y roles ya lo tenian (dentro de set_audit_role_id); devices, clients y
@@ -835,40 +835,40 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
 -- ============================================================================
--- MAQUINA DE ESTADOS: DONDE ESTA CADA COMPONENTE, EN CADA MOMENTO
+-- MAQUINA DE ESTADOS: DONDE Está CADA COMPONENTE, EN CADA MOMENTO
 -- ============================================================================
 --
 -- QUE PROBLEMA RESUELVE
 -- ----------------------
 -- El inventario tiene DOS lugares fisicos y un tercero virtual:
---     el deposito, donde el componente espera sin usar,
+--     el depósito, donde el componente espera sin usar,
 --     instalado,working en un equipo del cliente,
---     en transito entre uno y otro.
+--     en tránsito entre uno y otro.
 --
 -- La columna `current_status` dice cual de los tres es, y `current_location_id`
 -- dice donde. Pero hasta ahora NADA IMPEDIA que esas dos columnas dijeran una
 -- cosa y la otra otra.
 --
 -- Se podia dejar un equipo en `INSTALLED` sin haber registrado nunca una
--- INSTALLATION, con `current_location_id` apuntando al deposito. Se podia dar
+-- INSTALLATION, con `current_location_id` apuntando al depósito. Se podia dar
 -- de baja un equipo que estaba instalado en un cliente y en uso. Se podia
--- marcar `IN_WAREHOUSE` un equipo que estaba en el taller con una reparacion
+-- marcar `IN_WAREHOUSE` un equipo que estaba en el taller con una reparación
 -- abierta.
 --
--- En un inventario que se vende como "se donde esta cada equipo", cada uno de
+-- En un inventario que se vende como "se donde está cada equipo", cada uno de
 -- esos estados es una perdida de trazabilidad silenciosa: el sistema responde,
--- no da error, y el dato esta mal.
+-- no da error, y el dato está mal.
 --
 -- POR QUE NO BASTA UN CHECK
 -- -------------------------
--- Un CHECK mira UNA fila. Esta regla mira dos: el estado viejo y el nuevo. Y
--- necesita saber si el componente tiene una reparacion abierta, o si esta
+-- Un CHECK mira UNA fila. Está regla mira dos: el estado viejo y el nuevo. Y
+-- necesita saber si el componente tiene una reparación abierta, o si está
 -- dado de baja, que son otras tablas. Eso es un trigger.
 --
--- POR QUE NO ESTA EN CODIGO
+-- POR QUE NO Está EN Código
 -- --------------------------
--- Porque el codigo que escribe el estado es mas de uno —el escaner, la API de
--- operaciones, una migracion, un `psql` del operador a las 11 de la noche— y
+-- Porque el código que escribe el estado es más de uno —el escaner, la API de
+-- operaciones, una migración, un `psql` del operador a las 11 de la noche— y
 -- la regla tiene que estar en el motor, no en cada uno de ellos. Un trigger se
 -- aplica a los cuatro. Un `if` en Python se aplica a uno.
 CREATE OR REPLACE FUNCTION validar_transicion_estado()
@@ -884,7 +884,7 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Sin cambio de estado: no hay nada que validar. Un UPDATE que solo mueve
+    -- Sin cambió de estado: no hay nada que validar. Un UPDATE que solo mueve
     -- `updated_at` (que lo hace el trigger de timestamps en cada fila) no tiene
     -- que pasar por la maquina.
     IF NEW.current_status IS NOT DISTINCT FROM OLD.current_status THEN
@@ -893,7 +893,7 @@ BEGIN
 
     -- PERMANENTLY_DISPOSED ES ABSORBENTE
     -- -----------------------------------
-    -- Nada sale de una baja. Ni el taller ni el deposito ni un error de tipeo:
+    -- Nada sale de una baja. Ni el taller ni el depósito ni un error de tipeo:
     -- un componente dado de baja que vuelve a estar "instalado" es un equipo
     -- fantasma trabajando en un cliente.
     IF OLD.current_status = 'PERMANENTLY_DISPOSED' THEN
@@ -903,11 +903,11 @@ BEGIN
             USING ERRCODE = 'check_violation';
     END IF;
 
-    -- ESTADO NUEVO = EN REPARACION, Y HAY UNA REPARACION ABIERTA
+    -- ESTADO NUEVO = EN Reparación, Y HAY UNA Reparación ABIERTA
     -- -------------------------------------------------------
-    -- Si no, `devices.current_status` dice "esta en el taller" mientras la
+    -- Si no, `devices.current_status` dice "está en el taller" mientras la
     -- tabla `repairs` no tiene ninguna fila: el taller no sabe que lo tiene y
-    -- el componente no tiene diagnostico ni tecnico.
+    -- el componente no tiene diagnóstico ni técnico.
     IF NEW.current_status = 'IN_REPAIR' THEN
         SELECT EXISTS (
             SELECT 1 FROM repairs r
@@ -923,9 +923,9 @@ BEGIN
         END IF;
     END IF;
 
-    -- SALIR DE EN REPARACION, Y NO HAY REPARACION ABIERTA
+    -- SALIR DE EN Reparación, Y NO HAY Reparación ABIERTA
     -- ----------------------------------------------------
-    -- El caso inverso y peor: un tecnico cerro la reparacion en la UI y salio
+    -- El caso inverso y peor: un técnico cerró la reparación en la UI y salió
     -- de la pantalla sin tocar el dispositivo. Este queda en el taller para
     -- siempre, sin taller que lo Atienda.
     IF OLD.current_status = 'IN_REPAIR' AND NEW.current_status <> 'IN_REPAIR' THEN
@@ -943,7 +943,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- LA MATRIZ DE TRANSICIONES
+    -- LA MATRIZ DE Transiciones
     -- -------------------------
     -- Solo se listan las que el negocio reconoce. `IS NOT DISTINCT FROM` en vez
     -- de `NOT IN` porque si `current_status` llega NULL, `NOT IN` devuelve NULL
@@ -984,8 +984,8 @@ CREATE TRIGGER trigger_devices_transicion_estado
 -- quiso usar.
 --
 -- El trigger lo mantiene en el mismo lugar donde el estado cambia, que es el
--- unico momento en que se sabe la verdad. Y solo escribe cuando corresponde:
--- tocar la columna en cada UPDATE haria que un cambio de ubicacion pareciera
+-- único momento en que se sabe la verdad. Y solo escribe cuando corresponde:
+-- tocar la columna en cada UPDATE haria que un cambió de ubicación pareciera
 -- una reinstalacion.
 CREATE OR REPLACE FUNCTION sincronizar_fecha_instalacion()
 RETURNS TRIGGER AS $$
@@ -997,7 +997,7 @@ BEGIN
         ELSIF OLD.current_status = 'INSTALLED' THEN
             -- Sale de instalado: deja de estar en uso. Se conserva el valor
             -- viejo en vez de ponerlo NULL, porque "cuando se instalo la
-            -- ultima vez" sigue siendo informacion historica util.
+            -- última vez" sigue siendo información histórica útil.
             NEW.installation_date = OLD.installation_date;
         END IF;
     END IF;
@@ -1011,23 +1011,23 @@ CREATE TRIGGER trigger_devices_fecha_instalacion
 
 
 -- ============================================================================
--- ESCANEO: SOPORTE DE LECTOR QR / CODIGO DE BARRAS
+-- ESCANEO: SOPORTE DE LECTOR QR / Código DE BARRAS
 -- ============================================================================
 --
 -- QUE HACE FALTA Y POR QUE
 -- ------------------------
 -- El esquema ya tenia las columnas del escaneo (`devices.qr_code`,
--- `movement_history.scan_latitude`, `is_valid_location`) y el analisis de
+-- `movement_history.scan_latitude`, `is_valid_location`) y el análisis de
 -- riesgo ya contaba "escaneos fuera de radio" como senal. Lo que faltaba era la
--- pieza que hace CONFIABLE esa senal: garantizar que un mismo envio no se
+-- pieza que hace CONFIABLE esa senal: garantizar que un mismo envió no se
 -- registre dos veces.
 --
 -- EL PROBLEMA
 -- -----------
--- Un operador escanea un componente en un deposito con mala senal. La peticion
--- sale dos veces, o el telefono reintenta, o el operador aprieta "escanear" otra
+-- Un operador escanea un componente en un depósito con mala senal. La petición
+-- sale dos veces, o el teléfono reintenta, o el operador aprieta "escanear" otra
 -- vez sin ver la respuesta. Sin proteccion quedan DOS movimientos para el mismo
--- envio, y "cuantos componentes entraron hoy" da el doble.
+-- envió, y "cuantos componentes entraron hoy" da el doble.
 --
 -- Y no es un problema teorico: la duplicacion corroe la confianza en el
 -- historial. Un sistema del que no se puede decir "dice la verdad" no se usa
@@ -1036,24 +1036,24 @@ CREATE TRIGGER trigger_devices_fecha_instalacion
 -- LA SOLUCION: CLAVE DE IDEMPOTENCIA DEL CLIENTE
 -- ----------------------------------------------
 -- `client_scan_id` es un UUID que genera el DISPOSITIVO antes de enviar la
--- peticion. Si la misma peticion llega dos veces, llega con el mismo UUID, y la
+-- petición. Si la misma petición llega dos veces, llega con el mismo UUID, y la
 -- segunda no inserta nada: devuelve el movimiento original.
 --
--- POR QUE NO UN INDICE UNICO SOBRE (device_id, movement_date)
+-- POR QUE NO UN Índice Único SOBRE (device_id, movement_date)
 -- ----------------------------------------------------------
 -- Dos escaneos REALES del mismo componente en el mismo segundo son legitimos:
--- uno entra al deposito y al segundo sale hacia un cliente. Un indice unico
+-- uno entra al depósito y al segundo sale hacia un cliente. Un índice único
 -- sobre la fecha rechazaria algo que ocurrio, y el operador, viendo el error,
 -- aprende a no volver a escanear. Es peor.
 --
--- La clave la pone el cliente y representa "ESTE envio", no "ESTE evento en el
--- mundo". Un evento repetido es legitimo; un envio repetido no.
+-- La clave la pone el cliente y representa "ESTE envió", no "ESTE evento en el
+-- mundo". Un evento repetido es legitimo; un envió repetido no.
 CREATE TABLE IF NOT EXISTS scan_receipts (
     -- El id que genero el cliente. Es la clave de idempotencia.
     client_scan_id UUID PRIMARY KEY,
 
     device_id INTEGER REFERENCES devices(id) ON DELETE RESTRICT,
-    -- El movimiento que produjo ESTE envio. Si el mismo client_scan_id llega
+    -- El movimiento que produjo ESTE envió. Si el mismo client_scan_id llega
     -- otra vez, se devuelve este y no se inserta un segundo movimiento.
     movement_id INTEGER REFERENCES movement_history(id) ON DELETE RESTRICT,
 
@@ -1062,18 +1062,18 @@ CREATE TABLE IF NOT EXISTS scan_receipts (
 );
 
 -- Resolver un reintento es buscar por `client_scan_id`, que es la PK: ya tiene
--- indice. Este es para la pregunta opuesta, "que escaneos hizo este
+-- índice. Este es para la pregunta opuesta, "que escaneos hizo este
 -- componente", que es la que dibuja el historial en pantalla.
 CREATE INDEX IF NOT EXISTS idx_scan_receipts_device ON scan_receipts(device_id, created_at DESC);
 
 COMMENT ON TABLE scan_receipts IS
     'Idempotencia de escaneo: un client_scan_id, un movimiento. Un reintento no duplica.';
 
--- POR QUE `qr_code` ES UNIQUE A SECAS Y NO UN INDICE UNIQUE PARCIAL
+-- POR QUE `qr_code` ES UNIQUE A SECAS Y NO UN Índice UNIQUE PARCIAL
 -- -----------------------------------------------------------------
 -- Un componente dado de baja (`deleted_at`) conserva su etiqueta fisica pegada
 -- en un estante, y alguien la va a escanear. Con UNIQUE parcial
--- (`WHERE deleted_at IS NULL`) ese codigo quedaria LIBRE y se podria reasignar
+-- (`WHERE deleted_at IS NULL`) ese código quedaria LIBRE y se podria reasignar
 -- a otro componente: la misma etiqueta identificando dos cosas, que es peor que
 -- un error. UNIQUE a secas convierte el reescaneo en un 409 explicito, que es
 -- la respuesta honesta.
@@ -1088,17 +1088,17 @@ COMMENT ON TABLE scan_receipts IS
 -- PERIODOS DE INSTALACION (acumula tiempo de uso aunque se mueva el equipo)
 -- ============================================================================
 --
--- POR QUE ESTA TABLA
+-- POR QUE Está TABLA
 -- --------------------
 -- El campo `devices.installation_date` se resetea cada vez que el equipo se
 -- instala. Si el equipo va a reparación y vuelve al mismo sitio, se pierde el
--- tiempo acumulado anterior. Esta tabla guarda cada periodo de instalación
+-- tiempo acumulado anterior. Está tabla guarda cada periodo de instalación
 -- como una fila independiente, permitiendo consultar:
---   - Cuantos dias TOTALES lleva el equipo instalado en su vida util
---   - Cuantos dias en CADA sede especifica
---   - El historico completo de instalaciones sin perder datos por reparaciones
+--   - Cuantos días TOTALES lleva el equipo instalado en su vida útil
+--   - Cuantos días en CADA sede específica
+--   - El histórico completo de instalaciones sin perder datos por reparaciones
 --
--- Se alimenta automaticamente por los triggers de cambio de estado:
+-- Se alimenta automáticamente por los triggers de cambió de estado:
 --   - Entrada a INSTALLED  -> INSERT nueva fila (started_at = NOW)
 --   - Salida de INSTALLED   -> UPDATE ended_at = NOW, days_installed cached
 CREATE TABLE installation_periods (
@@ -1109,9 +1109,9 @@ CREATE TABLE installation_periods (
     ended_at TIMESTAMPTZ,
     -- El movimiento que INICIO la instalacion (escaneo INSTALLATION)
     movement_id_in INTEGER REFERENCES movement_history(id) ON DELETE RESTRICT,
-    -- El movimiento que TERMINO la instalacion (escaneo que saca de INSTALLED)
+    -- El movimiento que Terminó la instalacion (escaneo que saca de INSTALLED)
     movement_id_out INTEGER REFERENCES movement_history(id) ON DELETE RESTRICT,
-    -- Dias instalados en ESTE periodo (cached para consultas rapidas)
+    -- Días instalados en ESTE periodo (cached para consultas rapidas)
     -- Se calcula al cerrar el periodo: EXTRACT(DAY FROM ended_at - started_at)
     days_installed INTEGER,
 
@@ -1130,21 +1130,21 @@ COMMENT ON TABLE installation_periods IS
 
 
 -- ============================================================================
--- INVENTARIO POR CANTIDAD (stock por SKU + ubicacion + lote)
+-- INVENTARIO POR CANTIDAD (stock por SKU + ubicación + lote)
 -- ============================================================================
 --
--- POR QUE ESTA TABLA Y NO REUTILIZAR devices
+-- POR QUE Está TABLA Y NO REUTILIZAR devices
 -- -------------------------------------------
--- devices = 1 fila = 1 EQUIPO UNICO (serial unico, vida util, reparacion)
--- stock_items = 1 fila = 1 SKU en 1 ubicacion + lote (cantidad, vencimiento)
+-- devices = 1 fila = 1 EQUIPO Único (serial único, vida útil, reparación)
+-- stock_items = 1 fila = 1 SKU en 1 ubicación + lote (cantidad, vencimiento)
 --
--- devices = "este portatil SN-123" (identidad unica, trazabilidad individual)
--- stock_items = "15 cables USB-C lote L-2024-03 en Deposito Central" (cantidad)
+-- devices = "este portatil SN-123" (identidad única, trazabilidad individual)
+-- stock_items = "15 cables USB-C lote L-2024-03 en Depósito Central" (cantidad)
 --
--- NO se pueden unificar: devices exige serial unico; stock_items agrega por SKU+ubicacion+lote.
+-- NO se pueden unificar: devices exige serial único; stock_items agrega por SKU+ubicación+lote.
 -- Se usan flujos distintos:
 --   devices -> escaneo QR/serial -> movimiento individual -> trazabilidad completa
---   stock_items -> escaneo codigo barras + cantidad -> entrada/salida/ajuste -> stock
+--   stock_items -> escaneo código barras + cantidad -> entrada/salida/ajuste -> stock
 CREATE TABLE stock_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     -- Mismo catalogo que devices (models -> categories)
@@ -1158,15 +1158,15 @@ CREATE TABLE stock_items (
     quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     -- Cantidad reservada para ordenes/ordenes de trabajo
     reserved_quantity INTEGER NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
-    -- Punto de reposicion (alerta cuando quantity - reserved <= min_stock)
+    -- Punto de reposición (alerta cuando quantity - reserved <= min_stock)
     min_stock INTEGER NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
-    -- Capacidad maxima (opcional, para control de capacidad)
+    -- Capacidad máxima (opcional, para control de capacidad)
     max_stock INTEGER CHECK (max_stock IS NULL OR max_stock >= 0),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    -- Un SKU + ubicacion + lote = una fila de stock
+    -- Un SKU + ubicación + lote = una fila de stock
     CONSTRAINT uq_stock_item_unique UNIQUE (model_id, location_id, lot_number)
 );
 
@@ -1175,7 +1175,7 @@ CREATE TRIGGER trigger_stock_items_updated_at
     BEFORE UPDATE ON stock_items
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Indices para consultas de stock
+-- Índices para consultas de stock
 CREATE INDEX idx_stock_items_model ON stock_items(model_id);
 CREATE INDEX idx_stock_items_location ON stock_items(location_id);
 CREATE INDEX idx_stock_items_expiry ON stock_items(expiry_date) WHERE expiry_date IS NOT NULL;
@@ -1207,7 +1207,7 @@ CREATE TABLE stock_movements (
     -- Trazabilidad del origen/destino del movimiento
     reference_type VARCHAR(30),   -- 'purchase_order', 'work_order', 'sale', 'adjustment', 'transfer'
     reference_id UUID,
-    -- Para TRANSFER: ubicacion origen/destino
+    -- Para TRANSFER: ubicación origen/destino
     from_location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
     to_location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
     -- Lote afectado (si el stock_item tiene lote, se hereda; si no, se declara)
@@ -1241,7 +1241,7 @@ COMMENT ON TABLE stock_movements IS
 
 
 -- ============================================================================
--- INDICES Y TRIGGERS ADICIONALES
+-- Índices Y TRIGGERS ADICIONALES
 -- ============================================================================
 
 -- Trigger updated_at para stock_items (ya existe set_updated_at)
@@ -1249,14 +1249,14 @@ COMMENT ON TABLE stock_movements IS
 
 
 -- ============================================================================
--- REGISTRO DE MIGRACIONES
+-- REGISTRO DE Migraciones
 -- ============================================================================
 --
 -- QUE HACE ESTO Y POR QUE NO ES OPCIONAL
 -- -------------------------------------
 -- `init.sql` y una base que ya corrio TODAS las migraciones terminan con el
 -- MISMO esquema. Es el problema que el propio script de migraciones describe:
--- "una base creada desde cero y una base migrada son IDENTICAS".
+-- "una base creada desde cero y una base migrada son Idénticas".
 --
 -- La consecuencia sin este bloque es fea: alguien levanta el proyecto con
 -- `make up` — que es lo que dice el README — y después corre `make migrar`
@@ -1271,7 +1271,7 @@ COMMENT ON TABLE stock_movements IS
 -- Marcando acá qué migraciones ya quedás cubiertos, `make migrar` sobre una
 -- base nueva dice "al día" y solo ofrece las que de verdad faltan.
 --
--- Esto NO es un atajo: una base vieja tiene ESTA tabla vacía, y por eso
+-- Esto NO es un atajo: una base vieja tiene Está tabla vacía, y por eso
 -- `migrar-estado` puede decir honestamente "no hay forma de saber si necesita
 -- migraciones". Con el registro lleno, ya lo sabe.
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -1299,48 +1299,48 @@ VALUES
     -- final de 0010, no el punto de partida. Sin este registro, `make migrar`
     -- sobre una base recien instalada intentaria correr los ALTER de 0010 y
     -- fallarian: `ADD COLUMN movement_type_id` sobre una columna que ya existe.
-    -- Este registro dice "no la necesitas, tu base ya esta en ese estado".
+    -- Este registro dice "no la necesitas, tu base ya está en ese estado".
     ('0010_movement_types_dynamic',  'aplicado por init.sql (instalación nueva)'),
-    -- 0011 y 0012 estan replicadas mas abajo en este mismo archivo, con sus
+    -- 0011 y 0012 están replicadas más abajo en este mismo archivo, con sus
     -- tablas, funciones y vistas. Sin estos registros, `make migrar` sobre una
     -- base recien instalada las volveria a correr: 0011 es idempotente, pero
     -- 0012 hace `CREATE TABLE vendors` a secas y fallaria porque la tabla ya
     -- existe.
     ('0011_extend_catalog_stock_maintenance', 'aplicado por init.sql (instalación nueva)'),
     ('0012_purchasing',           'aplicado por init.sql (instalación nueva)'),
-    -- 0013 (el trigger de auditoria y el `record_id` en TEXT) tambien esta
-    -- replicada mas abajo, al final, cuando todas las tablas ya existen.
+    -- 0013 (el trigger de auditoría y el `record_id` en TEXT) también está
+    -- replicada más abajo, al final, cuando todas las tablas ya existen.
     ('0013_audit_record_id_texto', 'aplicado por init.sql (instalación nueva)'),
-    -- 0014 (QR y codigo de barras por producto), 0015 (jerarquia de
-    -- categorias y ubicaciones, atributos por categoria y busqueda de texto
-    -- completo) y 0016 (incidencias con SLA) estan replicadas mas abajo en
+    -- 0014 (QR y código de barras por producto), 0015 (jerarquía de
+    -- categorías y ubicaciones, atributos por categoría y busqueda de texto
+    -- completo) y 0016 (incidencias con SLA) están replicadas más abajo en
     -- este mismo archivo. Sin estos registros, `make migrar` sobre una base
-    -- recien instalada las volveria a correr. Son idempotentes, asi que no
-    -- rompen nada, pero el registro evita el trabajo de mas.
+    -- recien instalada las volveria a correr. Son idempotentes, así que no
+    -- rompen nada, pero el registro evita el trabajo de más.
     ('0014_productos_codigos', 'aplicado por init.sql (instalación nueva)'),
     ('0015_jerarquia_atributos_busqueda', 'aplicado por init.sql (instalación nueva)'),
     ('0016_incidencias', 'aplicado por init.sql (instalación nueva)'),
-    -- 0017 (SLA en horario laboral, escalamiento y avisos) esta replicada mas
+    -- 0017 (SLA en horario laboral, escalamiento y avisos) está replicada más
     -- abajo, al final del archivo.
     ('0017_sla_operativo', 'aplicado por init.sql (instalación nueva)'),
-    -- 0018 (alertas de stock bajo reales y valor libro) esta replicada mas
+    -- 0018 (alertas de stock bajo reales y valor libro) está replicada más
     -- abajo, con su DDL.
     ('0018_alertas_y_valor_libro', 'aplicado por init.sql (instalación nueva)')
 ON CONFLICT (version) DO NOTHING;
 
 
 -- ============================================================================
--- 0011 — Extender catalogo + stock + mantenimiento (migracion replicada aca)
+-- 0011 — Extender catalogo + stock + mantenimiento (migración replicada acá)
 -- ============================================================================
--- Por que esta replicada: el compose monta UN SOLO archivo en
+-- Por que está replicada: el compose monta UN Solo archivo en
 -- `/docker-entrypoint-initdb.d/`, y los archivos de `migrations/` no corren en
--- una instalacion nueva. Sin esta seccion, una base creada desde cero se
+-- una instalacion nueva. Sin está sección, una base creada desde cero se
 -- quedaba sin `stock_levels`, sin `maintenance_plans` y sin las vistas de
 -- stock: la app arrancaba, pero `/api/stock/summary` y `/api/maintenance`
 -- no tenian de donde leer.
 --
 -- Es idempotente (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`),
--- asi que tambien se puede correr encima de esta base sin romper nada.
+-- así que también se puede correr encima de está base sin romper nada.
 --
 -- CONTENIDO DE 0011_extend_catalog_stock_maintenance.sql
 -- ============================================================================
@@ -1351,20 +1351,20 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS color VARCHAR(20);
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
--- Actualizar categorías existentes con códigos e iconos
+-- Actualizar categorías existentes con códigos e íconos
 --
 -- POR QUE EL CASE MIRA LOS DOS IDIOMAS
 -- ------------------------------------
--- La version original solo contemplaba nombres en INGLES ('Notebook',
+-- La versión original solo contemplaba nombres en INGLES ('Notebook',
 -- 'Networking', 'Server'...). La base real los tiene en ESPANOL ('Impresora',
--- 'Red', 'Servidor', 'Periferico'), asi que caian todas en el `ELSE 'OT'` y el
+-- 'Red', 'Servidor', 'Periferico'), así que caian todas en el `ELSE 'OT'` y el
 -- UPDATE moria con:
 --
 --     duplicate key value violates unique constraint "categories_code_key"
 --
--- porque cuatro categorias distintas recibian el mismo codigo. Se agregan los
--- alias en espanol y el `ELSE` deja de ser una constante: genera un codigo unico
--- a partir del nombre para cualquier categoria que no este en la lista.
+-- porque cuatro categorías distintas recibian el mismo código. Se agregan los
+-- alias en espanol y el `ELSE` deja de ser una constante: genera un código único
+-- a partir del nombre para cualquier categoría que no este en la lista.
 UPDATE categories SET 
     code = CASE
         WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN 'NB'
@@ -1445,16 +1445,16 @@ SET sku = UPPER(brand || '-' || REGEXP_REPLACE(model, '\s+', '', 'g') || '-' || 
 WHERE sku IS NULL;
 
 -- ===========================================================================
--- 2b. CODIGOS DE ETIQUETA POR PRODUCTO (QR + codigo de barras)
+-- 2b. Códigos DE ETIQUETA POR PRODUCTO (QR + código de barras)
 -- ===========================================================================
 -- La etiqueta del PRODUCTO (la caja, el rack, el estante), distinta de la
 -- etiqueta del EQUIPO, que ya existe en `devices.qr_code` (`INV-...`).
 --
--- El QR lleva el prefijo `PRD-` para que se distinga de un codigo de equipo
--- de un vistazo: los dos conviven en el mismo deposito. El codigo de barras
--- es el SKU, que es lo que ya esta escrito en la caja del proveedor.
+-- El QR lleva el prefijo `PRD-` para que se distinga de un código de equipo
+-- de un vistazo: los dos conviven en el mismo depósito. El código de barras
+-- es el SKU, que es lo que ya está escrito en la caja del proveedor.
 --
--- Los dos son UNIQUE: dos productos con el mismo codigo hacen inutil la
+-- Los dos son UNIQUE: dos productos con el mismo código hacen inutil la
 -- etiqueta, porque el escaner no puede saber a cual pertenece.
 ALTER TABLE models ADD COLUMN IF NOT EXISTS qr_code VARCHAR(150) UNIQUE;
 ALTER TABLE models ADD COLUMN IF NOT EXISTS barcode VARCHAR(64) UNIQUE;
@@ -1792,10 +1792,10 @@ ORDER BY mo.brand, mo.model, loc.store_name;
 
 
 -- ============================================================================
--- 0012 — Compras: purchase_orders + purchase_order_lines (replicada aca)
+-- 0012 — Compras: purchase_orders + purchase_order_lines (replicada acá)
 -- ============================================================================
--- Mismo motivo que 0011: sin esta seccion, una base nueva no tenia
--- `vendors`, `purchase_orders` ni `purchase_order_lines`, y toda la pestana
+-- Mismo motivo que 0011: sin está sección, una base nueva no tenia
+-- `vendors`, `purchase_orders` ni `purchase_order_lines`, y toda la pestaña
 -- de Compras devolvia un 500.
 --
 -- CONTENIDO DE 0012_purchasing.sql
@@ -1910,26 +1910,26 @@ CREATE INDEX idx_purchase_orders_created ON purchase_orders(created_at DESC);
 CREATE INDEX idx_purchase_orders_vendor_status ON purchase_orders(vendor_id, status);
 
 -- ============================================================================
--- TRIGGERS DE AUDITORIA (migracion 0013, replicada aca)
+-- TRIGGERS DE Auditoría (migración 0013, replicada acá)
 -- ============================================================================
 --
--- POR QUE ESTAN AL FINAL Y NO AL LADO DE `audit_logs`
+-- POR QUE Están AL FINAL Y NO AL LADO DE `audit_logs`
 -- -----------------------------------------------------
 -- Un trigger necesita que la tabla que audita ya exista. `audit_logs` se crea
 -- al principio del script, pero `devices`, `models`, `vendors` y
--- `purchase_orders` se crean mucho despues: poner los triggers aca daba
+-- `purchase_orders` se crean mucho después: poner los triggers acá daba
 -- "relation does not exist" y mataba el init.sql entero.
 --
--- POR QUE ESTAN ACAS Y NO SOLO EN 0013
+-- POR QUE Están ACAS Y NO Solo EN 0013
 -- -----------------------------------
--- Por la misma razon que `sessions`: el compose monta UN SOLO archivo en
+-- Por la misma razón que `sessions`: el compose monta UN Solo archivo en
 -- `/docker-entrypoint-initdb.d/`, y los archivos de `migrations/` no corren en
 -- una instalacion nueva. Sin esto, una base creada desde cero quedaba SIN
--- auditar: el cambio se hacia pero nadie dejaba rastro.
+-- auditar: el cambió se hacia pero nadie dejaba rastro.
 --
--- POR QUE LA FUNCION ES GENERICA
+-- POR QUE LA Función ES GENERICA
 -- -------------------------------
--- La misma funcion audita las nueve tablas, y no pueden ser la misma: siete
+-- La misma función audita las nueve tablas, y no pueden ser la misma: siete
 -- tienen id entero (devices, models, clients, vendors, categories,
 -- locations, purchase_orders) y dos lo tienen uuid (roles, users). Por eso
 -- `record_id` es TEXT y no UUID: guarda '42' y el texto del uuid, y
@@ -1937,7 +1937,7 @@ CREATE INDEX idx_purchase_orders_vendor_status ON purchase_orders(vendor_id, sta
 --
 -- `v_user_id` sale de `deleted_by` / `updated_by` / `created_by`, columnas que
 -- no todas las tablas tienen. El bloque con EXCEPTION convierte ese error en
--- NULL en vez de tumbar la operacion.
+-- NULL en vez de tumbar la operación.
 CREATE OR REPLACE FUNCTION audit_soft_delete()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -2066,19 +2066,19 @@ CREATE TRIGGER audit_users
     FOR EACH ROW EXECUTE FUNCTION audit_soft_delete();
 
 -- ===========================================================================
--- JERARQUIA DE CATEGORIAS Y UBICACIONES, ATRIBUTOS POR CATEGORIA Y
+-- Jerarquía DE Categorías Y Ubicaciones, ATRIBUTOS POR Categoría Y
 -- BUSQUEDA DE TEXTO COMPLETO
 -- ===========================================================================
--- Esto replica la migracion 0015. `init.sql` es la fuente de verdad de una
--- base nueva: si un requerimiento vive solo en una migracion, una instalacion
--- limpia queda sin el. Ver el comentario de la migracion para el POR QUE de
--- cada decision.
+-- Esto replica la migración 0015. `init.sql` es la fuente de verdad de una
+-- base nueva: si un requerimiento vive solo en una migración, una instalacion
+-- limpia queda sin el. Ver el comentario de la migración para el POR QUE de
+-- cada decisión.
 
--- --- Jerarquia de categorias ------------------------------------------------
+-- --- Jerarquía de categorías ------------------------------------------------
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES categories(id) ON DELETE RESTRICT;
 CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
 
--- --- Jerarquia de ubicaciones -----------------------------------------------
+-- --- Jerarquía de ubicaciones -----------------------------------------------
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES locations(id) ON DELETE RESTRICT;
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS location_type VARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE';
 CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id);
@@ -2088,7 +2088,7 @@ ALTER TABLE locations ADD CONSTRAINT ck_locations_type CHECK (
     location_type IN ('WAREHOUSE', 'AISLE', 'SHELF', 'BIN', 'CLIENT')
 );
 
--- --- Atributos personalizados por categoria ---------------------------------
+-- --- Atributos personalizados por categoría ---------------------------------
 CREATE TABLE IF NOT EXISTS category_attributes (
     id SERIAL PRIMARY KEY,
     category_id INT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -2138,16 +2138,16 @@ ALTER TABLE models ADD COLUMN IF NOT EXISTS search_vector tsvector
 CREATE INDEX IF NOT EXISTS idx_models_search ON models USING GIN (search_vector);
 
 -- ============================================================================
--- 0016 — Incidencias y control de mantenimiento (migracion replicada aca)
+-- 0016 — Incidencias y control de mantenimiento (migración replicada acá)
 -- ============================================================================
--- Por que esta replicada: el compose monta UN SOLO archivo en
+-- Por que está replicada: el compose monta UN Solo archivo en
 -- `/docker-entrypoint-initdb.d/`, y los archivos de `migrations/` no corren en
--- una instalacion nueva. Sin esta seccion, una base creada desde cero queda
--- sin `incidents`, sin las politicas de SLA y sin las vistas de metricas: la
--- app arranca, pero el modulo de incidencias no tiene de donde leer.
+-- una instalacion nueva. Sin está sección, una base creada desde cero queda
+-- sin `incidents`, sin las políticas de SLA y sin las vistas de metricas: la
+-- app arranca, pero el módulo de incidencias no tiene de donde leer.
 --
 -- Es idempotente (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP ... IF EXISTS`),
--- asi que tambien se puede correr encima de esta base sin romper nada.
+-- así que también se puede correr encima de está base sin romper nada.
 --
 -- CONTENIDO DE 0016_incidencias.sql
 -- ============================================================================
@@ -2155,9 +2155,9 @@ CREATE INDEX IF NOT EXISTS idx_models_search ON models USING GIN (search_vector)
 -- Objetivo:
 --   1. `incidents`: el ticket de una incidencia (un equipo que falla, una
 --      falla de red, un cliente sin servicio), con SLA, historial y cierre.
---   2. `incident_events`: la linea de tiempo INMUTABLE de cada incidencia.
+--   2. `incident_events`: la línea de tiempo INMUTABLE de cada incidencia.
 --   3. `incident_sla_policies`: los tiempos de respuesta y resolucion por
---      severidad. Son DATO, no codigo: el SLA cambia con el contrato, y no
+--      severidad. Son DATO, no código: el SLA cambia con el contrato, y no
 --      puede requerir un deploy.
 --   4. Vincular el correctivo (`repairs`) y el preventivo (`maintenance`) con
 --      la incidencia que los origina.
@@ -2169,31 +2169,31 @@ CREATE INDEX IF NOT EXISTS idx_models_search ON models USING GIN (search_vector)
 --
 --   - INCIDENCIA: el REPORTE. "Este equipo no prende", "el cliente no tiene
 --     internet". Tiene severidad, responsable, SLA y un historial. Es la
---     unidad de trabajo del dia a dia.
---   - MANTENIMIENTO: la EJECUCION tecnica. Preventivo (un plan que vence) o
+--     unidad de trabajo del día a día.
+--   - MANTENIMIENTO: la EJECUCION técnica. Preventivo (un plan que vence) o
 --     correctivo (arreglar lo que reporto una incidencia). Ya existian
 --     `maintenance_plans` y `maintenance`; lo que faltaba era el vinculo con
 --     la incidencia y las metricas.
 --
--- POR QUE UN CODIGO LEGIBLE Y NO UN UUID
+-- POR QUE UN Código LEGIBLE Y NO UN UUID
 -- --------------------------------------
 -- `incidents.id` es un UUID (estable, sin filtrar). `incidents.code` es
--- `INC-2026-000001`: es lo que el operador lee por telefono, lo que va en la
+-- `INC-2026-000001`: es lo que el operador lee por teléfono, lo que va en la
 -- orden de trabajo y lo que se busca en el reporte. Un UUID en unticket de
--- soporte es un numero que nadie puede dictar por telefono.
+-- soporte es un número que nadie puede dictar por teléfono.
 --
--- EL NUMERO ES POR ANIO
+-- EL Número ES POR ANIO
 -- ---------------------
 -- El correlativo se reinicia cada ano: `INC-2026-000001` vuelve a ser el
--- primer caso del 2027. Un numero global creciente por año (el 000001 de 2027
--- despues del 000900 de 2026) obliga a leer el año para saber la antiguedad.
+-- primer caso del 2027. Un número global creciente por año (el 000001 de 2027
+-- después del 000900 de 2026) obliga a leer el año para saber la antiguedad.
 --
 -- POR QUE `client_ref` ES UNIQUE Y NULL
 -- ---------------------------------------
 -- Es la idempotencia: la app (una PWA, con red mala) manda la misma alta dos
 -- veces y el backend tiene que devolver LA MISMA incidencia, no crear dos.
 -- `NULL` se puede repetir todas las veces que haga falta: en Postgres,
--- `NULL` nunca choca con `NULL` en un indice unico.
+-- `NULL` nunca choca con `NULL` en un índice único.
 -- ===========================================================================
 
 -- ===========================================================================
@@ -2201,9 +2201,9 @@ CREATE INDEX IF NOT EXISTS idx_models_search ON models USING GIN (search_vector)
 -- ===========================================================================
 --
 -- ENUM y no VARCHAR con CHECK: el ENUM no acepta un valor que no este en la
--- lista, y Postgres lo garantiza sin que ningun endpoint tenga que validar.
--- El orden del ENUM es el de la severidad: `S1` es mas grave que `S4`, y un
--- `ORDER BY severity` ordena de mas grave a menos.
+-- lista, y Postgres lo garantiza sin que ningún endpoint tenga que validar.
+-- El orden del ENUM es el de la severidad: `S1` es más grave que `S4`, y un
+-- `ORDER BY severity` ordena de más grave a menos.
 
 DO $$
 BEGIN
@@ -2215,9 +2215,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_status') THEN
         -- ESTADO: el ciclo de vida de la incidencia.
         --   OPEN       -> reportada, sin tocar
-        --   IN_PROGRESS-> alguien la esta trabajando
+        --   IN_PROGRESS-> alguien la está trabajando
         --   WAITING    -> esperando una parte (repuesto, aprobacion, el cliente)
-        --   RESOLVED   -> el problema esta resuelto, falta cerrar
+        --   RESOLVED   -> el problema está resuelto, falta cerrar
         --   CLOSED     -> cerrada y verificada
         --   CANCELLED  -> no era una incidencia (duplicado, error de uso)
         CREATE TYPE incident_status AS ENUM (
@@ -2226,7 +2226,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_category') THEN
-        -- CATEGORIA: que tipo de problema es. Es lo que permite agrupar para
+        -- Categoría: que tipo de problema es. Es lo que permite agrupar para
         -- detectar patrones ("siempre falla la misma cosa").
         CREATE TYPE incident_category AS ENUM (
             'HARDWARE', 'SOFTWARE', 'NETWORK', 'PERIPHERAL',
@@ -2237,16 +2237,16 @@ END
 $$;
 
 -- ===========================================================================
--- 2. POLITICAS DE SLA
+-- 2. Políticas DE SLA
 -- ===========================================================================
 --
--- El SLA es un COMPROMISO con el cliente, no una constante del codigo: los
+-- El SLA es un COMPROMISO con el cliente, no una constante del código: los
 -- tiempos cambian por contrato y por cliente. Por eso es una tabla, con sus
 -- valores sembrados.
 --
--- `business_hours_only` esta preparado para el horario laboral, pero la
--- calculadora de la aplicacion TODAVIA no lo aplica (ver la nota del trigger
--- mas abajo): el campo existe para que la decision quede tomada y no para
+-- `business_hours_only` está preparado para el horario laboral, pero la
+-- calculadora de la aplicación Todavía no lo aplica (ver la nota del trigger
+-- más abajo): el campo existe para que la decisión quede tomada y no para
 -- cambiar el calculo a escondidas.
 
 CREATE TABLE IF NOT EXISTS incident_sla_policies (
@@ -2274,13 +2274,13 @@ ON CONFLICT (severity) DO UPDATE SET
     updated_at = NOW();
 
 -- ===========================================================================
--- 3. CONTADOR DE CODIGOS (correlativo por ano)
+-- 3. CONTADOR DE Códigos (correlativo por ano)
 -- ===========================================================================
 --
 -- Una tabla con una fila por ano y un UPSERT atomico. Es el patron clasico
 -- del correlativo por ejercicio: el `ON CONFLICT DO UPDATE` con `RETURNING`
--- devuelve el numero YA INCREMENTADO, y el UPSERT es atomico, asi que dos
--- altas simultaneas no pueden obtener el mismo numero.
+-- devuelve el número YA INCREMENTADO, y el UPSERT es atomico, así que dos
+-- altas simultaneas no pueden obtener el mismo número.
 
 CREATE TABLE IF NOT EXISTS incident_code_counters (
     year INT PRIMARY KEY,
@@ -2309,7 +2309,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS incidents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    -- El codigo legible. UNIQUE: dos incidencias no pueden llamarse igual.
+    -- El código legible. UNIQUE: dos incidencias no pueden llamarse igual.
     code VARCHAR(24) NOT NULL UNIQUE,
 
     -- Idempotencia del alta (la app es una PWA con red mala). NULL se
@@ -2336,9 +2336,9 @@ CREATE TABLE IF NOT EXISTS incidents (
     reported_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     assigned_to UUID REFERENCES users(id) ON DELETE RESTRICT,
 
-    -- SLA: los plazos se CALCULAN al crear, desde la politica de la
-    -- severidad. Se guardan, no se calculan al vuelo: una politica que
-    -- cambia despues no puede reescribir el pasado.
+    -- SLA: los plazos se CALCULAN al crear, desde la política de la
+    -- severidad. Se guardan, no se calculan al vuelo: una política que
+    -- cambia después no puede reescribir el pasado.
     response_due_at TIMESTAMPTZ NOT NULL,
     resolution_due_at TIMESTAMPTZ NOT NULL,
     first_response_at TIMESTAMPTZ,
@@ -2352,8 +2352,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     cost NUMERIC(12, 2) CHECK (cost >= 0),
 
     -- BLOQUEO OPTIMISTA
-    -- Dos operadores pueden editar la misma incidencia (el del deposito y el
-    -- de soporte). Con `version`, el segundo que guarda recibe un conflicto
+    -- Dos operadores pueden editar la misma incidencia (el del depósito y el
+    -- de soporte). Con `versión`, el segundo que guarda recibe un conflicto
     -- explicito en vez de pisar el trabajo del primero.
     version INT NOT NULL DEFAULT 1,
 
@@ -2362,8 +2362,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     deleted_at TIMESTAMPTZ
 );
 
--- Un titulo de una palabra no es un titulo: es un error de tipeo, y una
--- incidencia sin descripcion no se puede trabajar.
+-- Un título de una palabra no es un título: es un error de tipeo, y una
+-- incidencia sin descripción no se puede trabajar.
 ALTER TABLE incidents DROP CONSTRAINT IF EXISTS ck_incidents_title;
 ALTER TABLE incidents ADD CONSTRAINT ck_incidents_title
     CHECK (length(btrim(title)) >= 5 AND length(title) <= 200);
@@ -2383,16 +2383,16 @@ ALTER TABLE incidents ADD CONSTRAINT ck_incidents_tiempos CHECK (
 );
 
 -- El plazo de resolucion no puede ser anterior al de respuesta: es
--- fisicamente imposible responder despues de resolver.
+-- fisicamente imposible responder después de resolver.
 ALTER TABLE incidents DROP CONSTRAINT IF EXISTS ck_incidents_sla;
 ALTER TABLE incidents ADD CONSTRAINT ck_incidents_sla
     CHECK (resolution_due_at >= response_due_at);
 
 -- ===========================================================================
--- 5. LINEA DE TIEMPO (append-only)
+-- 5. Línea DE TIEMPO (append-only)
 -- ===========================================================================
 --
--- TODO lo que pasa en una incidencia queda aca: el alta, cada cambio de
+-- TODO lo que pasa en una incidencia queda acá: el alta, cada cambió de
 -- estado, las asignaciones, los cambios de severidad y los comentarios.
 --
 -- UNA TABLA Y NO DOS
@@ -2405,7 +2405,7 @@ ALTER TABLE incidents ADD CONSTRAINT ck_incidents_sla
 -- ---------
 -- Un trigger prohibe UPDATE y DELETE. El historial de un caso es la prueba de
 -- que paso: si se puede editar, no es una prueba. (En una app PWA, un
--- reintento con el mismo `client_ref` no debe duplicar la linea: por eso el
+-- reintento con el mismo `client_ref` no debe duplicar la línea: por eso el
 -- UNIQUE de abajo.)
 
 CREATE TABLE IF NOT EXISTS incident_events (
@@ -2420,12 +2420,12 @@ CREATE TABLE IF NOT EXISTS incident_events (
     to_status incident_status,
 
     -- Quien lo hizo. `ON DELETE SET NULL`: si se borra el usuario, el
-    -- historial sigue siendo valido (dice "lo hizo alguien que ya no esta").
+    -- historial sigue siendo válido (dice "lo hizo alguien que ya no está").
     actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
 
     note TEXT,
 
-    -- Datos extra del evento (cambio de severidad, de responsable, costo).
+    -- Datos extra del evento (cambió de severidad, de responsable, costo).
     payload JSONB,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -2459,18 +2459,18 @@ CREATE TRIGGER trigger_incident_event_inmutable
     FOR EACH ROW EXECUTE FUNCTION incident_event_inmutable();
 
 -- ===========================================================================
--- 6. SLA AL CREAR Y TRANSICIONES VALIDADAS
+-- 6. SLA AL CREAR Y Transiciones VALIDADAS
 -- ===========================================================================
 
--- El SLA se calcula al crear, desde la politica de la severidad.
+-- El SLA se calcula al crear, desde la política de la severidad.
 --
--- POR QUE UN TRIGGER Y NO LA APLICACION
+-- POR QUE UN TRIGGER Y NO LA Aplicación
 -- ------------------------------------
--- Si el calculo estuviera en el codigo, cada cliente que llega con un SLA
+-- Si el calculo estuviera en el código, cada cliente que llega con un SLA
 -- distinto necesitaria un deploy, y dos caminos distintos de calcular el
--- mismo plazo (el del trigger y el del reporte) podrian dar numeros
+-- mismo plazo (el del trigger y el del reporte) podrian dar números
 -- diferentes. Con el trigger, el plazo es un DATO: se guarda, y todos los
--- reportes leen el mismo numero.
+-- reportes leen el mismo número.
 CREATE OR REPLACE FUNCTION incident_calcula_sla()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -2483,7 +2483,7 @@ BEGIN
      WHERE severity = NEW.severity AND is_active = TRUE;
 
     IF v_response IS NULL THEN
-        -- Sin politica para esa severidad, el alta tiene que fallar: es
+        -- Sin política para esa severidad, el alta tiene que fallar: es
         -- preferible un error claro a una incidencia sin plazo de respuesta.
         RAISE EXCEPTION
             'No hay politica de SLA activa para la severidad %', NEW.severity
@@ -2504,7 +2504,7 @@ CREATE TRIGGER trigger_incident_calcula_sla
 
 -- La maquina de estados de la incidencia.
 --
--- LAS TRANSICIONES PERMITIDAS
+-- LAS Transiciones PERMITIDAS
 -- ---------------------------
 --   OPEN        -> IN_PROGRESS | WAITING | CANCELLED
 --   IN_PROGRESS -> WAITING | RESOLVED | CANCELLED
@@ -2513,19 +2513,19 @@ CREATE TRIGGER trigger_incident_calcula_sla
 --   CLOSED      -> (terminal)
 --   CANCELLED   -> (terminal)
 --
--- POR QUE EN LA BASE Y NO EN EL CODIGO
+-- POR QUE EN LA BASE Y NO EN EL Código
 -- -------------------------------------
 -- La maquina de estados de los movimientos ya vive en un trigger de Postgres,
--- y la razon es la misma: si la validacion esta en el codigo, el que
--- escribe en la base (un script, una migracion, un `psql`) la esquiva. Con
--- el trigger, una transicion imposible es un error de la BASE.
+-- y la razón es la misma: si la validación está en el código, el que
+-- escribe en la base (un script, una migración, un `psql`) la esquiva. Con
+-- el trigger, una transición imposible es un error de la BASE.
 --
--- ADEMAS, EL TRIGGER ESCRIBE EL EVENTO
+-- Además, EL TRIGGER ESCRIBE EL EVENTO
 -- ------------------------------------
--- El cambio de estado y la linea de tiempo se escriben en la misma
+-- El cambió de estado y la línea de tiempo se escriben en la misma
 -- transaccion. Si fueran dos operaciones, un error entre ellas dejaria una
--- incidencia cambiada de estado SIN su evento en el historial: el historico
--- mentiria, que es lo unico que no puede pasar.
+-- incidencia cambiada de estado SIN su evento en el historial: el histórico
+-- mentiria, que es lo único que no puede pasar.
 CREATE OR REPLACE FUNCTION incident_transicion_valida()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -2535,7 +2535,7 @@ DECLARE
 BEGIN
     -- QUIEN Y POR QUE
     --
-    -- El trigger no sabe quien esta operando: lo lee del CONTEXTO de la
+    -- El trigger no sabe quien está operando: lo lee del CONTEXTO de la
     -- transaccion, que la API setea con `SET LOCAL app.actor_id = ...`.
     --
     -- Por que no desde la app: la columna `actor_id` lo podria mandar
@@ -2543,13 +2543,13 @@ BEGIN
     -- que decir QUIEN lo toco, no lo que el cliente dijo que lo toco. El
     -- contexto de la transaccion lo setea el servidor, no el cliente.
     --
-    -- `current_setting(..., true)` con el `true` devuelve NULL si no esta
+    -- `current_setting(..., true)` con el `true` devuelve NULL si no está
     -- seteado, en vez de tirar el error " unrecognized configuration parameter".
     v_actor := NULLIF(current_setting('app.actor_id', true), '')::UUID;
     v_nota := NULLIF(current_setting('app.actor_note', true), '');
 
     IF NEW.status = OLD.status THEN
-        -- Mismo estado: no es una transicion. Se deja pasar (por ejemplo, un
+        -- Mismo estado: no es una transición. Se deja pasar (por ejemplo, un
         -- guardado que no cambia el estado) y no se escribe evento.
         NEW.updated_at := NOW();
         RETURN NEW;
@@ -2607,26 +2607,26 @@ CREATE TRIGGER trigger_incident_transicion
     BEFORE UPDATE OF status ON incidents
     FOR EACH ROW EXECUTE FUNCTION incident_transicion_valida();
 
--- `updated_at` automatico.
+-- `updated_at` automático.
 DROP TRIGGER IF EXISTS trigger_incidents_updated_at ON incidents;
 CREATE TRIGGER trigger_incidents_updated_at
     BEFORE UPDATE ON incidents
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Auditoria de la tabla (el mismo disparador que el resto del sistema).
+-- Auditoría de la tabla (el mismo disparador que el resto del sistema).
 DROP TRIGGER IF EXISTS audit_incidents ON incidents;
 CREATE TRIGGER audit_incidents
     AFTER INSERT OR DELETE OR UPDATE ON incidents
     FOR EACH ROW EXECUTE FUNCTION audit_soft_delete();
 
 -- ===========================================================================
--- 7. INDICES
+-- 7. Índices
 -- ===========================================================================
 --
--- Los indices que importan son los de las consultas que se hacen TODAS LAS
+-- Los índices que importan son los de las consultas que se hacen TODAS LAS
 -- VECES: las abiertas, las vencidas, las asignadas a mi, y las del equipo.
 
--- Las abiertas, ordenadas por severidad (la mas grave primero).
+-- Las abiertas, ordenadas por severidad (la más grave primero).
 CREATE INDEX IF NOT EXISTS idx_incidents_abiertas
     ON incidents(severity, created_at DESC)
     WHERE deleted_at IS NULL AND status NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED');
@@ -2646,24 +2646,24 @@ CREATE INDEX IF NOT EXISTS idx_incidents_equipo
     ON incidents(device_id, created_at DESC)
     WHERE deleted_at IS NULL AND device_id IS NOT NULL;
 
--- Busqueda por texto (el titulo y la descripcion).
+-- Busqueda por texto (el título y la descripción).
 CREATE INDEX IF NOT EXISTS idx_incidents_titulo
     ON incidents USING GIN (to_tsvector('spanish', coalesce(title, '') || ' ' || coalesce(description, '')));
 
 -- ===========================================================================
--- 8. VINCULO CON EL MANTENIMIENTO Y LAS REPARACIONES
+-- 8. VINCULO CON EL MANTENIMIENTO Y LAS Reparaciones
 -- ===========================================================================
 --
--- La incidencia es el REPORTE; la reparacion y el mantenimiento son la
--- EJECUCION. El vinculo va desde la ejecucion hacia la incidencia: asi una
--- fila de `repairs` no tiene que conocer la tabla de incidencias mas que por
+-- La incidencia es el REPORTE; la reparación y el mantenimiento son la
+-- EJECUCION. El vinculo va desde la ejecucion hacia la incidencia: así una
+-- fila de `repairs` no tiene que conocer la tabla de incidencias más que por
 -- su id.
 --
 -- `ON DELETE SET NULL`: si la incidencia se borra (borrado logico, pero
--- puede pasar), la reparacion queda viva. Una orden de trabajo no puede
+-- puede pasar), la reparación queda viva. Una orden de trabajo no puede
 -- desaparecer porque al ticket le dio por borrado.
 
--- Primero la columna, despues la FK: al reves, la FK no tiene a que
+-- Primero la columna, después la FK: al reves, la FK no tiene a que
 -- apuntar y la sentencia falla.
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS incident_id UUID;
 ALTER TABLE repairs DROP CONSTRAINT IF EXISTS fk_repairs_incident;
@@ -2684,8 +2684,8 @@ CREATE INDEX IF NOT EXISTS idx_maintenance_incident ON maintenance(incident_id) 
 
 -- El SLA en curso, con los plazos que faltan y si ya se violaron.
 --
--- `min(0, ...)` para que "restante" sea NEGATIVO cuando ya se paso: asi el
--- tablero puede ordenar por lo mas vencido sin tener que comparar con NOW()
+-- `min(0, ...)` para que "restante" sea NEGATIVO cuando ya se paso: así el
+-- tablero puede ordenar por lo más vencido sin tener que comparar con NOW()
 -- en cada fila.
 CREATE OR REPLACE VIEW v_incident_sla AS
 SELECT
@@ -2713,13 +2713,13 @@ FROM incidents i
 WHERE i.deleted_at IS NULL;
 
 -- La salud del mantenimiento por modelo: MTBF (tiempo medio entre fallas),
--- MTTR (tiempo medio de reparacion), y el cumplimiento del plan preventivo.
+-- MTTR (tiempo medio de reparación), y el cumplimiento del plan preventivo.
 --
--- MTBF: el promedio de los dias entre dos incidencias del mismo modelo. Es el
--- numero que dice "cada cuanto se rompe".
+-- MTBF: el promedio de los días entre dos incidencias del mismo modelo. Es el
+-- número que dice "cada cuanto se rompe".
 --
 -- MTTR: el promedio de las horas entre que se reporto y se resolvio. Es el
--- numero que dice "cuanto tarda el taller".
+-- número que dice "cuanto tarda el taller".
 CREATE OR REPLACE VIEW v_maintenance_metrics AS
 SELECT
     m.id AS model_id,
@@ -2745,7 +2745,7 @@ LEFT JOIN (
     -- Fallas por modelo, con el tiempo medio entre ellas.
     --
     -- El `LAG` va en un subquery y el `AVG` por FUERA: Postgres no permite
-    -- una funcion de ventana dentro de un agregado ("aggregate function calls
+    -- una función de ventana dentro de un agregado ("aggregate function calls
     -- cannot contain window function calls"). Por eso son dos niveles.
     SELECT
         d.model_id,
@@ -2793,16 +2793,16 @@ LEFT JOIN (
 WHERE m.deleted_at IS NULL;
 
 -- ============================================================================
--- 0017 — SLA operable: horario laboral, escalamiento y avisos (replicada aca)
+-- 0017 — SLA operable: horario laboral, escalamiento y avisos (replicada acá)
 -- ============================================================================
--- Por que esta replicada: el compose monta UN SOLO archivo en
+-- Por que está replicada: el compose monta UN Solo archivo en
 -- `/docker-entrypoint-initdb.d/`, y los archivos de `migrations/` no corren en
--- una instalacion nueva. Sin esta seccion, una base creada desde cero queda
--- sin calendario laboral, sin politicas de escalamiento y sin la bandeja de
+-- una instalacion nueva. Sin está sección, una base creada desde cero queda
+-- sin calendario laboral, sin políticas de escalamiento y sin la bandeja de
 -- avisos: el SLA se calcularia en 24 horas y no habria a quien avisarle.
 --
 -- Es idempotente (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP ... IF EXISTS`),
--- asi que tambien se puede correr encima de esta base sin romper nada.
+-- así que también se puede correr encima de está base sin romper nada.
 --
 -- CONTENIDO DE 0017_sla_operativo.sql
 -- ============================================================================
@@ -2816,22 +2816,22 @@ WHERE m.deleted_at IS NULL;
 -- QUE ES "HORARIO LABORAL" Y POR QUE NO ES 24H
 -- ----------------------------------------------
 -- Un SLA de 4 horas para una S1 (sistema caido) a las 3 de la madrugada
--- significa "a las 7 de la manana". Con 24h, significa "a las 3 de la
+-- significa "a las 7 de la mañana". Con 24h, significa "a las 3 de la
 -- madrugada", cuando no hay nadie. El cliente que firma el SLA cuenta horas
 -- de trabajo, y el sistema tiene que contar lo mismo.
 --
 -- LO QUE FALTA Y NO SE INVENTA
 -- ------------------------------
 -- Los FERIADOS. Un calendario de feriados de un pais es un dato que cambia
--- todos los años y que nadie mantiene en un archivo de configuracion. Por eso
+-- todos los años y que nadie mantiene en un archivo de configuración. Por eso
 -- hay una lista `holidays` editable: lo que no este cargado, el sistema no lo
 -- sabe. Es una limitacion CONOCIDA y visible, no un olvido.
 --
 -- LA ZONA HORARIA
 -- ---------------
 -- IANA (`America/Argentina/Buenos_Aires`), guardada en la base y no en el
--- codigo: el cliente puede estar en otro pais, y la regla del SLA es de el.
--- Postgres trae la base de zonas horarias, asi que el calculo se hace con
+-- código: el cliente puede estar en otro pais, y la regla del SLA es de el.
+-- Postgres trae la base de zonas horarias, así que el calculo se hace con
 -- `AT TIME ZONE`, que respeta la hora de verano.
 -- ===========================================================================
 
@@ -2839,17 +2839,17 @@ WHERE m.deleted_at IS NULL;
 -- 1. CALENDARIO LABORAL
 -- ===========================================================================
 --
--- Una sola fila (id = 1): la configuracion del negocio. Si un dia hacen
--- falta varias zonas, la tabla esta preparada para crecer por `client_id`.
+-- Una sola fila (id = 1): la configuración del negocio. Si un día hacen
+-- falta varias zonas, la tabla está preparada para crecer por `client_id`.
 
 CREATE TABLE IF NOT EXISTS business_calendar_settings (
     id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     -- Zona horaria IANA. Postgres la conoce: `AT TIME ZONE` la usa.
     timezone VARCHAR(64) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
-    -- Ventana de trabajo de cada dia laborable.
+    -- Ventana de trabajo de cada día laborable.
     day_start TIME NOT NULL DEFAULT '09:00',
     day_end TIME NOT NULL DEFAULT '18:00',
-    -- Dias laborables: 0 = domingo, 6 = sabado. Postgres cuenta asi.
+    -- Días laborables: 0 = domingo, 6 = sabado. Postgres cuenta así.
     workdays SMALLINT[] NOT NULL DEFAULT '{1,2,3,4,5}',
     -- Feriados. Los que no esten cargados, el sistema no los sabe.
     holidays DATE[] NOT NULL DEFAULT '{}',
@@ -2862,19 +2862,19 @@ INSERT INTO business_calendar_settings (id) VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
 -- ===========================================================================
--- 2. POLITICAS DE ESCALAMIENTO
+-- 2. Políticas DE ESCALAMIENTO
 -- ===========================================================================
 --
 -- Que pasa cuando un caso se pasa de plazo sin respuesta.
 --
 -- `escalate_to_role` y `escalate_to_user` son ALTERNATIVAS: si hay un
 -- responsable fijo, se escala a el; si no, al primer ADMIN (o al rol que se
--- indique). La eleccion es del dato, no del codigo: "escalar a soporte" o
--- "escalar al gerente de turno" es una decision de cada cliente.
+-- indique). La eleccion es del dato, no del código: "escalar a soporte" o
+-- "escalar al gerente de turno" es una decisión de cada cliente.
 
 CREATE TABLE IF NOT EXISTS incident_escalation_policies (
     severity incident_severity PRIMARY KEY,
-    -- Minutos despues del plazo de RESPUESTA en los que se escala.
+    -- Minutos después del plazo de RESPUESTA en los que se escala.
     -- 0 significa "escala en cuanto se pasa el plazo": es lo que corresponde
     -- a una S1 (sistema caido), donde esperar 15 minutos para avisarle a
     -- alguien es esperar 15 minutos con el cliente sin servicio.
@@ -2882,7 +2882,7 @@ CREATE TABLE IF NOT EXISTS incident_escalation_policies (
     escalate_to_role VARCHAR(40),
     escalate_to_user UUID REFERENCES users(id) ON DELETE SET NULL,
     -- Cuantas veces se puede escalar el mismo caso. Un caso que se escala
-    -- tres veces no esta escalando: esta en un loop.
+    -- tres veces no está escalando: está en un loop.
     max_escalations INT NOT NULL DEFAULT 1 CHECK (max_escalations >= 0),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -2900,7 +2900,7 @@ ON CONFLICT (severity) DO UPDATE SET
     updated_at = NOW();
 
 -- ===========================================================================
--- 3. NOTIFICACIONES
+-- 3. Notificaciones
 -- ===========================================================================
 --
 -- El aviso que le llega al operador. Es una TABLA y no un `avisar()` del
@@ -2909,7 +2909,7 @@ ON CONFLICT (severity) DO UPDATE SET
 -- dio y cuando.
 --
 -- `user_id` es el destinatario. NULL significa "para todos los que pueden
--- ver el caso" (un aviso general de la operacion).
+-- ver el caso" (un aviso general de la operación).
 --
 -- `dedup_key` es la IDEMPOTENCIA: el mismo aviso no se duplica. Sin eso, un
 -- barrido cada minuto crearia 60 avisos por caso y la bandeja seria un
@@ -2941,15 +2941,15 @@ CREATE INDEX IF NOT EXISTS idx_incident_notifications_incident
 -- 4. EL SLA EN HORARIO LABORAL
 -- ===========================================================================
 --
--- La funcion que suma "minutos habiles" a un instante.
+-- La función que suma "minutos habiles" a un instante.
 --
 -- EL ALGORITMO
 -- ------------
--- Dia por dia, no minuto por minuto: se calcula la ventana laboral de cada
--- dia (de `day_start` a `day_end`), se le resta al remanente lo que entre,
+-- Día por día, no minuto por minuto: se calcula la ventana laboral de cada
+-- día (de `day_start` a `day_end`), se le resta al remanente lo que entre,
 -- y cuando el remanente entra en una ventana, el plazo cae adentro de ella.
 --
--- `FOR i IN 1..366` es el tope: un remanente de mas de un ano de trabajo no
+-- `FOR i IN 1..366` es el tope: un remanente de más de un ano de trabajo no
 -- se calcula (y sale por el fallback de abajo).
 CREATE OR REPLACE FUNCTION incident_agrega_minutos_habiles(
     p_desde TIMESTAMPTZ,
@@ -2994,8 +2994,8 @@ BEGIN
             v_inicio := (v_fecha + v_day_start) AT TIME ZONE v_tz;
             v_fin := (v_fecha + v_day_end) AT TIME ZONE v_tz;
 
-            -- Si todavia no empezo la ventana del dia, el cursor arranca en su
-            -- inicio: un reporte de las 3 de la manana no cuenta las horas
+            -- Si todavía no empezo la ventana del día, el cursor arranca en su
+            -- inicio: un reporte de las 3 de la mañana no cuenta las horas
             -- hasta las 9.
             IF v_cursor < v_inicio THEN
                 v_cursor := v_inicio;
@@ -3013,19 +3013,19 @@ BEGIN
         END IF;
 
         v_fecha := v_fecha + 1;
-        -- El cursor arranca en la ventana del dia siguiente; el `IF` de arriba
+        -- El cursor arranca en la ventana del día siguiente; el `IF` de arriba
         -- lo ajusta si hace falta.
         v_cursor := (v_fecha + v_day_start) AT TIME ZONE v_tz;
     END LOOP;
 
-    -- Mas de un ano de horario laboral: no se calcula, se cae al reloj. Es
+    -- Más de un ano de horario laboral: no se calcula, se cae al reloj. Es
     -- un caso patologico (un SLA de dos años), y es preferible un plazo
     -- aproximado a un error.
     RETURN p_desde + make_interval(mins => p_minutos);
 END;
 $$ LANGUAGE plpgsql;
 
--- El trigger del SLA ahora usa la funcion.
+-- El trigger del SLA ahora usa la función.
 CREATE OR REPLACE FUNCTION incident_calcula_sla()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -3039,7 +3039,7 @@ BEGIN
      WHERE severity = NEW.severity AND is_active = TRUE;
 
     IF v_response IS NULL THEN
-        -- Sin politica para esa severidad, el alta tiene que fallar: es
+        -- Sin política para esa severidad, el alta tiene que fallar: es
         -- preferible un error claro a una incidencia sin plazo de respuesta.
         RAISE EXCEPTION
             'No hay politica de SLA activa para la severidad %', NEW.severity
@@ -3061,13 +3061,13 @@ $$ LANGUAGE plpgsql;
 -- 5. EL EVENTO DE ALTA, LO ESCRIBE LA BASE
 -- ===========================================================================
 --
--- El alta se registra en la linea de tiempo con un trigger AFTER INSERT, y no
+-- El alta se registra en la línea de tiempo con un trigger AFTER INSERT, y no
 -- desde la API.
 --
 -- POR QUE EN LA BASE Y NO EN LA API
 -- ---------------------------------
--- Por la misma razon que los cambios de estado: si el evento lo escribe la
--- API, una fila creada por otro camino (un script, una migracion, un `psql`)
+-- Por la misma razón que los cambios de estado: si el evento lo escribe la
+-- API, una fila creada por otro camino (un script, una migración, un `psql`)
 -- queda SIN su evento de alta, y el historial queda incompleto sin que nadie
 -- lo note. Un historial incompleto es peor que ninguno: parece confiable.
 --
@@ -3093,7 +3093,7 @@ CREATE TRIGGER trigger_incident_registra_creacion
     FOR EACH ROW EXECUTE FUNCTION incident_registra_creacion();
 
 -- ===========================================================================
--- 6. INDICES
+-- 6. Índices
 -- ===========================================================================
 
 -- Los casos que hay que mirar en el barrido: sin respuesta, con el plazo
@@ -3105,7 +3105,7 @@ CREATE INDEX IF NOT EXISTS idx_incidents_sla_barrido
       AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING');
 
 -- ===========================================================================
--- 0018 - ALERTAS DE STOCK BAJO REALES Y VALOR LIBRO (migracion replicada aca)
+-- 0018 - ALERTAS DE STOCK BAJO REALES Y VALOR LIBRO (migración replicada acá)
 -- ===========================================================================
 --
 -- CONTENIDO DE 0018_alertas_y_valor_libro.sql

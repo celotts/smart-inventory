@@ -2,7 +2,7 @@
  * Vista de escaneo - Rediseñada para mejor UX
  *
  * PRINCIPIOS DE DISEÑO (5 puntos implementados):
- * 1. CÁMARA PROTAGONISTA: Ocupa ~70% viewport, es la acción principal
+ * 1. CÁMARA PROTAGONISTA: Ocupa ~70% viewport, es la accion principal
  * 2. MANUAL COMO FALLBACK: Segmented control [Escanear] [Manual], manual colapsable
  * 3. AUTO-FOCO CÁMARA: Se enciende al entrar a la vista (si hay permiso)
  * 4. ENTER = PROCESAR: En input manual, Enter dispara igual que escanear
@@ -10,9 +10,9 @@
  *
  * FUNCIONALIDAD PRESERVADA:
  * - Idempotencia con client_scan_id (UUID)
- * - Tipos de movimiento dinámicos desde /api/movement-types
+ * - Tipos de movimiento dinamicos desde /api/movement-types
  * - BarcodeDetector nativo (Chrome/Safari/Edge), fallback manual
- * - Geolocalización opcional
+ * - Geolocalizacion opcional
  * - Ficha rica: ubicación, historial, días instalado
  * - Estados: idle → escaneando → procesando → éxito/error
  * - Accesibilidad: targets 48px+, labels ARIA, focus visible, alto contraste
@@ -26,7 +26,7 @@ import { avisar } from '../avisos.js';
 import { conTooltip } from '../tooltip.js';
 import { descargarCsv } from '../descargas.js';
 
-/** Tipos de movimiento - se cargan dinámicamente desde /api/movement-types */
+/** Tipos de movimiento - se cargan dinamicamente desde /api/movement-types */
 let TIPOS_MOVIMIENTO = [];
 
 export function vistaEscanear({ alAbrirDispositivo }) {
@@ -48,7 +48,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let vacioPista = null;
   let timerSinLectura = null;
   let inputCodigo = null;
-  // La lista del recibo de escaneos de la sesion.
+  // La lista del recibo de escaneos de la sesión.
   let listaRecibo = null;
   // El chispoteo de "registrando…".
   let indicadorRegistro = null;
@@ -58,7 +58,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let segmentoActivo = 'escanear'; // 'escanear' | 'manual'
 
   // ============================================================
-  // CONSTRUCCIÓN DE LA UI
+  // CONSTRUCCION DE LA UI
   // ============================================================
 
   // ----- 1. Tarjeta: Tipo de movimiento (chips) -----
@@ -74,33 +74,33 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     crear('header', {
       clase: 'tarjeta__header',
       // Los hijos van DENTRO de las opciones. `crear(etiqueta, opciones)` no
-      // tiene un tercer parametro: pasarlos aparte los descarta en silencio y
-      // el header sale vacio, sin titulo.
+      // tiene un tercer parámetro: pasarlos aparte los descarta en silencio y
+      // el header sale vacío, sin título.
       hijos: [
-        crear('h2', { clase: 'tarjeta__titulo', texto: '¿Qué estás haciendo?' }),
-        crear('p', { clase: 'tarjeta__subtitulo', texto: 'Selecciona la acción antes de escanear' }),
+        crear('h2', { clase: 'tarjeta__titulo', texto: '¿Que estás haciendo?' }),
+        crear('p', { clase: 'tarjeta__subtitulo', texto: 'Selecciona la accion antes de escanear' }),
       ],
     }),
     chipsContainer
   );
 
-  // ----- 2. Tarjeta: Escáner (CÁMARA PROTAGONISTA) -----
-  // El `<video>` NO se crea aca: lo crea `LectorQR` y se expone en
+  // ----- 2. Tarjeta: Escaner (CÁMARA PROTAGONISTA) -----
+  // El `<video>` NO se crea acá: lo crea `LectorQR` y se expone en
   // `elementoVideo`. Si la vista fabrica uno propio, quedan DOS `<video>` en el
   // marco: el de la vista, al que nunca se le asigna `srcObject`, y el del
   // lector, que tiene la imagen pero es el que la vista no muestra. El
   // resultado es un rectangulo negro con "cámara apagada" arriba y un video
-  // encendido abajo, y ningun boton lo arregla porque el estado dice "on".
+  // encendido abajo, y ningún botón lo arregla porque el estado dice "on".
   //
-  // `lector` se crea mas abajo, cuando ya existe `marcoVideo`; el video se
+  // `lector` se crea más abajo, cuando ya existe `marcoVideo`; el video se
   // resuelve en `iniciar()`/`apagarCamara()` con `lector.elementoVideo`.
 
   // Estado del marco: apagada | encendiendo | error.
   //
   // `getUserMedia` no es instantaneo: abre el permiso del navegador y, la
   // primera vez, espera a que el operador lo apruebe. Durante ese tiempo el
-  // marco se ve igual que apagado, asi que parece que el boton no funciono.
-  // Con un giro y un texto que dice que esta pasando, la espera se lee como
+  // marco se ve igual que apagado, así que parece que el botón no funciono.
+  // Con un giro y un texto que dice que está pasando, la espera se lee como
   // espera y no como fallo.
   zonaVacia = crear('div', { clase: 'escaner-vacio' });
   vacioIcono = crear('div', { clase: 'escaner-vacio__icono' });
@@ -120,12 +120,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     zonaVacia.classList.toggle('escaner-vacio--cargando', estado === 'encendiendo');
     // La mira (las cuatro esquinas y la viñeta) solo tiene sentido sobre una
     // imagen real. Con la cámara apagada se dibujaba encima del mensaje y
-    // dejaba el marco con un rectangón oscuro sin explicación.
+    // dejaba el marco con un rectangon oscuro sin explicacion.
     mira.hidden = true;
 
     if (estado === 'encendiendo') {
       vacioTexto.textContent = 'Encendiendo cámara…';
-      vacioPista.textContent = 'Aceptá el permiso si el navegador lo pide.';
+      vacioPista.textContent = 'Acepta el permiso si el navegador lo pide.';
       vacioIcono.replaceChildren(crear('div', { clase: 'girador' }));
       return;
     }
@@ -134,7 +134,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
     if (estado === 'error') {
       vacioTexto.textContent = 'No se pudo encender la cámara';
-      vacioPista.textContent = 'Revisá el permiso de cámara del navegador o usá el ingreso manual.';
+      vacioPista.textContent = 'Revisa el permiso de cámara del navegador o usa el ingreso manual.';
     } else {
       vacioTexto.textContent = 'Cámara apagada';
       vacioPista.textContent = 'Toca "Encender cámara" para escanear';
@@ -145,12 +145,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   mira.className = 'escaner-mira';
 
   /**
-   * Qué formatos puede leer ESTE navegador en ESTE equipo.
+   * Que formatos puede leer ESTE navegador en ESTE equipo.
    *
    * Una etiqueta que no se lee casi siempre es una de dos cosas: el formato no
    * está entre los que el navegador decodifica (cada navegador y cada sistema
    * tienen una lista distinta), o el código está demasiado lejos o desenfocado.
-   * Sin esta línea, las dos se ven igual: nada pasa. Con ella, el operador ve
+   * Sin está línea, las dos se ven igual: nada pasa. Con ella, el operador ve
    * si su Code 128 está en la lista sin tener que adivinar.
    */
   const lineaFormatos = crear('p', { clase: 'escaner-formatos' });
@@ -182,18 +182,18 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   marcoVideo.append(zonaVacia, mira, lineaFormatos);
 
   // La leyenda de encuadre: dice QUE se tiene que encuadrar y COMO. Es la
-  // diferencia entre un codigo de barras que se lee y uno que no.
+  // diferencia entre un código de barras que se lee y uno que no.
   const leyendaGuia = crear('p', {
     clase: 'escaner-guia',
-    texto: 'QR: encuadra la etiqueta dentro del cuadro. Codigo de barras: gira el celular en horizontal y llena la franja.',
+    texto: 'QR: encuadra la etiqueta dentro del cuadro. Código de barras: gira el celular en horizontal y llena la franja.',
   });
 
   // Botón cámara: toggle on/off con tooltip
   botonCamara = crear('button', {
-    clase: 'boton boton--bloque boton--camara',
+    clase: 'botón botón--bloque botón--camara',
     atributos: {
       type: 'button',
-      'aria-label': 'Alternar cámara del escáner',
+      'aria-label': 'Alternar cámara del escaner',
       'aria-pressed': 'false',
     },
     hijos: [icono(ICONOS.camara, { tamano: 20 }), crear('span', { texto: 'Encender cámara' })],
@@ -201,7 +201,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   conTooltip(
     botonCamara,
     'Enciende o apaga la camara. La camara se queda encendida entre escaneos: ' +
-      'podes pasar el celu sobre las etiquetas sin tocar la pantalla.',
+      'podés pasar el celu sobre las etiquetas sin tocar la pantalla.',
   );
 
   const tarjetaCamara = crear('section', { clase: 'tarjeta tarjeta--camara', id: 'tarjeta-escanear' });
@@ -220,7 +220,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
   // ----- 3. Tarjeta: Ingreso Manual (COLAPSABLE) -----
   inputCodigo = crear('input', {
-    clase: 'campo__control campo__control--codigo mono',
+    clase: 'campo__control campo__control--código mono',
     atributos: {
       type: 'text',
       id: 'codigo-manual',
@@ -236,7 +236,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   });
 
   botonManual = crear('button', {
-    clase: 'boton boton--bloque boton--manual',
+    clase: 'botón botón--bloque botón--manual',
     texto: 'Registrar',
     atributos: {
       type: 'submit',
@@ -257,8 +257,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   etiquetaManual.append(textoEtiquetaManual, inputCodigo, ayudaManual);
   conTooltip(
     textoEtiquetaManual,
-    'El codigo de la etiqueta: el QR (INV-...) o el serial del fabricante. ' +
-      'Tambien acepta el codigo de un producto del maestro (PRD-...).',
+    'El código de la etiqueta: el QR (INV-...) o el serial del fabricante. ' +
+      'También acepta el código de un producto del maestro (PRD-...).',
   );
 
   const formularioManual = crear('form', {
@@ -297,7 +297,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     id: 'seg-escanear',
     atributos: {
       type: 'button',
-      'aria-label': 'Activar modo escáner con cámara',
+      'aria-label': 'Activar modo escaner con cámara',
     },
     hijos: [icono(ICONOS.camara, { tamano: 18 }), crear('span', { texto: 'Escanear' })],
   });
@@ -315,7 +315,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     },
     hijos: [icono(ICONOS.teclado, { tamano: 18 }), crear('span', { texto: 'Manual' })],
   });
-  conTooltip(segmentoManual, 'Escribe el codigo a mano. Para etiquetas sucias, rotas o si la camara no enfoca.');
+  conTooltip(segmentoManual, 'Escribe el código a mano. Para etiquetas sucias, rotas o si la camara no enfoca.');
 
   const segmentedControl = crear('div', {
     clase: 'segmented-control',
@@ -342,17 +342,17 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   );
 
   // ============================================================
-  // INICIALIZACIÓN DEL LECTOR
+  // INICIALIZACION DEL LECTOR
   // ============================================================
 
-  // El lector, en MODO CONTINUO: la camara sigue encendida despues de leer y
-  // el operador sigue escaneando. Es como se trabaja en un deposito: se pasa
+  // El lector, en MODO CONTINUO: la camara sigue encendida después de leer y
+  // el operador sigue escaneando. Es como se trabaja en un depósito: se pasa
   // el celular sobre una caja tras otra, sin tocar la pantalla.
   //
   // Antes el lector se apagaba en cada lectura y el operador tinha que
   // apretar "Encender camara" para cada etiqueta. En un conteo de 40 equipos
-  // eso son 40 toques de mas, y el operador termina escaneando con el
-  // ingreso manual, que es mas lento.
+  // eso son 40 toques de más, y el operador termina escaneando con el
+  // ingreso manual, que es más lento.
   lector = new LectorQR(marcoVideo, { continuo: true });
 
   // Verificar soporte y mostrar aviso si no hay cámara nativa
@@ -368,7 +368,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   // EVENTOS Y LÓGICA
   // ============================================================
 
-  // --- Cambio de segmento (Escanear ↔ Manual) ---
+  // --- Cambió de segmento (Escanear ↔ Manual) ---
   function cambiarSegmento(nuevo) {
     if (nuevo === segmentoActivo) return;
 
@@ -428,9 +428,9 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   /**
    * Si pasan varios segundos sin leer nada, decirlo.
    *
-   * El bucle de deteccion es silencioso por diseno: un frame sin codigo es lo
+   * El bucle de deteccion es silencioso por diseno: un frame sin código es lo
    * normal. Pero cuando la etiqueta no se lee NADA, el operador ve una camara
-   * encendida y ninguna reaccion, y no hay forma de distinguir "todavia no
+   * encendida y ninguna reaccion, y no hay forma de distinguir "todavía no
    * leyo" de "esto no lo va a leer nunca". Este aviso cubre las dos, sin
    * inventar un error.
    */
@@ -439,8 +439,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     timerSinLectura = setTimeout(() => {
       if (lector.activo) {
         avisar(
-          'No detectó ningún código. Acercá la etiqueta hasta que ocupe un quinto del ancho del marco. ' +
-            'Si es un código de barras, girá el celular en horizontal: necesita ocupar el ancho de la franja, no un cuadrado. ' +
+          'No detecto ningún código. Acerca la etiqueta hasta que ocupe un quinto del ancho del marco. ' +
+            'Si es un código de barras, gira el celular en horizontal: necesita ocupar el ancho de la franja, no un cuadrado. ' +
             'También podés usar el ingreso manual.',
           'alerta',
           6000,
@@ -458,36 +458,36 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     );
     botonCamara.setAttribute('aria-pressed', encendida ? 'true' : 'false');
     botonCamara.title = `${accion} cámara (Ctrl+Shift+C)`;
-    botonCamara.setAttribute('aria-label', `${accion} cámara del escáner`);
+    botonCamara.setAttribute('aria-label', `${accion} cámara del escaner`);
   }
 
   /**
    * El callback que el lector dispara cuando lee algo.
    *
    * La camara NO se apaga: en modo continuo el operador sigue escaneando.
-   * El codigo se ENCOLA, porque puede leerse otro mientras el primero se
-   * esta registrando, y descartarlo seria perder un equipo del conteo.
+   * El código se ENCOLA, porque puede leerse otro mientras el primero se
+   * está registrando, y descartarlo seria perder un equipo del conteo.
    */
   function alLeerCodigo(codigo, formato) {
     inputCodigo.value = codigo;
-    // La guia de encuadre se adapta al formato leido.
+    // La guia de encuadre se adapta al formato leído.
     ajustarGuia(formato);
     encolar(codigo);
   }
 
   /**
-   * Adapta la guia de encuadre al formato del codigo.
+   * Adapta la guia de encuadre al formato del código.
    *
    * POR QUE
    * -------
-   * Un QR tiene 33 modulos y uno de los lados. Un Code 128 de 16 caracteres
-   * tiene unos 130 modulos: SIEMPRE de ANCHO. Para que un lector lo vea, el
-   * codigo tiene que ocupar unos 400 pixeles de ancho en el cuadro de la
+   * Un QR tiene 33 módulos y uno de los lados. Un Code 128 de 16 caracteres
+   * tiene unos 130 módulos: SIEMPRE de ANCHO. Para que un lector lo vea, el
+   * código tiene que ocupar unos 400 pixeles de ancho en el cuadro de la
    * camara (medido: a 300 px deja de leerse).
    *
-   * O sea: el operador tiene que acercarse CUATRO VECES mas que para un QR. Y
-   * la guia cuadrada de la app no puede encuadrar jamas un codigo de barras:
-   * lo esta encuadrando en una franja que no entra.
+   * O sea: el operador tiene que acercarse CUATRO VECES más que para un QR. Y
+   * la guia cuadrada de la app no puede encuadrar jamas un código de barras:
+   * lo está encuadrando en una franja que no entra.
    *
    * Medido en este repo, con el Code 128 que genera la app:
    *   900 px -> se lee    600 px -> se lee    400 px -> se lee
@@ -500,7 +500,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     marcoVideo.classList.toggle('escaner-marco--lineal', esLineal);
     if (leyendaGuia) {
       leyendaGuia.textContent = esLineal
-        ? 'Codigo de barras: gira el celular en horizontal y llena la franja con la etiqueta.'
+        ? 'Código de barras: gira el celular en horizontal y llena la franja con la etiqueta.'
         : 'QR: encuadra la etiqueta dentro del cuadro.';
     }
   }
@@ -511,7 +511,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
    * POR QUE UNA COLA Y NO UN `if (envioEnCurso) return`
    * -----------------------------------------------
    * El operador pasa el celu sobre tres cajas en un segundo. Sin cola, los
-   * dos ultimos se pierden en silencio: el conteo queda corto y nadie sabe
+   * dos últimos se pierden en silencio: el conteo queda corto y nadie sabe
    * por que. Con cola, se registran en orden.
    *
    * El tope de 20 es una red: si algo se rompe y la cola no baja, no se
@@ -547,14 +547,14 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       return;
     }
 
-    if (lector.activo) return; // Ya está encendida
+    if (lector.activo) return; // Ya esta encendida
 
     botonCamara.disabled = true;
     zonaVacia.hidden = false;
     pintarVacio('encendiendo');
     try {
       await lector.iniciar(alLeerCodigo);
-      // `play()` resuelve cuando la reproducción arranca, no cuando hay imagen:
+      // `play()` resuelve cuando la reproduccion arranca, no cuando hay imagen:
       // sin este espera el marco pasa de "encendiendo" a un rectangulo negro
       // durante un par de cuadros. El timeout evita que una camara que nunca
       // entrega fotogramas deje el girador girando para siempre.
@@ -589,12 +589,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
    * Vuelve a encender la cámara después de un código que no existe.
    *
    * En modo CONTINUO la camara nunca se apaga sola: sigue encendida entre
-   * escaneos, y este metodo solo sirve para volver a encenderla si el
-   * operador la apago (o si el navegador la cerro por un permiso).
+   * escaneos, y este método solo sirve para volver a encenderla si el
+   * operador la apago (o si el navegador la cerró por un permiso).
    *
-   * El lector tiene su propio filtro por codigo (3 segundos), asi que no
+   * El lector tiene su propio filtro por código (3 segundos), así que no
    * hay que worries de que se lea la misma etiqueta en bucle mientras el
-   * modal de la etiqueta de CAJA esta abierto.
+   * modal de la etiqueta de CAJA está abierto.
    */
   function rearmarCamara() {
     if (razon) return; // El navegador no puede abrir cámara: no tiene sentido.
@@ -612,7 +612,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     pintarVacio('apagada');
     pintarBotonCamara(false);
     botonCamara.title = 'Encender cámara (Ctrl+Shift+C)';
-    botonCamara.setAttribute('aria-label', 'Encender cámara del escáner');
+    botonCamara.setAttribute('aria-label', 'Encender cámara del escaner');
   }
 
   botonCamara.onclick = () => alternarCamara();
@@ -640,7 +640,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   };
   document.addEventListener('visibilitychange', alOcultar);
 
-  // --- Cargar tipos de movimiento dinámicos ---
+  // --- Cargar tipos de movimiento dinamicos ---
   async function cargarTiposMovimiento() {
     try {
       const tipos = await api.obtenerTiposMovimiento();
@@ -659,7 +659,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
             'aria-label': `${t.texto}${t.descripcion ? ': ' + t.descripcion : ''}`,
           },
           hijos: [
-            // `t.icono` es el NOMBRE del icono, no el path: sin el lookup se le pasa
+            // `t.ícono` es el NOMBRE del ícono, no el path: sin el lookup se le pasa
             // 'buscar' como atributo `d` y el SVG sale con un error por consola.
             icono(ICONOS[t.icono] || ICONOS.buscar, { tamano: 16 }),
             crear('span', { texto: t.texto }),
@@ -683,7 +683,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // Fallback: tipos hardcodeados usando constantes de dom.js
       const fallback = [
         { valor: 'OUT_TO_CLIENT', texto: 'Salida a cliente', icono: 'buscar', descripcion: 'El equipo sale del depósito hacia el cliente' },
-        { valor: 'INSTALLATION', texto: 'Instalación', icono: 'ubicacion', descripcion: 'El equipo se instala en sitio del cliente' },
+        { valor: 'INSTALLATION', texto: 'Instalacion', icono: 'ubicacion', descripcion: 'El equipo se instala en sitio del cliente' },
         { valor: 'WAREHOUSE_REENTRY', texto: 'Reingreso a depósito', icono: 'refrescar', descripcion: 'El equipo vuelve al depósito desde cliente' },
         { valor: 'WITHDRAWAL_TO_WORKSHOP', texto: 'Retiro a taller', icono: 'relojito', descripcion: 'El equipo va a reparación' },
         { valor: 'REPLACEMENT', texto: 'Reemplazo', icono: 'refrescar', descripcion: 'Se reemplaza un equipo por otro' },
@@ -730,12 +730,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     envioEnCurso = true;
     botonManual.disabled = true;
     // El indicador va en la tarjeta de la camara, NO en la zona de resultado:
-    // reemplazar el resultado borra el recibo de la sesion.
+    // reemplazar el resultado borra el recibo de la sesión.
     indicarRegistro(true);
 
     // La baja definitiva no tiene vuelta atras: el equipo sale del inventario.
     // Pide confirmacion. El resto de los movimientos NO la pide —el escaneo
-    // es un flujo rapido, con una mano ocupada y a veces con guantes, y un
+    // es un flujo rápido, con una mano ocupada y a veces con guantes, y un
     // cartel en cada lectura lo volveria inservible—.
     if (tipoSeleccionado === 'DISPOSAL') {
       const ok = await confirmar({
@@ -756,7 +756,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
     // El UUID se genera UNA vez por intento de escaneo.
     // Si la petición falla por red y el operador reintenta con el mismo código,
-    // se reutiliza este y el backend lo reconoce como el mismo envío.
+    // se reutiliza este y el backend lo reconoce como el mismo envió.
     if (!scanIdPendiente) scanIdPendiente = nuevoScanId();
 
     try {
@@ -770,8 +770,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
         longitude: posicion.longitude,
       });
 
-      // Solo se descarta el UUID cuando el backend confirmó.
-      // Si respondió con `replay: true`, también es éxito: el envío ya estaba registrado.
+      // Solo se descarta el UUID cuando el backend confirmo.
+      // Si respondió con `replay: true`, también es éxito: el envió ya estaba registrado.
       scanIdPendiente = null;
       inputCodigo.value = '';
       pintarResultado(resultado, codigo);
@@ -782,10 +782,10 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // operador pueda corregir y mandar una petición nueva.
       if (error.status >= 400 && error.status < 500) scanIdPendiente = null;
 
-      // Un codigo que NO existe en el inventario.
+      // Un código que NO existe en el inventario.
       //
       // Un 404 NO es un fallo del sistema: es una etiqueta que no está dada de
-      // alta. Es el caso más común en un depósito —el operador escanea un equipo
+      // alta. Es el caso más comun en un depósito —el operador escanea un equipo
       // de otra empresa, o uno dado de baja sin certificado nuevo— y con un
       // aviso que se va solo a los 4 segundos el operador lo pierde de vista
       // mientras sigue apuntando la cámara. Va en modal, que no se va solo, y
@@ -794,14 +794,14 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       if (error.status === 404) {
         // En modo continuo, un modal por cada etiqueta desconocida CORTARIA el
         // escaneo: el operador no podria seguir pasando el celu porque la
-        // pantalla de aviso esta encima. El error va al recibo, que se lee
+        // pantalla de aviso está encima. El error va al recibo, que se lee
         // igual, y un aviso flotante lo anuncia.
         agregarErrorAlRecibo(codigo, error.message);
         avisar(error.message, 'error', 5000);
         return;
       }
 
-      // La etiqueta de la CAJA: el codigo existe, pero es la de un PRODUCTO del
+      // La etiqueta de la CAJA: el código existe, pero es la de un PRODUCTO del
       // maestro y no la de un equipo. El backend responde 409 con el producto
       // y sus unidades; acá se las muestra al operador para que elija con
       // cual registrar el movimiento.
@@ -828,7 +828,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
    * Enciende o apaga el chispoteo de "registrando".
    *
    * Va en la tarjeta de la camara y no en la zona de resultado: el recibo de
-   * escaneos tiene que seguir ahi mientras se registra el siguiente.
+   * escaneos tiene que seguir ahí mientras se registra el siguiente.
    */
   function indicarRegistro(activo) {
     if (!indicadorRegistro) {
@@ -844,16 +844,16 @@ export function vistaEscanear({ alAbrirDispositivo }) {
  * Código que no existe en el inventario.
  *
  * @param {string}   motivo    Lo que respondió el servidor.
- * @param {string}   codigo    El código escaneado, para que el operador lo lea.
+ * @param {string}   código    El código escaneado, para que el operador lo lea.
  * @param {Function} [alCerrar] Se dispara al cerrar, con y sin Escape.
  */
 /**
  * Saca el producto de un error 409 del backend.
  *
  * El backend responde con `detail: { mensaje, producto }`: el `detalle` es un
- * objeto, no un string, y es lo unico en la API que devuelve algo asi. Por eso
- * se busca por `detalle.producto` y no por el texto: un 409 de transicion
- * invalida (que si es un string) tiene que seguir siendo un error comun.
+ * objeto, no un string, y es lo único en la API que devuelve algo así. Por eso
+ * se busca por `detalle.producto` y no por el texto: un 409 de transición
+ * inválida (que si es un string) tiene que seguir siendo un error comun.
  *
  * @param {Error} error
  * @returns {object|null} El producto, o null si el error no es de este tipo.
@@ -869,16 +869,16 @@ function productoDelError(error) {
  * QUE SE MUESTRA
  * --------------
  * Los datos del producto y la lista de sus unidades, cada una con su serial,
- * su estado y donde esta, y un boton para registrar el movimiento sobre esa.
+ * su estado y donde está, y un botón para registrar el movimiento sobre esa.
  *
  * POR QUE NO ES UN ERROR
  * ----------------------
- * El operador leyo bien: el codigo existe. Lo que pasa es que la etiqueta es
+ * El operador leyo bien: el código existe. Lo que pasa es que la etiqueta es
  * de la CAJA, y un movimiento se registra sobre un EQUIPO. Decirle "error"
  * lo haria buscar un problema donde no lo hay.
  *
  * @param {object}   producto
- * @param {string}   codigo
+ * @param {string}   código
  * @param {object}   opciones
  * @param {Function} opciones.alRegistrar  Recibe la unidad elegida.
  * @param {Function} [opciones.alCerrar]   Se dispara al cerrar.
@@ -886,8 +886,8 @@ function productoDelError(error) {
 function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   const unidades = producto.unidades || [];
 
-  // El boton de cada unidad se arma ANTES de que el dialogo exista, asi que
-  // todavia no hay `cerrar`: se guarda aca y se completa en `alAbrir`.
+  // El botón de cada unidad se arma ANTES de que el dialogo exista, así que
+  // todavía no hay `cerrar`: se guarda acá y se completa en `alAbrir`.
   let cerrarModal = () => {};
 
   const lista = crear('ul', { clase: 'lista lista--unidades' });
@@ -899,7 +899,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
 
     const cuerpo = crear('div', { clase: 'lista__cuerpo' });
     cuerpo.append(
-      crear('div', { clase: 'lista__titulo mono', texto: unidad.serial_number }),
+      crear('div', { clase: 'lista__título mono', texto: unidad.serial_number }),
       crear('div', {
         clase: 'lista__meta',
         texto: [estadoInfo.texto, unidad.ubicacion_nombre].filter(Boolean).join(' · '),
@@ -907,7 +907,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     );
 
     const btnRegistrar = crear('button', {
-      clase: 'boton boton--chico',
+      clase: 'botón botón--chico',
       texto: 'Registrar',
       atributos: { type: 'button' },
     });
@@ -919,7 +919,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
         await alRegistrar(unidad);
         cerrarModal();
       } catch {
-        // El error ya se aviso con `avisar()`. El boton vuelve a estar usable:
+        // El error ya se aviso con `avisar()`. El botón vuelve a estar usable:
         // el operador va a querer intentar con otra unidad.
         btnRegistrar.disabled = false;
         btnRegistrar.textContent = 'Registrar';
@@ -950,18 +950,18 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   }
 
   const boton = crear('button', {
-    clase: 'boton boton--bloque',
+    clase: 'botón botón--bloque',
     texto: 'Entendido',
     atributos: { type: 'button' },
   });
 
   abrirDialogo({
-    titulo: 'Esta etiqueta es de un producto, no de un equipo',
+    titulo: 'Está etiqueta es de un producto, no de un equipo',
     mensaje:
       `El código ${codigo} es la etiqueta del producto ${producto.brand || ''} ${producto.model || ''}` +
-      ` (SKU ${producto.sku || ''}). Elegí la unidad a la que corresponde el movimiento.`,
+      ` (SKU ${producto.sku || ''}). Elegi la unidad a la que corresponde el movimiento.`,
     cuerpo: [cuerpoModal],
-    nota: 'Para mover varias unidades de una vez usá la vista Movimientos, que mueve por producto y cantidad.',
+    nota: 'Para mover varias unidades de una vez usa la vista Movimientos, que mueve por producto y cantidad.',
     clase: 'modal--alerta',
     acciones: [boton],
     alAbrir: (_modal, cerrar) => {
@@ -1015,7 +1015,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     fila('Código', codigo, { clase: 'mono' });
     fila('Serial', dispositivo.serial_number, { clase: 'mono' });
     fila('Equipo', [dispositivo.marca, dispositivo.modelo].filter(Boolean).join(' ') || null);
-    fila('Ubicación', dispositivo.ubicacion_nombre);
+    fila('Ubicacion', dispositivo.ubicacion_nombre);
     fila('Estado', estadoInfo.texto, { insignia: estadoInfo.clase });
 
     // Alerta geo si fuera de radio
@@ -1032,7 +1032,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     if (dispositivo.id) {
       bloque.append(
         crear('button', {
-          clase: 'boton boton--suave boton--bloque',
+          clase: 'botón botón--suave botón--bloque',
           texto: 'Ver la ficha del componente',
           atributos: {
             type: 'button',
@@ -1044,19 +1044,19 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       );
     }
 
-    // El resultado se SUMA al recibo de la sesion, no reemplaza el anterior.
+    // El resultado se SUMA al recibo de la sesión, no reemplaza el anterior.
     //
     // ANTES
     // ----
     // El panel se reemplazaba en cada escaneo y se borraba solo a los 8
     // segundos. En un conteo de 40 equipos, el operador no tenia forma de
-    // saber cuantos habia escaneado ni revisar los anteriores: el ultimo
+    // saber cuantos habia escaneado ni revisar los anteriores: el último
     // escaneo tapaba al anterior, y a los 8 segundos no quedaba nada. Al
-    // final del conteo no habia ningun comprobante de lo que se hizo.
+    // final del conteo no habia ningún comprobante de lo que se hizo.
     //
     // AHORA
     // ----
-    // El recibo acumula: cada escaneo queda con su hora, su codigo y su
+    // El recibo acumula: cada escaneo queda con su hora, su código y su
     // estado. Es el comprobante del turno, y el operador puede revisarlo
     // mientras sigue escaneando.
     agregarAlRecibo(bloque);
@@ -1065,19 +1065,19 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   /**
    * Exporta el recibo de escaneos a CSV.
    *
-   * El CSV se arma en el navegador: el recibo es de ESTA sesion y todavia no
-   * esta en el servidor. El separador es `;` y lleva BOM UTF-8, igual que los
+   * El CSV se arma en el navegador: el recibo es de Está sesión y todavía no
+   * está en el servidor. El separador es `;` y lleva BOM UTF-8, igual que los
    * exportes del backend, para que se abra bien en Excel en espanol.
    */
   function exportarRecibo() {
     if (!listaRecibo || !listaRecibo.children.length) {
-      avisar('Todavia no hay escaneos para exportar.', 'alerta');
+      avisar('Todavía no hay escaneos para exportar.', 'alerta');
       return;
     }
 
     const filas = [['Hora', 'Codigo', 'Serial', 'Equipo', 'Ubicacion', 'Estado', 'Resultado']];
 
-    // Del mas viejo al mas nuevo: el CSV se lee en orden cronologico.
+    // Del más viejo al más nuevo: el CSV se lee en orden cronologico.
     for (const item of [...listaRecibo.children].reverse()) {
       const hora = item.querySelector('.escaneo__hora')?.textContent ?? '';
 
@@ -1092,7 +1092,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       const codigo = pares['Código'] || item.querySelector('.resultado__mensaje.mono')?.textContent?.trim() || '';
       const serial = pares['Serial'] || '';
       const equipo = pares['Equipo'] || '';
-      const ubicacion = pares['Ubicación'] || '';
+      const ubicacion = pares['Ubicacion'] || '';
       const estado = pares['Estado'] || '';
       const resultado = item.querySelector('.resultado__mensaje:not(.mono)')?.textContent?.trim() || '';
 
@@ -1104,10 +1104,10 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   }
 
   /**
-   * Agrega un ESCANEO FALLIDO al recibo de la sesion.
+   * Agrega un ESCANEO FALLIDO al recibo de la sesión.
    *
-   * @param {string} codigo
-   * @param {string} mensaje  Lo que respondio el backend.
+   * @param {string} código
+   * @param {string} mensaje  Lo que respondió el backend.
    */
   function agregarErrorAlRecibo(codigo, mensaje) {
     const bloque = crear('div', { clase: 'resultado resultado--error' });
@@ -1118,14 +1118,14 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     );
     bloque.append(
       titulo,
-      crear('p', { clase: 'resultado__mensaje', texto: mensaje || 'Codigo desconocido.' }),
+      crear('p', { clase: 'resultado__mensaje', texto: mensaje || 'Código desconocido.' }),
       crear('p', { clase: 'resultado__mensaje mono pequeno tenue', texto: codigo }),
     );
     agregarAlRecibo(bloque);
   }
 
   /**
-   * Agrega un resultado al recibo de la sesion.
+   * Agrega un resultado al recibo de la sesión.
    *
    * @param {HTMLElement} bloque  El resultado a agregar.
    */
@@ -1136,11 +1136,11 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
 
       const encabezadoRecibo = crear('div', { clase: 'flex-entre' });
       encabezadoRecibo.append(
-        crear('h2', { clase: 'tarjeta__titulo', texto: 'Escaneos de la sesion' }),
+        crear('h2', { clase: 'tarjeta__titulo', texto: 'Escaneos de la sesión' }),
       );
 
       const btnLimpiar = crear('button', {
-        clase: 'boton boton--suave boton--chico',
+        clase: 'botón botón--suave botón--chico',
         texto: 'Limpiar',
         atributos: { type: 'button' },
       });
@@ -1149,17 +1149,17 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
         zonaResultado.replaceChildren();
         listaRecibo = null;
       });
-      conTooltip(btnLimpiar, 'Borra el recibo de escaneos de esta sesion.');
+      conTooltip(btnLimpiar, 'Borra el recibo de escaneos de está sesión.');
 
       const btnExportar = crear('button', {
-        clase: 'boton boton--suave boton--chico',
+        clase: 'botón botón--suave botón--chico',
         texto: 'Exportar CSV',
         atributos: { type: 'button' },
       });
       btnExportar.addEventListener('click', () => exportarRecibo());
       conTooltip(
         btnExportar,
-        'Descarga el recibo en CSV: la hora, el codigo y el estado de cada escaneo. ' +
+        'Descarga el recibo en CSV: la hora, el código y el estado de cada escaneo. ' +
           'Es el comprobante del conteo.',
       );
 
@@ -1168,7 +1168,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       zonaResultado.replaceChildren(encabezadoRecibo, listaRecibo);
     }
 
-    // El mas nuevo arriba: es el que el operador esta mirando.
+    // El más nuevo arriba: es el que el operador está mirando.
     const item = crear('li', { clase: 'lista__item lista__item--escaneo' });
     const hora = new Date().toLocaleTimeString('es-AR', {
       hour: '2-digit',
@@ -1186,7 +1186,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
    * La etiqueta de la caja no dice que equipo es: el operador elige el
    * serial de la lista y se manda el escaneo de ESE equipo, con su propio
    * `qr_code`. Es el mismo camino que el de una etiqueta de equipo leida con
-   * la camara, con un paso mas: la eleccion.
+   * la camara, con un paso más: la eleccion.
    *
    * @param {{qr_code: string, serial_number: string}} unidad
    */
@@ -1199,7 +1199,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       const resultado = await api.escanear({
         codigo,
         tipo_movimiento: tipoSeleccionado,
-        // Un UUID NUEVO: este envio es un escaneo distinto del que fallo, y
+        // Un UUID NUEVO: este envió es un escaneo distinto del que fallo, y
         // el anterior ya se consumio con un `client_scan_id` que no registro
         // nada. Reusarlo haria que el backend lo tomara por un reintento.
         client_scan_id: nuevoScanId(),
@@ -1236,12 +1236,12 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     document.removeEventListener('keydown', atajoCamara);
     document.removeEventListener('visibilitychange', alOcultar);
     // El timer vive fuera del DOM: sin esto sigue corriendo y avisa "no se
-    // detectó nada" en una vista que ya no está en pantalla.
+    // detecto nada" en una vista que ya no está en pantalla.
     if (timerSinLectura) clearTimeout(timerSinLectura);
     if (lector.activo) apagarCamara();
   };
 
-  // Contrato con `mostrarVista`: `{ elemento, destruir? }`. Devolver `raiz` en vez
+  // Contrato con `mostrarVista`: `{ elemento, destruir? }`. Devolver `raíz` en vez
   // de `elemento` deja a `vistaActual.elemento` en `undefined`, el fallback
   // `?? vistaActual` mete el objeto entero en el DOM y la pantalla muestra
   // literalmente "[object Object]" en lugar de la vista.

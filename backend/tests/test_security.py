@@ -1,7 +1,7 @@
 """
 Tests de las primitivas de seguridad.
 
-Que el JWT no se pueda falsear es lo UNICO de este modulo que no se negocia.
+Que el JWT no se pueda falsear es lo Único de este módulo que no se negocia.
 El resto —contraseñas, formato de token— son detalles, y se prueban igual.
 
 Estos tests NO necesitan base de datos ni un LLM: son puros y corren en
@@ -56,8 +56,8 @@ def test_hash_salteado():
     "malas",
     [
         "corta",  # menos de PASSWORD_MIN_LEN
-        "sinmayusculas2024",  # sin mayúscula
-        "SINMINUSCULAS2024",  # sin minúscula
+        "sinmayusculas2024",  # sin mayuscula
+        "SINMINUSCULAS2024",  # sin minuscula
         "SinNumerosAqui",  # sin número
         "  ConEspacios  ",  # espacios al borde
     ],
@@ -69,9 +69,9 @@ def test_passwords_invalidas(malas):
 
 def test_password_de_72_bytes_es_el_tope():
     """
-    Bcrypt trunca a 72 bytes. El limite se aplica para que el usuario sepa que
-    su contraseña es mas larga de lo que realmente se verifica, en vez de
-    descubrirlo cuando alguien cambia los ultimos 10 caracteres.
+    Bcrypt trunca a 72 bytes. El límite se aplica para que el usuario sepa que
+    su contraseña es más larga de lo que realmente se verifica, en vez de
+    descubrirlo cuando alguien cambia los últimos 10 caracteres.
     """
     exacta = "A1" + "x" * 70
     assert len(exacta.encode("utf-8")) == BCRYPT_MAX_BYTES
@@ -113,7 +113,7 @@ def test_access_token_verifica():
 
 def test_refresh_no_sirve_como_access():
     """
-    El bypass mas comun: mandar el access token (de vida corta) al endpoint de
+    El bypass más comun: mandar el access token (de vida corta) al endpoint de
     refresh y "renovar" con algo que expira en 15 minutos.
     """
     token, _ = crear_refresh_token("user-123")
@@ -138,7 +138,7 @@ def test_token_con_firma_invalida():
 
 def test_alg_none_es_rechazado():
     """
-    El bypass mas famoso de JWT: un token con `"alg": "none"` y sin firma.
+    El bypass más famoso de JWT: un token con `"alg": "none"` y sin firma.
 
     Pasa si la libreria toma el algoritmo DEL TOKEN en vez de los que se le
     pasan. Por eso `decodificar_token` dice `algorithms=["HS256"]`.
@@ -252,7 +252,7 @@ def test_operador_no_toca_taller():
 def test_rol_desconocido_no_tiene_nada():
     """
     FALLA CERRADO. Si un rol desconocido devolviera todos los permisos,
-    bastaría con escribir mal un nombre en la base para tener acceso total.
+    bastaria con escribir mal un nombre en la base para tener acceso total.
     """
     assert permisos_de("SUPERADMIN") == set()
     assert not tiene("SUPERADMIN", Permiso.USERS_CREAR)
@@ -304,8 +304,8 @@ def test_secreto_corto_se_rechaza(monkeypatch):
 
 def test_en_desarrollo_no_se_rechaza_el_ejemplo(monkeypatch):
     """
-    `make up` tiene que funcionar sin configurar nada. El rechazo es solo para
-    produccion: si no, nadie levanta el proyecto la primera vez.
+    `make up` tiene que funcionar sin configurar nada. El rechazó es solo para
+    producción: si no, nadie levanta el proyecto la primera vez.
     """
     from src.core import security
     from src.core.config import get_settings

@@ -1,11 +1,11 @@
 /**
- * La paginacion, como componente compartido.
+ * La paginación, como componente compartido.
  *
  * POR QUE UN COMPONENTE Y NO UNA COPIA POR PANTALLA
  * -------------------------------------------------
- * La paginacion se Was copiada a mano en el inventario y en la auditoria, y
+ * La paginación se Was copiada a mano en el inventario y en la auditoría, y
  * las dos hacian cosas distintas: una permitia cambiar la cantidad por
- * pagina y la otra no; una mostraba el total y la otra no. Con 5000
+ * página y la otra no; una mostraba el total y la otra no. Con 5000
  * registros, la diferencia no es estetica: en una pantalla el operador cree
  * que vio todo cuando vio 50 de 5000.
  *
@@ -17,26 +17,26 @@
  * -----------
  *   [‹ Anterior]  Página 3 de 15 · 248 registros   [25 | 50 | 100 por página]  [Siguiente ›]
  *
- * El TOTAL va siempre: sin el, no hay forma de saber si la lista esta
- * completa o si hay 4000 registros mas alla de la ultima pagina.
+ * El TOTAL va siempre: sin el, no hay forma de saber si la lista está
+ * completa o si hay 4000 registros más allá de la última página.
  */
 
 import { crear } from './dom.js';
 import { conTooltip } from './tooltip.js';
 
-// Las cantidades por pagina que se ofrecen. Ni tan pocas que haya que
+// Las cantidades por página que se ofrecen. Ni tan pocas que haya que
 // scrollear, ni tantas que la pantalla se vuelva un mapa.
 export const TAMANOS_PAGINA = [25, 50, 100];
 
 /**
- * Crea la barra de paginacion.
+ * Crea la barra de paginación.
  *
  * @param {object} opciones
  * @param {number} opciones.total       Cuantos registros hay en total.
- * @param {number} [opciones.limite]    Cuantos se muestran por pagina.
- * @param {number} [opciones.pagina]    La pagina actual (base 0).
- * @param {Function} opciones.alCambiarPagina  Se llama con la pagina nueva.
- * @param {Function} [opciones.alCambiarLimite] Se llama con el limite nuevo.
+ * @param {number} [opciones.límite]    Cuantos se muestran por página.
+ * @param {number} [opciones.página]    La página actual (base 0).
+ * @param {Function} opciones.alCambiarPagina  Se llama con la página nueva.
+ * @param {Function} [opciones.alCambiarLimite] Se llama con el límite nuevo.
  * @param {string} [opciones.etiqueta]  Que se cuenta ("registros", "casos"...).
  * @returns {object}  `{ elemento, actualizar }`.
  */
@@ -51,25 +51,25 @@ export function crearPaginacion({
   const zona = crear('div', { clase: 'paginacion' });
 
   const btnAnterior = crear('button', {
-    clase: 'boton boton--suave boton--chico',
+    clase: 'botón botón--suave botón--chico',
     texto: '‹ Anterior',
     atributos: { type: 'button' },
   });
-  conTooltip(btnAnterior, 'Vuelve a la pagina anterior.');
+  conTooltip(btnAnterior, 'Vuelve a la página anterior.');
 
   const btnSiguiente = crear('button', {
-    clase: 'boton boton--suave boton--chico',
+    clase: 'botón botón--suave botón--chico',
     texto: 'Siguiente ›',
     atributos: { type: 'button' },
   });
-  conTooltip(btnSiguiente, 'Avanza a la pagina siguiente.');
+  conTooltip(btnSiguiente, 'Avanza a la página siguiente.');
 
   const info = crear('span', { clase: 'paginacion__info' });
 
-  // LA CANTIDAD POR PAGINA
+  // LA CANTIDAD POR Página
   //
-  // Es parte de la paginacion y no un detalle: con 5000 registros, ver 50
-  // por pagina son 100 pantallas de scrollear, y ver 500 son 10. El que
+  // Es parte de la paginación y no un detalle: con 5000 registros, ver 50
+  // por página son 100 pantallas de scrollear, y ver 500 son 10. El que
   // conoce el trabajo sabe cual necesita.
   const selectorCantidad = crear('select', { clase: 'paginacion__cantidad' });
   for (const tamano of TAMANOS_PAGINA) {
@@ -83,7 +83,7 @@ export function crearPaginacion({
 
   const zonaCantidad = crear('label', { clase: 'paginacion__grupo' });
   zonaCantidad.append(
-    crear('span', { clase: 'paginacion__etiqueta', texto: 'por pagina' }),
+    crear('span', { clase: 'paginacion__etiqueta', texto: 'por página' }),
     selectorCantidad,
   );
 
@@ -92,7 +92,7 @@ export function crearPaginacion({
 
   zona.append(btnAnterior, info, zonaCantidad, btnSiguiente);
 
-  /** Vuelve a pintar la barra con los numeros nuevos. */
+  /** Vuelve a pintar la barra con los números nuevos. */
   function actualizar({ total: nuevoTotal, limite: nuevoLimite, pagina: nuevaPagina }) {
     if (nuevoTotal !== undefined) total = nuevoTotal;
     if (nuevoLimite !== undefined) limite = nuevoLimite;

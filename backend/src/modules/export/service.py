@@ -4,13 +4,13 @@ Exportacion de datos a CSV.
 POR QUE CSV Y NO XLSX
 --------------------
 El proyecto no quiere dependencias nuevas, y un `.xlsx` es un ZIP con XML
-dentro: escribirlo a mano es una tarea de un dia entero. El CSV se abre con
-Excel, con LibreOffice, con Google Sheets y con `import` de pandas, asi que
+dentro: escribirlo a mano es una tarea de un día entero. El CSV se abre con
+Excel, con LibreOffice, con Google Sheets y con `import` de pandas, así que
 para el caso de uso real —"pasame el inventario en Excel"— es lo mismo.
 
 EL BOM UTF-8
 ------------
-Sin BOM, Excel abre un CSV en UTF-8 con los acentos rotos: "Deposito" queda
+Sin BOM, Excel abre un CSV en UTF-8 con los acentos rotos: "Depósito" queda
 "DepÃ³sito". El BOM (tres bytes al principio) le dice a Excel que el archivo
 es UTF-8, y Excel lo respeta. Es un detalle de un byte que decide si el
 operador ve "MÃ³vil" o "Móvil" en la primera fila.
@@ -20,7 +20,7 @@ EL SEPARADOR
 El `;` y no la `,`: el separador de la coma es el separador DECIMAL en
 español, y un "1.234,56" en un CSV con comas rompe las columnas en el lugar
 equivocado. El `;` con el decimal con coma es lo que Excel espera en un
-archivo abierto con la configuracion regional de un sistema en castellano.
+archivo abierto con la configuración regional de un sistema en castellano.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def _a_csv(encabezados: list[str], filas: list[list[Any]]) -> str:
     Arma el CSV.
 
     `csv.writer` con `lineterminator='\\r\\n'`: es lo que espera Excel en
-    Windows, y con `\\n` las lineas se ven pegadas en algunos lectores.
+    Windows, y con `\\n` las líneas se ven pegadas en algunos lectores.
     """
     buffer = io.StringIO()
     escritor = csv.writer(buffer, delimiter=SEPARADOR, lineterminator="\r\n")
@@ -59,7 +59,7 @@ def inventario() -> str:
     El inventario completo, una fila por equipo.
 
     Que es lo que el operador necesita cuando el jefe pide "el listado de
-    todo lo que tenemos": con el estado, la ubicacion y el producto.
+    todo lo que tenemos": con el estado, la ubicación y el producto.
     """
     db = get_db_session()
     try:
@@ -131,7 +131,7 @@ def inventario() -> str:
 
 
 def productos() -> str:
-    """El maestro de productos, con su stock y sus codigos de etiqueta."""
+    """El maestro de productos, con su stock y sus códigos de etiqueta."""
     db = get_db_session()
     try:
         filas = db.execute(
@@ -212,7 +212,7 @@ def movimientos(limite: int = 5000) -> str:
     """
     El historial de movimientos: quien movio que, cuando, de donde a donde.
 
-    El `limite` tiene tope a proposito: un export sin tope de un sistema con
+    El `límite` tiene tope a propósito: un export sin tope de un sistema con
     un million de movimientos devuelve un archivo de un gigabyte, y el
     navegador del operador se queda sin memoria.
     """
@@ -284,7 +284,7 @@ def movimientos(limite: int = 5000) -> str:
 
 
 def auditoria(limite: int = 5000) -> str:
-    """La linea de tiempo de la auditoria: que se creo, que se toco y quien."""
+    """La línea de tiempo de la auditoría: que se creo, que se toco y quien."""
     db = get_db_session()
     try:
         filas = db.execute(

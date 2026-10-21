@@ -1,11 +1,11 @@
 -- ===========================================================================
--- 0001 — Roles, usuarios y bitacora de auditoria
+-- 0001 — Roles, usuarios y bitacora de auditoría
 -- ===========================================================================
 --
--- Para que sirve esta migracion
+-- Para que sirve está migración
 -- -----------------------------
--- `init.sql` ya trae estas tablas. Esta migracion existe para la base que se
--- creo ANTES de que existieran: es la unica razon de ser de todo el mecanismo
+-- `init.sql` ya trae estás tablas. Está migración existe para la base que se
+-- creo ANTES de que existieran: es la única razón de ser de todo el mecanismo
 -- de migraciones de este repo.
 --
 --   Instalacion nueva  ->  `make up`.    Correr esto seria redundante.
@@ -14,9 +14,9 @@
 -- QUE HACE, EN ORDEN
 -- -------------------
 --   1. pgcrypto, para bcrypt y uuid.
---   2. La funcion de auditoria.
+--   2. La función de auditoría.
 --   3. roles y users, con sus triggers.
---   4. audit_logs. SIN foreign key a proposito: es el unico registro que tiene
+--   4. audit_logs. SIN foreign key a propósito: es el único registro que tiene
 --      que sobrevivir a la baja del usuario.
 --   5. Los dos ALTER de las columnas que hoy son enteros sueltos.
 --   6. El seed de roles y del admin.
@@ -28,15 +28,15 @@
 -- y Postgres NO lo hace solo: `ALTER COLUMN ... TYPE uuid` sobre una columna
 -- con datos falla con "default for column cannot be cast automatically".
 --
--- Acapanar con `USING` sobre una base VACIA es trivial. Sobre una base con
+-- Acapanar con `USING` sobre una base Vacía es trivial. Sobre una base con
 -- movimientos cargados, los enteros viejos son ids que no existen en `users`:
--- no hay a que traduciarlos. La migracion NO los borra sola — seria perder
--- trazabilidad sin avisar — y en cambio falla con un mensaje explicito y el
--- nombre de la columna, para que la decision sea del operador.
+-- no hay a que traduciarlos. La migración NO los borra sola — seria perder
+-- trazabilidad sin avisar — y en cambió falla con un mensaje explicito y el
+-- nombre de la columna, para que la decisión sea del operador.
 --
 -- QUE HACER SI FALLA
 -- ------------------
---   a) La base tiene datos de prueba: `make clean && make up`. Lo mas simple.
+--   a) La base tiene datos de prueba: `make clean && make up`. Lo más simple.
 --   b) La base tiene datos que importan: revisar el SELECT que imprime el
 --      error y decidir fila por fila. Ver el bloque de abajo.
 
@@ -45,7 +45,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 
--- 2. La funcion de auditoria. Idéntica a la de init.sql.
+-- 2. La función de auditoría. Idéntica a la de init.sql.
 CREATE OR REPLACE FUNCTION set_audit_role_id()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -76,8 +76,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- 3. roles. Sin DEFAULT de uuid en una migracion que corre sobre una base
---    vieja: se genera aca para que el INSERT de abajo sea explicito y el
+-- 3. roles. Sin DEFAULT de uuid en una migración que corre sobre una base
+--    vieja: se genera acá para que el INSERT de abajo sea explicito y el
 --    operador vea de donde sale cada id.
 CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,10 +153,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_record ON audit_logs(table_name, recor
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
 
 
--- 5. LA PARTE DIFICIL:_INT -> UUID en las columnas de trazabilidad.
+-- 5. LA PARTE Difícil:_INT -> UUID en las columnas de trazabilidad.
 --
--- Se hace en dos pasos a proposito. Primero se verifica que las columnas esten
--- vacias; recien despues se cambia el tipo. Al reves, un fallo del ALTER
+-- Se hace en dos pasos a propósito. Primero se verifica que las columnas esten
+-- vacías; recien después se cambia el tipo. Al reves, un fallo del ALTER
 -- dejaria la tabla a medio camino.
 DO $$
 DECLARE
@@ -205,7 +205,7 @@ BEGIN
 
     -- NOT VALID deja la FK creada pero sin verificar las filas existentes, que
     -- es lo que permite crearla sin bloquear la tabla. VALIDATE la comprueba
-    -- en background; con la columna vacia, un solo ANALYZE alcanza.
+    -- en background; con la columna vacía, un solo ANALYZE alcanza.
     ALTER TABLE movement_history VALIDATE CONSTRAINT fk_movement_history_user;
     ALTER TABLE repairs VALIDATE CONSTRAINT fk_repairs_technician;
 END $$;

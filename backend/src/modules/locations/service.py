@@ -1,29 +1,29 @@
 """
 Ubicaciones: bodegas, pasillos, estantes, bins y sitios de cliente.
 
-QUE ES UNA UBICACION ACA
+QUE ES UNA Ubicación Acá
 ------------------------
-Un lugar fisico donde esta (o estuvo) un equipo. "Deposito Central" es una
+Un lugar físico donde está (o estuvo) un equipo. "Depósito Central" es una
 bodega; "Pasillo 3" cuelga de una bodega; "Estante A" cuelga de un pasillo.
-En el sitio del cliente, la ubicacion tiene `client_id`.
+En el sitio del cliente, la ubicación tiene `client_id`.
 
-LA JERARQUIA
+LA Jerarquía
 ------------
-`locations.parent_id` cuelga una ubicacion de otra. El filtro por
-"Deposito Central" trae sus pasillos y estantes: el operador pregunta por la
+`locations.parent_id` cuelga una ubicación de otra. El filtro por
+"Depósito Central" trae sus pasillos y estantes: el operador pregunta por la
 BODEGA, no por cada estante.
 
 El filtro se resuelve con `_ids_descendientes`, que usa un CTE recursivo. La
 alternativa (guardar el path completo en cada fila) obliga a reescribir todas
 las hijas cuando una bodega se renombra, y el renombre de una bodega es una
-operacion de la que nadie se acuerda hasta que es tarde.
+operación de la que nadie se acuerda hasta que es tarde.
 
 EL TIPO
 -------
 `location_type` distingue WAREHOUSE (bodega), AISLE (pasillo), SHELF
 (estante), BIN (bin) y CLIENT (sitio del cliente). No es decoracion: un
 filtro por "todas las bodegas" no debe traer los equipos instalados en el
-cliente, porque esos no se mueven con una carretilla del deposito.
+cliente, porque esos no se mueven con una carretilla del depósito.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ from sqlalchemy import text
 
 from src.db.session import get_db_session
 
-# Los tipos que la API acepta. El CHECK de Postgres es la ultima linea de
-# defensa; esta lista es la que la API valida y la que el frontend usa para
+# Los tipos que la API acepta. El CHECK de Postgres es la última línea de
+# defensa; está lista es la que la API válida y la que el frontend usa para
 # los `<select>`.
 TIPOS = ("WAREHOUSE", "AISLE", "SHELF", "BIN", "CLIENT")
 
@@ -55,10 +55,10 @@ class UbicacionInvalida(ValueError):
 
 def _ruta_de_padres(filas: list[dict[str, Any]]) -> dict[int, str]:
     """
-    Calcula la ruta ("Deposito Central > Pasillo 3") de cada ubicacion.
+    Calcula la ruta ("Depósito Central > Pasillo 3") de cada ubicación.
 
     Se hace en Python y no con un CTE recursivo por fila: son pocas
-    ubicaciones, y armarlo en memoria es mas simple de leer y de debuggear que
+    ubicaciones, y armarlo en memoria es más simple de leer y de debuggear que
     una consulta recursiva por cada fila.
     """
     por_id = {f["id"]: f for f in filas}
@@ -67,8 +67,8 @@ def _ruta_de_padres(filas: list[dict[str, Any]]) -> dict[int, str]:
     def construir(ubicacion_id: int, profundidad: int = 0) -> str:
         if ubicacion_id in rutas:
             return rutas[ubicacion_id]
-        # El limite de 10 es una red de seguridad contra un ciclo en los datos
-        # (alguien edita a mano el parent_id y queda un anillo). Con un arbol
+        # El límite de 10 es una red de seguridad contra un ciclo en los datos
+        # (alguien edita a mano el parent_id y queda un anillo). Con un árbol
         # sano de 3 niveles, nunca se llega.
         if profundidad > 10:
             return ""
@@ -124,10 +124,10 @@ def listar_ubicaciones(solo_activas: bool = True) -> list[dict[str, Any]]:
 
 def arbol_ubicaciones() -> list[dict[str, Any]]:
     """
-    Las ubicaciones en arbol: cada una con sus hijas.
+    Las ubicaciones en árbol: cada una con sus hijas.
 
     La lista plana de arriba es la que usan los selects (con la ruta en texto);
-    esta es la que usa la pantalla de ubicaciones, donde el operador quiere
+    está es la que usa la pantalla de ubicaciones, donde el operador quiere
     ver la estructura.
     """
     todas = listar_ubicaciones()
@@ -151,10 +151,10 @@ def arbol_ubicaciones() -> list[dict[str, Any]]:
 
 def ids_descendientes(ubicacion_id: int) -> list[int]:
     """
-    La ubicacion y todas sus hijas.
+    La ubicación y todas sus hijas.
 
-    Es lo que hace que el filtro por "Deposito Central" traiga tambien lo que
-    esta en "Deposito Central > Pasillo 3 > Estante A".
+    Es lo que hace que el filtro por "Depósito Central" traiga también lo que
+    está en "Depósito Central > Pasillo 3 > Estante A".
     """
     db = get_db_session()
     try:
@@ -179,7 +179,7 @@ def ids_descendientes(ubicacion_id: int) -> list[int]:
 
 
 def ids_descendientes_categoria(categoria_id: int) -> list[int]:
-    """La categoria y todas sus subcategorias."""
+    """La categoría y todas sus subcategorias."""
     db = get_db_session()
     try:
         filas = db.execute(
@@ -203,7 +203,7 @@ def ids_descendientes_categoria(categoria_id: int) -> list[int]:
 
 
 def crear_ubicacion(datos: dict[str, Any]) -> dict[str, Any]:
-    """Alta de una ubicacion."""
+    """Alta de una ubicación."""
     nombre = (datos.get("store_name") or "").strip()
     if not nombre:
         raise UbicacionInvalida("El nombre de la ubicacion es obligatorio.")
@@ -256,7 +256,7 @@ def crear_ubicacion(datos: dict[str, Any]) -> dict[str, Any]:
 
 def actualizar_ubicacion(ubicacion_id: int, datos: dict[str, Any]) -> dict[str, Any]:
     """
-    Edicion de una ubicacion.
+    Edicion de una ubicación.
 
     El `parent_id` NO se puede poner a si misma, y un hijo no puede colgar de
     su propio descendiente: eso dejaria un ciclo, y el filtro por
@@ -318,7 +318,7 @@ def actualizar_ubicacion(ubicacion_id: int, datos: dict[str, Any]) -> dict[str, 
 
 
 def obtener_ubicacion(ubicacion_id: int) -> dict[str, Any]:
-    """Una ubicacion, con su ruta."""
+    """Una ubicación, con su ruta."""
     for u in listar_ubicaciones(solo_activas=False):
         if u["id"] == int(ubicacion_id):
             return u
@@ -326,7 +326,7 @@ def obtener_ubicacion(ubicacion_id: int) -> dict[str, Any]:
 
 
 def _verificar_padre(parent_id: int) -> None:
-    """El padre tiene que existir. Un padre que no existe deja una huérfana."""
+    """El padre tiene que existir. Un padre que no existe deja una huerfana."""
     db = get_db_session()
     try:
         existe = db.execute(

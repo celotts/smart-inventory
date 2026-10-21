@@ -1,23 +1,23 @@
 """
-Codigo de barras (Code 128) de la etiqueta de un producto, en SVG.
+Código de barras (Code 128) de la etiqueta de un producto, en SVG.
 
 POR QUE CODE 128 Y NO EAN-13
 ----------------------------
-El codigo de barras de un producto NO es el de una góndola de supermercado: no
-hay un organismo que asigne el numero ni un codigo de barras que "pague" en la
-caja. El codigo de barras de un producto es un IDENTIFICADOR de ese producto
+El código de barras de un producto NO es el de una góndola de supermercado: no
+hay un organismo que asigne el número ni un código de barras que "pague" en la
+caja. El código de barras de un producto es un IDENTIFICADOR de ese producto
 dentro de este inventario: el `barcode` que se imprime en la etiqueta y que se
 escanea con la app para llegar al producto.
 
 El Code 128 es el que se usa para eso: codifica cualquier texto ASCII (letras
-y digitos), es un estandar de la industria, y lo leen TODOS los lectores
+y dígitos), es un estándar de la industria, y lo leen TODOS los lectores
 lineales, desde los scanners de mano hasta el lector del celular.
 
-POR QUE ESTA ESCRITO ACA Y NO CON UNA LIBRERIA
+POR QUE Está ESCRITO Acá Y NO CON UNA LIBRERIA
 -----------------------------------------------
 El proyecto no quiere dependencias que compilen ni que agregan binarios al
 contenedor (ver el docstring de `src/modules/devices/qr.py`): la imagen tiene
-que ser texto. El algoritmo del Code 128 son cien lineas y una tabla de
+que ser texto. El algoritmo del Code 128 son cien líneas y una tabla de
 amplitudes: es exactamente el tipo de cosa que conviene tener a la vista y no
 dentro de un `.whl` de 300 KB con Pillow adentro.
 
@@ -30,10 +30,10 @@ grande.
 
 LA TABLA
 --------
-Un simbolo del Code 128 son tres barras y tres espacios, con anchos de 1 a 4
-modulos, y el conjunto de los seis anchos suma siempre 11. La tabla de
-abajo es la del estandar (ISO/IEC 15417): un valor por simbolo, con sus seis
-digitos de ancho en el orden barra, espacio, barra, espacio, barra, espacio.
+Un símbolo del Code 128 son tres barras y tres espacios, con anchos de 1 a 4
+módulos, y el conjunto de los seis anchos suma siempre 11. La tabla de
+abajo es la del estándar (ISO/IEC 15417): un valor por símbolo, con sus seis
+dígitos de ancho en el orden barra, espacio, barra, espacio, barra, espacio.
 
 Los valores 0..102 son datos, 103/104/105 son los arranques A/B/C y 106 es el
 fin. Se usa solo el set B (arranque 104): codifica de forma directa los
@@ -43,24 +43,24 @@ producto puede llegar a ser.
 
 from __future__ import annotations
 
-# Ancho de un modulo, en px. 2 px por modulo es lo que usan las impresoras de
-# etiquetas comunes: mas chico no se lee con un scanner de mano.
+# Ancho de un módulo, en px. 2 px por módulo es lo que usan las impresoras de
+# etiquetas comunes: más chico no se lee con un scanner de mano.
 ANCHO_MODULO = 2
 
-# Alto de la barra, en px. Un codigo de barras de menos de 30 px de alto es
-# facil de leer mal con un lector barato.
+# Alto de la barra, en px. Un código de barras de menos de 30 px de alto es
+# fácil de leer mal con un lector barato.
 ALTO_BARRA = 60
 
-# Zona de silencio a la izquierda y a la derecha, en modulos. El estandar
-# pide 10: sin ella, el lector no arranca y el codigo "no existe".
+# Zona de silencio a la izquierda y a la derecha, en módulos. El estándar
+# pide 10: sin ella, el lector no arranca y el código "no existe".
 ZONA_SILENCIO = 10
 
 # Inicio del set B. Los caracteres imprimibles del ASCII van del 32 (espacio)
-# al 126 (~), y en el set B el valor del simbolo es el ASCII menos 32.
+# al 126 (~), y en el set B el valor del símbolo es el ASCII menos 32.
 INICIO_B = 104
 FIN = 106
 
-# La tabla de amplitudes del estandar. Un string de seis digitos por simbolo.
+# La tabla de amplitudes del estándar. Un string de seis dígitos por símbolo.
 _AMPLITUDES = (
     "212222", "222122", "222221", "121223", "121322", "131222", "122213",
     "122312", "132212", "221213", "221312", "231212", "112232", "122132",
@@ -80,16 +80,16 @@ _AMPLITUDES = (
     "211232", "233111",
 )
 
-# El patron de fin es el simbolo 106 (233111) mas una barra final de 2
-# modulos: sin esa barra, el lector no sabe que termino el codigo.
+# El patron de fin es el símbolo 106 (233111) más una barra final de 2
+# módulos: sin esa barra, el lector no sabe que terminó el código.
 _PATRON_FIN = "2331112"
 
 
 def _simbolos(texto: str) -> list[int]:
     """
-    Devuelve la secuencia de valores de simbolo del Code 128 (set B).
+    Devuelve la secuencia de valores de símbolo del Code 128 (set B).
 
-    Incluye el arranque, los datos y el simbolo de chequeo. Lanza
+    Incluye el arranque, los datos y el símbolo de chequeo. Lanza
     `ValueError` si el texto tiene un caracter que el set B no codifica.
     """
     valores = [INICIO_B]
@@ -102,8 +102,8 @@ def _simbolos(texto: str) -> list[int]:
             )
         valores.append(punto - 32)
 
-    # Chequeo: suma ponderada modulo 103. El arranque pesa 1 y el primer
-    # caracter tambien: por eso el primer `i` es 1 y no 0.
+    # Chequeo: suma ponderada módulo 103. El arranque pesa 1 y el primer
+    # caracter también: por eso el primer `i` es 1 y no 0.
     checksum = INICIO_B
     for posicion, valor in enumerate(valores[1:], start=1):
         checksum += posicion * valor
@@ -114,7 +114,7 @@ def _simbolos(texto: str) -> list[int]:
 
 def _barras(texto: str) -> tuple[list[tuple[int, int]], int]:
     """
-    Devuelve la lista de barras del codigo y el ancho total, en px.
+    Devuelve la lista de barras del código y el ancho total, en px.
 
     Cada barra es una tupla `(x, ancho)`: donde arranca y cuanto mide.
     """
@@ -139,7 +139,7 @@ def _barras(texto: str) -> tuple[list[tuple[int, int]], int]:
 
 def codigo128_como_svg(texto: str, *, alto: int = ALTO_BARRA) -> bytes:
     """
-    Devuelve el codigo de barras de `texto` como SVG.
+    Devuelve el código de barras de `texto` como SVG.
 
     Nunca lanza: si el texto tiene un caracter que no se puede codificar,
     devuelve un SVG con un cartel. Un endpoint que rompe la etiqueta de un

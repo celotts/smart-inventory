@@ -1,27 +1,27 @@
 """
 Router de dispositivos. Montado en /api/devices.
 
-LA RUTA QUE MAS SE USA
+LA RUTA QUE Más SE USA
 ----------------------
 `GET /api/devices/resolve` es el endpoint que el lector de QR golpea en cada
 escaneo, y esta disenado para el caso de uso real: una persona con un telefono en
 una mano, en un deposito, sin conexion perfecta.
 
-De ahi salen las tres decisiones que se ven en el codigo:
+De ahi salen las tres decisiones que se ven en el código:
 
-  - Nunca levanta 404 por un codigo que no existe. Devuelve 200 con
+  - Nunca levanta 404 por un código que no existe. Devuelve 200 con
     `encontrado: false` y un `motivo` que dice QUE hacer. Un 404 en un escaner se
-    ve como "la app se cayo"; un motivo se ve como "esa etiqueta no es de acá".
+    ve como "la app se cayo"; un motivo se ve como "esa etiqueta no es de aca".
 
-  - No pide permisos de escritura para LEER. Resolver un codigo es una
+  - No pide permisos de escritura para LEER. Resolver un código es una
     operacion de lectura: la exige el permiso de ver inventario, que es el que
     tiene el operador. Pedir permiso de creacion para leer una etiqueta haria
-    que un Tecnico, que tiene `devices:read` pero no `devices:create`, no
+    que un Técnico, que tiene `devices:read` pero no `devices:create`, no
     pueda usar el escaner.
 
-  - El codigo va en QUERY STRING y no en el path. Un codigo de barras puede
+  - El código va en QUERY STRING y no en el path. Un código de barras puede
     traer `/`, `#` o `?` adentro, y puesto en el path rompe el ruteo de FastAPI
-    antes de llegar al handler. Ademas un codigo en el path queda en los logs de
+    antes de llegar al handler. Ademas un código en el path queda en los logs de
     acceso del proxy.
 """
 
@@ -48,10 +48,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/devices", tags=["dispositivos"])
 
-# Estados validos del inventario. Se repite aca, y no se importa de la base,
-# porque es el conjunto que el ESQUEMA de la API promete: si el dia de manana se
+# Estados válidos del inventario. Se repite acá, y no se importa de la base,
+# porque es el conjunto que el ESQUEMA de la API promete: si el día de mañana se
 # agrega un estado, el frontend tiene que enterarse por el tipo, no por un 400
-# en produccion.
+# en producción.
 ESTADOS = (
     "IN_WAREHOUSE",
     "IN_TRANSIT",
@@ -78,8 +78,8 @@ def resolver(
     """
     El endpoint del escaner.
 
-    NUNCA da 404. Un codigo que no existe, uno que esta dado de baja y uno que
-    esta activo devuelven 200 con distinto `encontrado` y distinto `motivo`,
+    NUNCA da 404. Un código que no existe, uno que está dado de baja y uno que
+    está activo devuelven 200 con distinto `encontrado` y distinto `motivo`,
     porque para el operador son tres pasos distintos a seguir.
     """
     return service.resolver_codigo(codigo)
@@ -98,7 +98,7 @@ def crear(
     """
     Alta de componente.
 
-    Si no viene `qr_code`, se genera uno propio con prefijo `INV-`. La razon esta
+    Si no viene `qr_code`, se genera uno propio con prefijo `INV-`. La razón está
     en `service.generar_qr()`: el serial es del fabricante y hay proveedores que
     los reciclan.
     """
@@ -108,7 +108,7 @@ def crear(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except KeyError as exc:
         # Referencia a un model_id o location_id que no existe. El mensaje dice
-        # cual de los dos es, que es lo unico que necesita saber el operador para
+        # cual de los dos es, que es lo único que necesita saber el operador para
         # corregirlo.
         campo = "model_id" if "model_id" in str(exc) else "location_id"
         raise HTTPException(
@@ -147,8 +147,8 @@ def listar(
     """
     Listado paginado, con filtros combinables.
 
-    `limite` con tope de 200: sin tope, un cliente puede pedir un solo POST con
-    `limite=100000` y la consulta trae la tabla entera. El tope no es
+    `límite` con tope de 200: sin tope, un cliente puede pedir un solo POST con
+    `límite=100000` y la consulta trae la tabla entera. El tope no es
     arbitrario, es el punto en el que la respuesta deja de caber comoda en un
     celular.
     """
@@ -190,15 +190,15 @@ def qr_de_etiqueta(
 
     QUE CODIFICA
     ------------
-    El `qr_code`, que es el codigo de la ETIQUETA fisica. El escaner resuelve
-    las dos cosas (`qr_code` y `serial_number`), asi que cualquiera de las dos
-    serviria, pero la etiqueta es lo que esta pegado al equipo: lo que el
+    El `qr_code`, que es el código de la ETIQUETA fisica. El escaner resuelve
+    las dos cosas (`qr_code` y `serial_number`), así que cualquiera de las dos
+    serviria, pero la etiqueta es lo que está pegado al equipo: lo que el
     operador tiene en la mano es eso.
 
     POR QUE ES UN SVG
     ----------------
     Son unos pocos KB de texto y se ve nitido a cualquier tamaño, sin pixeles.
-    Para una etiqueta que se mira de cerca en un deposito, o que se imprime, el
+    Para una etiqueta que se mira de cerca en un depósito, o que se imprime, el
     vector gana al raster.
 
     El permiso es el de VER inventario, no el de editar: mostrar el QR de un
@@ -214,7 +214,7 @@ def qr_de_etiqueta(
         media_type="image/svg+xml",
         headers={
             # La etiqueta de un equipo no cambia: el QR se puede cachear.
-            # Un equipo dado de baja conserva su etiqueta historica.
+            # Un equipo dado de baja conserva su etiqueta histórica.
             "Cache-Control": "private, max-age=3600",
         },
     )
@@ -253,9 +253,9 @@ def obtener(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> dict:
     """
-    Ficha con dias instalados y ultimo movimiento.
+    Ficha con días instalados y último movimiento.
 
-    El `device_id` va por parametro de path, no por query, para que no se pueda
+    El `device_id` va por parámetro de path, no por query, para que no se pueda
     pasar un id en una URL distinta a la que dice el nombre.
     """
     try:
@@ -295,8 +295,8 @@ def actualizar(
     except service.CodigoDuplicado as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except service.TransicionInvalida as exc:
-        # 409 y no 422: el cuerpo de la peticion es sintacticamente correcto, el
-        # problema es que la operacion choca con el estado actual del recurso.
+        # 409 y no 422: el cuerpo de la petición es sintacticamente correcto, el
+        # problema es que la operación choca con el estado actual del recurso.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except KeyError as exc:
         campo = "model_id" if "model_id" in str(exc) else "location_id"
@@ -316,9 +316,9 @@ def eliminar(
     usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
 ) -> dict:
     """
-    Baja logica: el equipo desaparece del inventario activo y queda auditado.
+    Baja lógica: el equipo desaparece del inventario activo y queda auditado.
 
-    NO se borra la fila. Un `DELETE` fisico se lleva puesto el historial de
+    NO se borra la fila. Un `DELETE` físico se lleva puesto el historial de
     movimientos y deja el inventario sin trazabilidad. `deleted_at` lo saca de
     las consultas y el `disposal_certificates` guarda el motivo y el responsable.
     """

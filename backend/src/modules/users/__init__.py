@@ -1,1 +1,1 @@
-"""Modulo de usuarios: autenticacion, permisos y CRUD."""
+"""Módulo de usuarios: autenticación, permisos y CRUD."""

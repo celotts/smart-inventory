@@ -29,13 +29,13 @@ def resumen_stock(
     """
     Vista v_stock_summary con filtro opcional.
 
-    LA EXISTENCIA POR PRODUCTO Y UBICACION
+    LA EXISTENCIA POR PRODUCTO Y Ubicación
     --------------------------------------
-    Esta lista crece con el PRODUCTO por la UBICACION: 800 productos en 6
-    ubicaciones son 4800 filas. Sin limite, la API las devuelve todas y el
+    Está lista crece con el PRODUCTO por la Ubicación: 800 productos en 6
+    ubicaciones son 4800 filas. Sin límite, la API las devuelve todas y el
     navegador las pinta todas: con 5000 equipos la app deja de responder.
 
-    Por eso el `limite` y el `total`: la pantalla pagina, y el operador ve
+    Por eso el `límite` y el `total`: la pantalla página, y el operador ve
     cuantas hay en total.
     """
     db = db_session_factory()
@@ -79,7 +79,7 @@ def resumen_stock(
         if busqueda:
             # El filtro va en el SERVIDOR, no en el navegador: con la lista
             # paginada, filtrar en el cliente solo mira las 50 filas de la
-            # pagina, y el operador ve "no hay" con 4800 existencias.
+            # página, y el operador ve "no hay" con 4800 existencias.
             condiciones.append(
                 "(m.sku ILIKE :busqueda OR m.brand ILIKE :busqueda "
                 "OR m.model ILIKE :busqueda OR l.store_name ILIKE :busqueda)"
@@ -92,7 +92,7 @@ def resumen_stock(
         query += " ORDER BY m.brand, m.model, l.store_name"
 
         # El total, con el MISMO filtro: si no, el "de 4800" no corresponde a
-        # lo que el operador esta viendo.
+        # lo que el operador está viendo.
         conteo = f"""
             SELECT COUNT(*)
             FROM stock_levels sl
@@ -122,16 +122,16 @@ def productos_por_reponer(limite: int = 100) -> list[dict[str, Any]]:
     -----------------------
     Antes, la tarjeta "Por reponer" del tablero y el modal que se abre al
     pulsarla usaban DOS consultas distintas: una por MODELO (el total
-    disponible contra el minimo) y otra por MODELO Y UBICACION. El operador
+    disponible contra el mínimo) y otra por MODELO Y Ubicación. El operador
     pulsaba un producto del tablero y el modal decia "todos los productos
-    estan por encima de su minimo": la misma pantalla, dos verdades, y la
-    segunda con la informacion EQUIVOCADA.
+    están por encima de su mínimo": la misma pantalla, dos verdades, y la
+    segunda con la información EQUIVOCADA.
 
-    Ahora las dos salen de aca: el criterio es el total disponible del
-    PRODUCTO (en todas las ubicaciones) contra su minimo. Es el que tiene
+    Ahora las dos salen de acá: el criterio es el total disponible del
+    PRODUCTO (en todas las ubicaciones) contra su mínimo. Es el que tiene
     sentido para decidir una compra: si hay 4 unidades del producto
-    repartidas en dos depositos, el deposito puede estar por debajo de su
-    minimo, pero el PRODUCTO no esta por reponer.
+    repartidas en dos depósitos, el depósito puede estar por debajo de su
+    mínimo, pero el PRODUCTO no está por reponer.
     """
     db = db_session_factory()
     try:

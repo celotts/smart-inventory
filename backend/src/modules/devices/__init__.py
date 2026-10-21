@@ -1,1 +1,1 @@
-"""Modulo de dispositivos: alta, resolucion de codigo y ficha."""
+"""Módulo de dispositivos: alta, resolucion de código y ficha."""

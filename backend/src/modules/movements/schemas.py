@@ -1,15 +1,15 @@
 """
 Schemas de movimientos y escaneo.
 
-EL CAMPO MAS IMPORTANTE: `client_scan_id`
+EL CAMPO Más IMPORTANTE: `client_scan_id`
 ------------------------------------------
 Es lo que hace que escanear dos veces no duplique el movimiento. Lo genera el
-DISPOSITIVO, no el servidor, porque es la unica forma de que sobreviva al viaje:
+DISPOSITIVO, no el servidor, porque es la única forma de que sobreviva al viaje:
 si lo generara el servidor, cada reintento tendria uno distinto y la
 idempotencia no existiria.
 
 El cliente lo crea con `crypto.randomUUID()` ANTES de hacer el `fetch`, y reutiliza
-el mismo valor para todos los reintentos de ese envio.
+el mismo valor para todos los reintentos de ese envió.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class EscanearRequest(BaseModel):
     Un escaneo.
 
     `extra="forbid"` es deliberado: si el cliente manda un campo que no existe,
-    se rechaza. Sin esto, un typo como `ubicacion` en vez de `ubicacion_id`
+    se rechaza. Sin esto, un typo como `ubicación` en vez de `ubicación_id`
     pasa el modelo con un valor `None` silencioso, el escaneo se registra sin
     destino y el componente queda donde estaba sin que nadie lo note. Es el
     peor tipo de bug: no falla, deja de hacer lo que dice.
@@ -84,12 +84,12 @@ class EscanearRequest(BaseModel):
 
     def check_reemplazo(self) -> None:
         """
-        Valida el par de reemplazo.
+        Válida el par de reemplazo.
 
-        Va como metodo y no como `model_validator` para que el error salga con
-        el status que corresponde (400) y no como un 422 de validacion de
-        esquema: la diferencia para el operador es "tu pedido esta mal" contra
-        "el formulario esta roto", y este caso es el primero.
+        Va como método y no como `model_validator` para que el error salga con
+        el status que corresponde (400) y no como un 422 de validación de
+        esquema: la diferencia para el operador es "tu pedido está mal" contra
+        "el formulario está roto", y este caso es el primero.
         """
         es_reemplazo = self.tipo_movimiento == "REPLACEMENT"
         if es_reemplazo and not (self.replaced_device_id and self.replacement_reason):
@@ -162,11 +162,11 @@ class MovimientoPorProductoRequest(BaseModel):
     @classmethod
     def _destino_segun_tipo(cls, valor: int | None, info) -> int | None:
         """
-        La baja es el unico movimiento sin destino.
+        La baja es el único movimiento sin destino.
 
         Un DISPOSAL manda el equipo a `PERMANENTLY_DISPOSED`: no hay sede a la
-        que llegue. Exigirle una ubicacion obliga al cliente a inventar un
-        deposito para poder dar de baja, y ese dato falso queda en el historial.
+        que llegue. Exigirle una ubicación obliga al cliente a inventar un
+        depósito para poder dar de baja, y ese dato falso queda en el historial.
         """
         tipo = info.data.get("tipo_movimiento")
         if tipo != "DISPOSAL" and valor is None:
@@ -206,7 +206,7 @@ class MovimientoPorProductoResponse(BaseModel):
 
 
 class ResultadoGeo(BaseModel):
-    """El veredicto de la geo-validacion, con lo que el operador necesita ver."""
+    """El veredicto de la geo-validación, con lo que el operador necesita ver."""
 
     dentro_del_radio: bool | None = Field(
         None,
@@ -225,7 +225,7 @@ class EscanearResponse(BaseModel):
     """
     Resultado del escaneo.
 
-    `replay` esta en el contrato porque el cliente lo necesita: si es `True` ya
+    `replay` está en el contrato porque el cliente lo necesita: si es `True` ya
     estaba registrado y no tiene que avisarle al operador que hay un problema.
     Sin ese campo, el frontend tiene que deducirlo comparando `movement_id` con
     lo que ya tenia, que es fragile.
@@ -268,10 +268,10 @@ class ListaMovimientosResponse(BaseModel):
 
 class EscanearLoteRequest(BaseModel):
     """
-    Conteo ciclico: N codigos en una request.
+    Conteo ciclico: N códigos en una request.
 
-    El maximo lo pone `scan_batch_max`. Sin tope, un cliente puede mandar 100.000
-    codigos en un POST y la API los procesa todos en una transaccion: 100.000
+    El máximo lo pone `scan_batch_max`. Sin tope, un cliente puede mandar 100.000
+    códigos en un POST y la API los procesa todos en una transaccion: 100.000
     inserts y updates de estado, con el rate limit contando UNA request.
     """
 
@@ -287,17 +287,17 @@ class EscanearLoteRequest(BaseModel):
     @classmethod
     def _codigos_no_vacios(cls, valores: list[str]) -> list[str]:
         """
-        Cada codigo tiene que tener algo adentro.
+        Cada código tiene que tener algo adentro.
 
-        Sin esto, un `""` en medio de la lista llega al `resolver_codigo`, que
-        devuelve "el codigo viene vacio", y el lote entero falla con un error
+        Sin esto, un `""` en medio de la lista llega al `resolver_código`, que
+        devuelve "el código viene vacío", y el lote entero falla con un error
         para un elemento que el operador ni puede haber escaneado.
         """
         return [v.strip() for v in valores if v and v.strip()]
 
 
 class ResultadoLote(BaseModel):
-    """Resultado del conteo: uno por codigo, con el motivo si fallo."""
+    """Resultado del conteo: uno por código, con el motivo si fallo."""
 
     total: int
     registrados: int

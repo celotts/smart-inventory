@@ -1,4 +1,4 @@
-"""Repositorio base genérico con helpers comunes."""
+"""Repositorio base generico con helpers comunes."""
 
 from __future__ import annotations
 

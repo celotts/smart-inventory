@@ -1,5 +1,5 @@
 """
-Schemas del modulo de incidencias.
+Schemas del módulo de incidencias.
 
 POR QUE VALIDAR CON PYDANTIC Y NO EN EL SERVICE
 ------------------------------------------------
@@ -7,7 +7,7 @@ El `title` con dos letras, una severidad que no existe o un `client_ref` de
 cuatro kb tienen que rechazarse ANTES de tocar la base: si no, el error sale
 como un 500 del trigger, que no le dice al operador que paso.
 
-Los CHECK de la base siguen siendo la ultima linea de defensa (el que escribe
+Los CHECK de la base siguen siendo la última línea de defensa (el que escribe
 con `psql` no pasa por Pydantic), pero la API falla con un 422 que explica el
 motivo.
 """
@@ -20,12 +20,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# Las severidades, en el orden de la tabla de politicas de SLA.
+# Las severidades, en el orden de la tabla de políticas de SLA.
 SEVERIDADES = ("S1", "S2", "S3", "S4")
 
-# Los estados del ciclo de vida. Las TRANSICIONES validas las controla el
-# trigger de la base (`incident_transicion_valida`): aca solo se valida que el
-# estado exista, porque una transicion valida depende del estado ACTUAL, que
+# Los estados del ciclo de vida. Las Transiciones válidas las controla el
+# trigger de la base (`incident_transición_válida`): acá solo se válida que el
+# estado exista, porque una transición válida depende del estado ACTUAL, que
 # el cliente no manda.
 ESTADOS = ("OPEN", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED", "CANCELLED")
 
@@ -76,8 +76,8 @@ class ActualizarIncidenciaRequest(BaseModel):
     """
     Edicion parcial de una incidencia.
 
-    `version` es el BLOQUEO OPTIMISTA: es la version que el cliente leyo. Si
-    otro operador guardo antes, la version cambio y el backend responde 409
+    `versión` es el BLOQUEO OPTIMISTA: es la versión que el cliente leyo. Si
+    otro operador guardo antes, la versión cambió y el backend responde 409
     con un conflicto explicito, en vez de pisar el trabajo del otro.
     """
 
@@ -111,7 +111,7 @@ class ActualizarIncidenciaRequest(BaseModel):
 
 
 class CambiarEstadoRequest(BaseModel):
-    """Una transicion de estado. Las validas las exige la base."""
+    """Una transición de estado. Las válidas las exige la base."""
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -127,7 +127,7 @@ class CambiarEstadoRequest(BaseModel):
 
 
 class ComentarRequest(BaseModel):
-    """Una nota en la linea de tiempo."""
+    """Una nota en la línea de tiempo."""
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -142,11 +142,11 @@ class CerrarIncidenciaRequest(BaseModel):
     stock danado y no un ticket de software:
 
     - TALLER: el equipo se rompio y va al taller (`IN_REPAIR`).
-    - REPARADO: se arreglo y vuelve al deposito (`IN_WAREHOUSE`).
-    - DANO_TOTAL: no se arregla; el equipo se desincorpora del stock.
+    - REPARADO: se arreglo y vuelve al depósito (`IN_WAREHOUSE`).
+    - Daño_TOTAL: no se arregla; el equipo se desincorpora del stock.
 
     Sin destino, el caso se cierra y el inventario no se entera: el equipo
-    sigue contando como disponible cuando en realidad esta roto.
+    sigue contando como disponible cuando en realidad está roto.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
@@ -172,7 +172,7 @@ class CerrarIncidenciaRequest(BaseModel):
 
 
 class IncidenciaResumen(BaseModel):
-    """Una incidencia en la lista: lo minimo para identificarla."""
+    """Una incidencia en la lista: lo mínimo para identificarla."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -202,7 +202,7 @@ class IncidenciaResumen(BaseModel):
 
 
 class EventoIncidencia(BaseModel):
-    """Una linea de la linea de tiempo."""
+    """Una línea de la línea de tiempo."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -217,7 +217,7 @@ class EventoIncidencia(BaseModel):
 
 
 class IncidenciaDetalle(IncidenciaResumen):
-    """La incidencia completa, con su linea de tiempo."""
+    """La incidencia completa, con su línea de tiempo."""
 
     description: str | None = None
     resolution: str | None = None
@@ -226,9 +226,9 @@ class IncidenciaDetalle(IncidenciaResumen):
     downtime_minutes: int | None = None
     eventos: list[EventoIncidencia] = []
 
-    # Lo que paso con el EQUIPO al cerrar el caso ("quedo en el taller con la
-    # orden #12"). La pantalla lo muestra: el tecnico necesita ver que el
-    # equipo se movio de verdad, no solo que el caso se cerro.
+    # Lo que paso con el EQUIPO al cerrar el caso ("quedó en el taller con la
+    # orden #12"). La pantalla lo muestra: el técnico necesita ver que el
+    # equipo se movio de verdad, no solo que el caso se cerró.
     mensaje_equipo: str | None = None
 
 

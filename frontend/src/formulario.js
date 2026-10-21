@@ -1,15 +1,15 @@
 /**
- * Campos de formulario con validacion en linea.
+ * Campos de formulario con validación en línea.
  *
  * QUE HACE ESTO Y POR QUE NO BASTA CON `avisar()`
  * -------------------------------------------------
  * Un formulario que avisa el error en un cartel que desaparece a los 4
- * segundos deja al operador con la duda de QUE campo esta mal. Peor: si
+ * segundos deja al operador con la duda de QUE campo está mal. Peor: si
  * escribio 12 campos, tiene que recorrerlos todos adivinando.
  *
- * Aqui el error va:
+ * Aquí el error va:
  *
- *   1. Debajo del campo, junto a lo que esta mal.
+ *   1. Debajo del campo, junto a lo que está mal.
  *   2. Con el campo marcado (`aria-invalid="true"` y un borde rojo): el
  *      operador ve el problema sin leer.
  *   3. Con el foco movido al primer campo con error: el teclado va solo al
@@ -39,18 +39,18 @@ import { conTooltip } from './tooltip.js';
  *
  * POR QUE NO EN EL CONTROL
  * ------------------------
- * Un tooltip en un `<input>` desaparece en cuanto el operador hace clic: esta
+ * Un tooltip en un `<input>` desaparece en cuanto el operador hace clic: está
  * escribiendo, y lo que necesita es leer la ayuda SIN perder el foco. En un
- * celular, ademas, el tooltip nativo no aparece nunca.
+ * celular, además, el tooltip nativo no aparece nunca.
  *
  * La etiqueta es lo que el operador mira ANTES de hacer clic, y lo que el
- * lector de pantalla anuncia junto al campo. Ahi el tooltip aporta.
+ * lector de pantalla anuncia junto al campo. Ahí el tooltip aporta.
  *
- * Y la ayuda que de verdad importa —como se usa el campo— esta SIEMPRE
+ * Y la ayuda que de verdad importa —como se usa el campo— está SIEMPRE
  * visible, debajo, y enlazada con `aria-describedby`.
  */
 
-/** Contador para los ids unicos de los errores. */
+/** Contador para los ids únicos de los errores. */
 let contador = 0;
 
 /**
@@ -71,12 +71,12 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
   // -------------------------------------------------
   // La etiqueta con "*" al final YA dice que el campo es obligatorio. Si el
   // que escribe la llamada no pasa `requerido: true`, se deduce de la
-  // etiqueta. Asi:
+  // etiqueta. Así:
   //
   //   - No queda un asterisco pegado al campo sin el atributo que lo
-  //     anuncia (el lector de pantalla lee "titulo, obligatory" solo si el
-  //     `aria-required` esta).
-  //   - No queda un "Titulo * *" (el helper agrega el asterisco y el que
+  //     anuncia (el lector de pantalla lee "título, obligatory" solo si el
+  //     `aria-required` está).
+  //   - No queda un "Título * *" (el helper agrega el asterisco y el que
   //     escribio la etiqueta ya habia puesto uno).
   const esObligatorio =
     requerido === true || (typeof etiqueta === 'string' && /\*\s*$/.test(etiqueta));
@@ -114,7 +114,7 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
 
   if (esObligatorio) control.setAttribute('aria-required', 'true');
 
-  // El tooltip de la etiqueta: la descripcion corta de que es el campo. La
+  // El tooltip de la etiqueta: la descripción corta de que es el campo. La
   // ayuda larga va debajo, siempre visible.
   if (descripcion) conTooltip(textoEtiqueta, descripcion);
 
@@ -164,8 +164,8 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
  *   campoTexto({ etiqueta: 'Marca', placeholder: 'Ej: Dell' })   <- objeto
  *   campoTexto('Ej: Dell', 'Marca')                               <- posicional
  *
- * Las dos existen en el codigo: la forma de objeto es la que usa la
- * mayoria, pero hay llamadas posicionales (las de los formularios mas
+ * Las dos existen en el código: la forma de objeto es la que usa la
+ * mayoria, pero hay llamadas posicionales (las de los formularios más
  * viejos). Con una sola forma, la que no coincide recibe un OBJETO donde
  * espera un texto, y el campo sale con la etiqueta "undefined": el
  * formulario parece roto y no dice por que.
@@ -222,8 +222,8 @@ export function campoTexto(opciones, etiquetaPosicional, opcionesPosicional) {
   if (inputmode) atributos.inputmode = inputmode;
   if (maxlength) atributos.maxlength = String(maxlength);
   if (name) atributos.name = name;
-  // El `step` de los numeros: sin el, el navegador no sube ni baja con las
-  // flechas del teclado y el operador escribe el numero a mano.
+  // El `step` de los números: sin el, el navegador no sube ni baja con las
+  // flechas del teclado y el operador escribe el número a mano.
   if (paso) atributos.step = String(paso);
 
   const control = crear('input', {
@@ -231,7 +231,7 @@ export function campoTexto(opciones, etiquetaPosicional, opcionesPosicional) {
     atributos,
   });
 
-  // El valor inicial. Va DESPUES de crear el control porque `crear` pone los
+  // El valor inicial. Va Después de crear el control porque `crear` pone los
   // atributos, y el `value` es una PROPIEDAD del input, no un atributo.
   if (valor !== '' && valor !== undefined && valor !== null) {
     control.value = String(valor);
@@ -252,7 +252,7 @@ export function campoTexto(opciones, etiquetaPosicional, opcionesPosicional) {
  * @param {string} [opciones.placeholder]
  * @param {string} [opciones.ayuda]
  * @param {boolean} [opciones.requerido]
- * @param {number} [opciones.filas]      Alto inicial, en lineas.
+ * @param {number} [opciones.filas]      Alto inicial, en líneas.
  * @returns {object}
  */
 export function campoArea({
@@ -277,7 +277,7 @@ export function campoArea({
 
   const control = crear('textarea', { clase: 'campo__control', atributos });
 
-  // El valor inicial va DESPUES de crear el control: el `value` de un
+  // El valor inicial va Después de crear el control: el `value` de un
   // `textarea` es una PROPIEDAD, no un atributo.
   if (valor !== '' && valor !== undefined && valor !== null) {
     control.value = String(valor);
@@ -322,14 +322,14 @@ export function campoNumero({
 }
 
 /**
- * Campo de seleccion.
+ * Campo de selección.
  *
  * @param {object} opciones
  * @param {string} opciones.etiqueta
  * @param {Array<{valor: string, texto: string}>} opciones.opciones
  * @param {string} [opciones.ayuda]
  * @param {boolean} [opciones.requerido]
- * @param {string} [opciones.vacio] Texto de la primera opcion (sin valor).
+ * @param {string} [opciones.vacío] Texto de la primera opción (sin valor).
  * @returns {object}
  */
 export function campoSelect({ etiqueta, opciones = [], ayuda, descripcion, requerido = false, vacio, name }) {
@@ -385,7 +385,7 @@ export function resumenDeErrores(campos) {
       texto: mensaje,
       atributos: { type: 'button' },
     });
-    // El boton lleva el foco al campo: el operador no tiene que buscarlo.
+    // El botón lleva el foco al campo: el operador no tiene que buscarlo.
     enlace.addEventListener('click', () => {
       campo.control.focus();
       campo.control.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -401,12 +401,12 @@ export function resumenDeErrores(campos) {
 /**
  * Agrega la capacidad de marcar error a un control YA ARMADO.
  *
- * PARA QUE ESTA JUNTO A `campoTexto`
+ * PARA QUE Está JUNTO A `campoTexto`
  * ----------------------------------
- * Los formularios que ya existian en la app estan armados a mano, con su
+ * Los formularios que ya existian en la app están armados a mano, con su
  * `crear('input')` y su `crear('label')`. Migrarlos todos al constructor
- * seria un cambio grande con riesgo de romper algo que funciona; lo que hace
- * falta es la parte de VALIDACION, que es la que se estaba haciendo con
+ * seria un cambió grande con riesgo de romper algo que funciona; lo que hace
+ * falta es la parte de Validación, que es la que se estaba haciendo con
  * avisos flotantes.
  *
  * Con esto, un formulario existente gana: el error debajo del campo, el
@@ -430,7 +430,7 @@ export function errorDe(control, descripcion) {
   const nodo = crear('p', { clase: 'campo__error', id: idError, atributos: { role: 'alert' } });
   nodo.hidden = true;
 
-  // El error va DESPUES del control (y despues de la ayuda, si la hay).
+  // El error va Después del control (y después de la ayuda, si la hay).
   const ayuda = contenedor.querySelector('.campo__ayuda');
   if (ayuda && ayuda.nextSibling) contenedor.insertBefore(nodo, ayuda.nextSibling);
   else contenedor.appendChild(nodo);

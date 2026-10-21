@@ -22,7 +22,7 @@ const TABLAS = {
   vendors: 'Proveedores',
   purchase_orders: 'Órdenes de Compra',
   locations: 'Ubicaciones',
-  categories: 'Categorías',
+  categories: 'Categorias',
 };
 
 export function vistaAuditoriaCompleta({ permisos = [] } = {}) {
@@ -62,7 +62,7 @@ export function vistaAuditoriaCompleta({ permisos = [] } = {}) {
 
   filtros.append(
     crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Tabla' }), selTabla] }),
-    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Acción' }), selAccion] }),
+    crear('label', { clase: 'campo', hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Accion' }), selAccion] }),
   );
 
   tarjeta.append(filtros);

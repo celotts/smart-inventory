@@ -1,1 +1,1 @@
-"""Modulo de movimientos: escaneo, idempotencia y geo-validacion."""
+"""Módulo de movimientos: escaneo, idempotencia y geo-validación."""

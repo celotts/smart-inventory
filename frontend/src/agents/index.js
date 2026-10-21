@@ -4,7 +4,7 @@
  * USO:
  *   import { procesarQuery, getOrchestrator } from './agents';
  *
- *   const resultado = await procesarQuery('Cuánto stock de Latitude 5440?');
+ *   const resultado = await procesarQuery('Cuanto stock de Latitude 5440?');
  *   console.log(resultado.response);
  *
  *   // O con streaming:

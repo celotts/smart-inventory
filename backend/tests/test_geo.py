@@ -29,7 +29,7 @@ from src.core.geo import (
 )
 
 # Buenos Aires. La referencia no es arbitraria: es la ciudad donde corre el
-# sistema, asi que un error de hemisferio aca se ve antes que en otro lado.
+# sistema, así que un error de hemisferio acá se ve antes que en otro lado.
 BA_LAT, BA_LON = -34.6037, -58.3816
 
 
@@ -83,7 +83,7 @@ class TestDistancia:
         """
         ~278 km por el rio. Dos ciudades del mismo pais a unas 300 km.
 
-        El numero de referencia es el geodesic real, no uno inventado: lo que
+        El número de referencia es el geodesic real, no uno inventado: lo que
         importa es que un error de metros no se convierta en uno de kilometros.
         """
         metros = distancia_metros(BA_LAT, BA_LON, -32.9442, -60.6505)
@@ -96,10 +96,10 @@ class TestDistancia:
 
     def test_este_oeste_cerca_del_ecuador_es_mayor_que_norte_sur(self):
         """
-        Este es el error que hace la version "plana" del calculo.
+        Este es el error que hace la versión "plana" del calculo.
 
         A un grado del ecuador, un grado de longitud son 111 km y uno de
-        latitud tambien. A 60 grados de latitud, un grado de longitud son solo
+        latitud también. A 60 grados de latitud, un grado de longitud son solo
         55 km. Una distancia euclidiana trataria los dos ejes como iguales y
         se equivocaria en un factor de dos, que para un radio de 50 m de
        Tolerance significa decidir al azar.
@@ -116,10 +116,10 @@ class TestDistancia:
 
     def test_no_revienta_con_extremos(self):
         """
-        `sin^2` puede devolver 1.0000000000000002 por precision de punto
+        `sin^2` puede devolver 1.0000000000000002 por precisión de punto
         flotante, y `sqrt(1.0000000000000002)` es NaN. Aparece justo en el
         borde (dos puntos casi opuestos), que es el caso que uno testeando
-        encuentra ultimo.
+        encuentra último.
         """
         metros = distancia_metros(0, 0, 0, 180)
         assert math.isfinite(metros)
@@ -143,10 +143,10 @@ class TestDentroDelRadio:
         El borde cuenta como dentro.
 
         No es matematica fina: es que un operador parado en el porton del
-        deposito, con el GPS con 5 metros de error, tiene que poder escanear. Si
-        el borde fuera excluyente, el mismo operador fallaria segun el dia.
+        depósito, con el GPS con 5 metros de error, tiene que poder escanear. Si
+        el borde fuera excluyente, el mismo operador fallaria según el día.
         """
-        # Un grado de latitud son ~111.195 m, asi que 50 m son 0.00045 grados.
+        # Un grado de latitud son ~111.195 m, así que 50 m son 0.00045 grados.
         # Se calcula en vez de escribirlo a mano para que el test siga siendo
         # correcto si alguien cambia el radio terrestre.
         medio_grado = 50 / 111_195.0
@@ -158,7 +158,7 @@ class TestDentroDelRadio:
         assert metros == pytest.approx(50.0, abs=0.5)
 
     def test_un_metro_mas_alla_del_borde_queda_afuera(self):
-        """El borde exacto entra, un metro mas no: el radio no es un conozco."""
+        """El borde exacto entra, un metro más no: el radio no es un conozco."""
         medio_grado = 50 / 111_195.0
         fuera = medio_grado * 1.05  # ~52.5 m
 
@@ -169,10 +169,10 @@ class TestDentroDelRadio:
     def test_radio_none_significa_sin_limite(self):
         """
         Una sede creada antes de que existiera `tolerance_radius_meters` tiene
-        NULL. NULL significaba "sin limite", y por eso se traduce a infinito.
+        NULL. NULL significaba "sin límite", y por eso se traduce a infinito.
 
         Con 0 en su lugar, ninguna sede vieja aceptaria un escaneo, y el
-        operador recibiria "fuera de radio" en un deposito donde esta parado.
+        operador recibiria "fuera de radio" en un depósito donde está parado.
         """
         dentro, metros = dentro_del_radio(-34.5937, BA_LON, BA_LAT, BA_LON, None)
         assert dentro is True
@@ -186,7 +186,7 @@ class TestDentroDelRadio:
         """
         El operador necesita saber CUANTO le falta, no solo que fallo.
 
-        "a 340 m, probably otra sede" es accionable; "escaneo invalido" no.
+        "a 340 m, probably otra sede" es accionable; "escaneo inválido" no.
         """
         _, metros = dentro_del_radio(-34.5937, BA_LON, BA_LAT, BA_LON, 50)
         assert 900 < metros < 1200

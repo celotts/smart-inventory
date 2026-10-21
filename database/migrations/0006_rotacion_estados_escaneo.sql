@@ -3,25 +3,25 @@
 --        tablas que faltaban en una instalacion nueva.
 -- ===========================================================================
 --
--- QUE HACE ESTA MIGRACION, Y POR QUE HAY TANTA COSA EN UN ARCHIVO
+-- QUE HACE Está Migración, Y POR QUE HAY TANTA COSA EN UN ARCHIVO
 -- --------------------------------------------------------------
 -- Porque las tres cosas son el MISMO arreglo, contado desde el mismo symptom:
 --
 --   1. `make up` creaba una base sin `sessions`, sin `transfers`, sin
---      `maintenance` y sin `stock_alerts`, porque el compose monta UN SOLO
+--      `maintenance` y sin `stock_alerts`, porque el compose monta UN Solo
 --      archivo en `/docker-entrypoint-initdb.d/` y los archivos de
 --      `migrations/` no se ejecutan en una instalacion nueva.
---      Consecuencia: `POST /api/auth/login` fallaba al insertar la sesion, y
+--      Consecuencia: `POST /api/auth/login` fallaba al insertar la sesión, y
 --      los endpoints `/api/ops/*` devolvian 500 con "relation does not exist".
 --
 --   2. Nada impedia que un componente quedara en un estado imposible
 --      (INSTALLED sin haber pasado por IN_TRANSIT, dado de baja mientras
---      estaba en un cliente, en el taller sin reparacion registrada).
+--      estaba en un cliente, en el taller sin reparación registrada).
 --
 --   3. Un reintento de escaneo duplicaba el movimiento.
 --
 -- Los tres hacen que el historial del inventario deje de ser confiable, que es
--- la unica razon de ser de un sistema asi.
+-- la única razón de ser de un sistema así.
 --
 -- QUE NO SE PIERDE NADA
 -- ---------------------
@@ -34,9 +34,9 @@
 -- 1. TABLAS QUE FALTABAN
 -- ===========================================================================
 --
--- Se crean con IF NOT EXISTS y NO las borra 0003/0005 si llegan despues: el
+-- Se crean con IF NOT EXISTS y NO las borra 0003/0005 si llegan después: el
 -- `IF NOT EXISTS` las encuentra y no hace nada. Por eso el orden de los
--- archivos no importa para estas tres.
+-- archivos no importa para estás tres.
 
 CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
 CREATE INDEX IF NOT EXISTS idx_stock_alerts_resuelto ON stock_alerts(resuelto);
 
 -- ===========================================================================
--- 2. CHECKS DE LAS TABLAS DE OPERACIONES
+-- 2. CHECKS DE LAS TABLAS DE Operaciones
 -- ===========================================================================
 --
 -- Se aplican con `NOT VALID` primero: Postgres los crea sin verificar las
@@ -118,7 +118,7 @@ BEGIN
     END IF;
 
     -- El estado es un conjunto cerrado. Un typo como 'aprovado' crea una fila
-    -- que ningun reporte cuenta y que nadie sabe como resolver.
+    -- que ningún reporte cuenta y que nadie sabe como resolver.
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'ck_transfers_status'
     ) THEN
@@ -126,7 +126,7 @@ BEGIN
             CHECK (status IN ('pending', 'approved', 'rejected', 'completed')) NOT VALID;
     END IF;
 
-    -- Una alerta con minimo negativo, o con minimo 0, no informa nada.
+    -- Una alerta con mínimo negativo, o con mínimo 0, no informa nada.
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'ck_stock_alerts_minimo'
     ) THEN
@@ -136,12 +136,12 @@ BEGIN
 END $$;
 
 -- ===========================================================================
--- 3. LAS DOS TABLAS DE AUDITORIA
+-- 3. LAS DOS TABLAS DE Auditoría
 -- ===========================================================================
 --
 -- EL PROBLEMA
 -- -----------
--- Hay dos bitacoras y el codigo no sabe cual usar:
+-- Hay dos bitacoras y el código no sabe cual usar:
 --
 --   `audit_logs`  (plural, la de init.sql)  -> la que escribe
 --                  users/service.py. Tiene `table_name`, `record_id`,
@@ -152,24 +152,24 @@ END $$;
 --                  libre en `action`.
 --
 -- Dos tablas para lo mismo es peor que una sola: nadie sabe donde buscar, y la
--- que no usa nadie se llena de filas que nadie lee. Peor aun, el indice de
+-- que no usa nadie se llena de filas que nadie lee. Peor aún, el índice de
 -- "acciones sensibles" que alguien crea sobre `audit_logs` se pierde la mitad
--- de los eventos, sin ningun error que lo indique.
+-- de los eventos, sin ningún error que lo indique.
 --
 -- POR QUE SOBREVIVE `audit_logs`
 -- -------------------------------
 -- Es la que crea el trigger `set_audit_role_id`, que es lo que hace que la
 -- bitacora guarde el ROL del actor en el momento de la accion y no solo su id:
--- si despues le cambian el rol a alguien, "quien lo borro" conserva el rol que
+-- si después le cambian el rol a alguien, "quien lo borro" conserva el rol que
 -- tenia cuando lo borro. Para una bitacora de inventario eso es la diferencia
--- entre una evidencia y una suposicion.
+-- entre una evidencia y una suposición.
 --
 -- QUE PASA CON LAS FILAS DE `audit_log`
 -- -------------------------------------
--- No se borran. Se copian a `audit_logs` con el mapeo que corresponde y despues
+-- No se borran. Se copian a `audit_logs` con el mapeo que corresponde y después
 -- se dropea la tabla. Copiar y dropear, y no dropear y perder: el dato existio,
 -- alguien lo consulto alguna vez, y borrarlo sin dejar rastro seria perder
--- informacion para que un script diga "ok".
+-- información para que un script diga "ok".
 --
 -- El mapeo es PARCIAL y hay que decirlo: `action` VARCHAR libre no siempre cae
 -- en el ENUM, y `resource` es texto donde `audit_logs` espera un UUID de
@@ -188,7 +188,7 @@ BEGIN
     -- 3a. Copiar lo que se pueda.
     INSERT INTO audit_logs (action, table_name, record_id, new_value, user_id, ip_address, created_at)
     SELECT
-        -- El ENUM no tiene 'ESCANEO' ni 'LOGOUT_ALL' ni nada asi. Lo que no
+        -- El ENUM no tiene 'ESCANEO' ni 'LOGOUT_ALL' ni nada así. Lo que no
         -- existe va a UPDATE, que es el contenedor generico: el detalle del
         -- `action` original viaja en el texto de abajo, que es donde se puede
         -- buscar igual.
@@ -214,7 +214,7 @@ BEGIN
     FROM audit_log a;
 
     -- 3b. Y ahora si, dropear. Con CASCADE NO: si algo quedodepending en
-    -- esta tabla, el error es mejor que una cascada que se lleva otra cosa.
+    -- está tabla, el error es mejor que una cascada que se lleva otra cosa.
     EXECUTE 'DROP TABLE audit_log';
 END $$;
 
@@ -222,8 +222,8 @@ END $$;
 -- 4. MAQUINA DE ESTADOS
 -- ===========================================================================
 --
--- El comentario largo de por que esta regla esta en el motor y no en Python
--- esta en init.sql, junto a la definicion. Aca va la misma definicion: una base
+-- El comentario largo de por que está regla está en el motor y no en Python
+-- está en init.sql, junto a la definición. Acá va la misma definición: una base
 -- migrada y una creada desde cero tienen que terminar IGUALES, y eso incluye
 -- las funciones.
 
@@ -238,8 +238,8 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- Sin cambio de estado no hay nada que validar. El trigger de `updated_at`
-    -- dispara un UPDATE en cada fila y no tiene por que pasar por aca.
+    -- Sin cambió de estado no hay nada que validar. El trigger de `updated_at`
+    -- dispara un UPDATE en cada fila y no tiene por que pasar por acá.
     IF NEW.current_status IS NOT DISTINCT FROM OLD.current_status THEN
         RETURN NEW;
     END IF;
@@ -252,7 +252,7 @@ BEGIN
             USING ERRCODE = 'check_violation';
     END IF;
 
-    -- Entrar al taller sin reparacion abierta deja al componente en un estado
+    -- Entrar al taller sin reparación abierta deja al componente en un estado
     -- que el taller no sabe que tiene.
     IF NEW.current_status = 'IN_REPAIR' THEN
         SELECT EXISTS (
@@ -269,7 +269,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- Salir del taller con la reparacion abierta deja al componente trabado
+    -- Salir del taller con la reparación abierta deja al componente trabado
     -- para siempre: nadie lo tiene y nadie lo atiende.
     IF OLD.current_status = 'IN_REPAIR' AND NEW.current_status <> 'IN_REPAIR' THEN
         SELECT EXISTS (
@@ -316,8 +316,8 @@ CREATE TRIGGER trigger_devices_transicion_estado
 -- 5. `installation_date` QUE NO MIENTE
 -- ===========================================================================
 --
--- "Instalado desde" es informacion de rotacion: dice hace cuanto un componente
--- esta trabajando. Si la columna no se mantiene, el dato es la fecha de compra
+-- "Instalado desde" es información de rotacion: dice hace cuanto un componente
+-- está trabajando. Si la columna no se mantiene, el dato es la fecha de compra
 -- y nadie lo detecta hasta que se usa para decidir algo.
 CREATE OR REPLACE FUNCTION sincronizar_fecha_instalacion()
 RETURNS TRIGGER AS $$
@@ -342,13 +342,13 @@ CREATE TRIGGER trigger_devices_fecha_instalacion
 -- 6. IDEMPOTENCIA DE ESCANEO
 -- ===========================================================================
 --
--- Un `client_scan_id` es UN envio, no un evento. El telefono lo genera antes de
--- enviar; si la peticion llega dos veces, la segunda no inserta nada y devuelve
+-- Un `client_scan_id` es UN envió, no un evento. El teléfono lo genera antes de
+-- enviar; si la petición llega dos veces, la segunda no inserta nada y devuelve
 -- el movimiento de la primera.
 --
--- NO se usa un indice unico sobre (device_id, movement_date): dos escaneos
+-- NO se usa un índice único sobre (device_id, movement_date): dos escaneos
 -- reales del mismo componente en el mismo segundo son legitimos (uno entra al
--- deposito y al segundo sale hacia un cliente), y rechazarlos seria peor que
+-- depósito y al segundo sale hacia un cliente), y rechazarlos seria peor que
 -- la duplicacion que se quiere evitar.
 CREATE TABLE IF NOT EXISTS scan_receipts (
     client_scan_id UUID PRIMARY KEY,

@@ -102,7 +102,7 @@ export function PasswordStrengthMeter({ modelValue = '', mostrarRequisitos = tru
       lista.append(crear('li', {
         clase: requisito.cumplido ? 'cumplido' : 'pendiente',
         // Los hijos van dentro de las opciones: `crear` no tiene tercer
-        // parametro y los descartaria en silencio, dejando la lista vacia.
+        // parámetro y los descartaria en silencio, dejando la lista vacía.
         hijos: [
           crear('span', { clase: 'req-icon', texto: requisito.cumplido ? '✓' : '✗' }),
           crear('span', {

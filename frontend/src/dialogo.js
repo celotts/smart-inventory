@@ -1,14 +1,14 @@
 /**
- * Diálogo modal genérico.
+ * Dialogo modal generico.
  *
  * POR QUE ESTE ARCHIVO
  * --------------------
- * `main.js` tenía la mecánica de modal —crear, atrapar el foco, cerrar con
+ * `main.js` tenia la mecanica de modal —crear, atrapar el foco, cerrar con
  * Escape, sacar del DOM— escrita dos veces, en el de cerrar sesión y en el de
  * login por sesión vencida. Agregar un tercero (código no encontrado) sin
  * factorizar era copiar la parte que más se rompe: el foco atrapado y el
  * `aria-modal` no fallan de forma visible, y sin ellos el teclado del operador
- * se va a la página de atrás por debajo del modal.
+ * se va a la página de atras por debajo del modal.
  *
  * `dialogo.js` no importa nada de `main.js`: las vistas también lo necesitan, y
  * `main.js` importa las vistas. Importar de arriba hacia abajo y de abajo hacia
@@ -31,7 +31,7 @@ const FOCUSEABLES = 'button, [href], input, select, textarea, [tabindex]:not([ta
  * la pantalla de fondo y un aviso de error sin saber por que.
  *
  * Con la pila, cada modal sabe si es el de arriba: Escape y el atrape de foco
- * solo los aplica el ultimo, que es el unico que el operador esta viendo.
+ * solo los aplica el último, que es el único que el operador está viendo.
  */
 const pila = [];
 
@@ -43,17 +43,17 @@ let anchoBarra = 0;
  *
  * POR QUE
  * -------
- * Con el modal abierto, la pagina de atras sigue bajando con el rueda del
+ * Con el modal abierto, la página de atras sigue bajando con el rueda del
  * mouse: el operador ve el modal quieto y el fondo moviendose debajo, que se
  * lee como "la app se colgo".
  *
  * El `padding-right` con el ancho de la barra compensa el espacio que deja de
- * ocupar: sin eso, la pagina se desplaza unos pixeles al abrir el modal, y
+ * ocupar: sin eso, la página se desplaza unos pixeles al abrir el modal, y
  * con ella todo el contenido (formularios, listas, el cursor del operador).
  *
  * Se hace por CONTADOR y no por una bandera: puede haber dos modales
  * apilados (el de edicion pide confirmacion al guardar), y el scroll se
- * desbloquea recien cuando se cierra el ULTIMO.
+ * desbloquea recien cuando se cierra el Último.
  */
 function bloquearScroll() {
   if (pila.length > 0) return;
@@ -75,7 +75,7 @@ function desbloquearScroll() {
   anchoBarra = 0;
 }
 
-/** Si el modal es el de arriba, es el unico que el operador ve. */
+/** Si el modal es el de arriba, es el único que el operador ve. */
 function esSuperior(modal) {
   return pila[pila.length - 1] === modal;
 }
@@ -84,7 +84,7 @@ function esSuperior(modal) {
  * Abre un modal y devuelve una función para cerrarlo.
  *
  * @param {object} opciones
- * @param {string} opciones.titulo
+ * @param {string} opciones.título
  * @param {string} [opciones.mensaje]     Párrafo principal. Va por `textContent`.
  * @param {string} [opciones.nota]        Párrafo secondary, más chico.
  * @param {string} [opciones.clase]       Clase extra del modal.
@@ -130,7 +130,7 @@ export function abrirDialogo({
   const h = crear('h3', { id: idTitulo, texto: titulo });
 
   // La tarjeta blanca. El CSS la espera como `.modal__contenido` dentro del
-  // overlay, y ningun modal la creaba: se veia el texto suelto sobre el fondo
+  // overlay, y ningún modal la creaba: se veia el texto suelto sobre el fondo
   // oscurecido, sin caja, sin ancho y sin bordes.
   const tarjeta = crear('div', { clase: 'modal__contenido' });
   tarjeta.append(h);
@@ -157,10 +157,10 @@ export function abrirDialogo({
   // LA FOTO DE LOS VALORES
   //
   // Para saber si el operador ESCRIBIO algo, se compara cada control con
-  // el valor que tenia cuando se abrio el modal. Asi el aviso de "hay
-  // cambios sin guardar" aparece SOLO si hay cambios de verdad: antes
+  // el valor que tenia cuando se abrio el modal. Así el aviso de "hay
+  // cambios sin guardar" aparece Solo si hay cambios de verdad: antes
   // aparecia siempre, y abrir un formulario y tocar el fondo preguntaba
-  // "descartar lo que escribiste" con el formulario vacio.
+  // "descartar lo que escribiste" con el formulario vacío.
   const valoresAlAbrir = new Map();
   for (const control of modal.querySelectorAll('input, select, textarea')) {
     valoresAlAbrir.set(control, control.value);
@@ -200,8 +200,8 @@ export function abrirDialogo({
   }
 
   function alEscape(e) {
-    // Escape cierra SOLO el modal de arriba. Con un formulario de edicion
-    // abierto debajo, cerrar los dos de una dejaba al operador en la pagina
+    // Escape cierra Solo el modal de arriba. Con un formulario de edicion
+    // abierto debajo, cerrar los dos de una dejaba al operador en la página
     // de fondo sin saber que habia pasado.
     if (e.key === 'Escape' && esSuperior(modal)) cerrar();
   }
@@ -212,19 +212,19 @@ export function abrirDialogo({
    * Cierra el modal.
    *
    * @param {boolean} [forzar]  Cierra sin preguntar, aunque haya cambios sin
-   *                             guardar. Lo usa el guardado exitoso: despues
+   *                             guardar. Lo usa el guardado exitoso: después
    *                             de guardar, preguntar "¿descartar los
    *                             cambios?" no tiene sentido.
    */
   function cerrar(forzar = false) {
     if (cerrado) return;
 
-    // SOLO `true` descarta el aviso.
+    // Solo `true` descarta el aviso.
     //
-    // `cerrar` se pasa directo como manejador de un boton: `addEventListener`
+    // `cerrar` se pasa directo como manejador de un botón: `addEventListener`
     // le pasa el EVENTO como primer argumento, y un evento es truthy. Con un
     // `if (forzar)` normal, el clic de "Cancelar" se tomaba como un "si,
-    // descartá todo" y el aviso nunca aparecia.
+    // descarta todo" y el aviso nunca aparecia.
     const descartar = forzar === true;
 
     // AVISO DE CAMBIOS SIN GUARDAR
@@ -238,12 +238,12 @@ export function abrirDialogo({
     // tema y el foco.
     if (avanzarAlCerrar && !descartar && hayCambiosSinGuardar()) {
       const btnPerder = crear('button', {
-        clase: 'boton boton--peligro',
+        clase: 'botón botón--peligro',
         texto: 'Descartar los cambios',
         atributos: { type: 'button' },
       });
       const btnSeguir = crear('button', {
-        clase: 'boton boton--suave',
+        clase: 'botón botón--suave',
         texto: 'Seguir editando',
         atributos: { type: 'button' },
       });
@@ -251,7 +251,7 @@ export function abrirDialogo({
       abrirDialogo({
         titulo: 'Hay cambios sin guardar',
         mensaje: 'Cerrar ahora descarta lo que escribiste.',
-        nota: 'Si querés conservarlo, volve a abrir la edicion.',
+        nota: 'Si queres conservarlo, volve a abrir la edicion.',
         clase: 'modal--alerta',
         acciones: [btnSeguir, btnPerder],
         alAbrir: (_aviso, cerrarAviso) => {
@@ -275,7 +275,7 @@ export function abrirDialogo({
     alCerrar?.();
     // El foco vuelve a donde estaba: si no, al cerrarse el modal el operador
     // queda con el foco en el body y el próximo Tab lo manda al principio de la
-    // pagina, no al escaner que tiene delante.
+    // página, no al escaner que tiene delante.
     focoPrevio?.focus?.();
   }
 
@@ -285,8 +285,8 @@ export function abrirDialogo({
   // TOCAR EL FONDO CIERRA EL MODAL
   //
   // Es la afordancia que todo el mundo espera, y es la que evita que un
-  // modal sin boton de cerrar deje al operador atrapado: en un celular no
-  // hay tecla Escape, y sin boton no hay salida.
+  // modal sin botón de cerrar deje al operador atrapado: en un celular no
+  // hay tecla Escape, y sin botón no hay salida.
   //
   // Solo cierra si el clic fue en el FONDO (el `target` es el overlay), no
   // dentro del contenido: un clic en un campo de texto no cierra nada.
@@ -315,13 +315,13 @@ function contador() {
  * Pide confirmacion y devuelve una promesa.
  *
  * @param {object} opciones
- * @param {string} opciones.titulo
+ * @param {string} opciones.título
  * @param {string} [opciones.mensaje]
  * @param {string} [opciones.nota]
- * @param {string} [opciones.textoConfirmar]  Texto del boton de confirmar.
- * @param {string} [opciones.textoCancelar]   Texto del boton de cancelar.
+ * @param {string} [opciones.textoConfirmar]  Texto del botón de confirmar.
+ * @param {string} [opciones.textoCancelar]   Texto del botón de cancelar.
  * @param {string} [opciones.clase]           Clase extra del modal.
- * @param {boolean}[opciones.peligro]         Boton de confirmar en rojo.
+ * @param {boolean}[opciones.peligro]         Botón de confirmar en rojo.
  * @returns {Promise<boolean>} `true` si el operador confirmo.
  */
 export function confirmar({
@@ -335,12 +335,12 @@ export function confirmar({
 }) {
   return new Promise((resolver) => {
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: textoCancelar,
       atributos: { type: 'button' },
     });
     const btnAceptar = crear('button', {
-      clase: `boton${peligro ? ' boton--peligro' : ''}`,
+      clase: `boton${peligro ? ' botón--peligro' : ''}`,
       texto: textoConfirmar,
       atributos: { type: 'button' },
     });

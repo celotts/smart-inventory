@@ -5,13 +5,13 @@
  * ---------------------------------------
  * Son dos formularios (alta y edicion) que son EL MISMO formulario con los
  * datos cargados o no. Estaban en `productos.js` junto con la lista, la
- * etiqueta y el gestor de categorias, y el archivo era de 1300 lineas.
+ * etiqueta y el gestor de categorías, y el archivo era de 1300 líneas.
  *
  * LAS DIFERENCIAS ENTRE ALTA Y EDICION
  * ------------------------------------
- * Solo tres: el titulo, el texto del boton y que la edicion manda la
- * `version` (el bloqueo optimista). Todo lo demas —los campos, los atributos
- * dinamicos, la validacion— es el MISMO codigo, y por eso estan en el mismo
+ * Solo tres: el título, el texto del botón y que la edicion manda la
+ * `versión` (el bloqueo optimista). Todo lo demas —los campos, los atributos
+ * dinamicos, la validación— es el MISMO código, y por eso están en el mismo
  * archivo y no en dos copias.
  */
 
@@ -31,13 +31,13 @@ import { botonEscanear } from '../escaner-campo.js';
    *
    * POR QUE DUPLICAR
    * ----------------
-   * Cargar el catalogo de un deposito es veinte productos que se parecen:
-   * la misma marca, la misma linea, distinto modelo o distinto tamano. Sin
+   * Cargar el catalogo de un depósito es veinte productos que se parecen:
+   * la misma marca, la misma línea, distinto modelo o distinto tamaño. Sin
    * duplicar, el operador tiene que copiar campo por campo desde el
    * producto anterior, y termina dejando un valor mal copiado (el costo del
-   * modelo pasado, que es el error mas caro del maestro).
+   * modelo pasado, que es el error más caro del maestro).
    *
-   * El SKU NO se copia: es UNIQUE, y tiene que ser distinto. Es lo unico que
+   * El SKU NO se copia: es UNIQUE, y tiene que ser distinto. Es lo único que
    * el operador tiene que escribir.
    *
    * @param {object} [base]  El producto a partir del cual se copia.
@@ -53,26 +53,26 @@ import { botonEscanear } from '../escaner-campo.js';
 
     const campoMarca = campoTexto({ etiqueta: 'Marca *', placeholder: 'Ej: Dell, HP, Cisco', descripcion: 'La marca del fabricante. Es parte del nombre del producto.' });
     const campoModelo = campoTexto({ etiqueta: 'Modelo *', placeholder: 'Ej: Latitude 5520', descripcion: 'El modelo exacto. Con la marca, identifica el producto.' });
-    const campoSKU = campoTexto({ etiqueta: 'SKU *', placeholder: 'Ej: NB-DELL-5520', mono: true, descripcion: 'La clave del producto: es con la que se compra, se cuenta el stock y se etiqueta. No se puede cambiar despues.' });
+    const campoSKU = campoTexto({ etiqueta: 'SKU *', placeholder: 'Ej: NB-DELL-5520', mono: true, descripcion: 'La clave del producto: es con la que se compra, se cuenta el stock y se etiqueta. No se puede cambiar después.' });
     const campoVariante = campoTexto({ etiqueta: 'Variante', placeholder: 'Ej: i5/16GB/512GB (opcional)', descripcion: 'La diferencia entre dos productos de la misma marca y modelo: capacidad, color, tamaño.' });
-    const campoQR = campoTexto({ etiqueta: 'Código QR', placeholder: 'Ej: PRD-NB-DELL-5520 (se genera si vacío)', mono: true, descripcion: 'El codigo de la etiqueta del producto. Si lo dejas vacio se genera uno propio (PRD-<sku>).' });
+    const campoQR = campoTexto({ etiqueta: 'Código QR', placeholder: 'Ej: PRD-NB-DELL-5520 (se genera si vacío)', mono: true, descripcion: 'El código de la etiqueta del producto. Si lo dejas vacío se genera uno propio (PRD-<sku>).' });
     const campoBarras = campoTexto({ etiqueta: 'Código de barras', placeholder: 'Ej: el SKU (opcional)', mono: true,
-      descripcion: 'El codigo de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.', });
+      descripcion: 'El código de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.', });
 
-    // ESCANEAR EL CODIGO DE LA CAJA
+    // ESCANEAR EL Código DE LA CAJA
     //
-    // El producto llega con un codigo del proveedor: un GTIN en la caja, o el
-    // QR del fabricante. Copiarlo a mano es la fuente numero uno de errores de
-    // inventario, asi que se LEE.
+    // El producto llega con un código del proveedor: un GTIN en la caja, o el
+    // QR del fabricante. Copiarlo a mano es la fuente número uno de errores de
+    // inventario, así que se LEE.
     //
-    // Lo leido va al campo de CODIGO DE BARRAS (el del proveedor), nunca al
+    // Lo leído va al campo de Código DE BARRAS (el del proveedor), nunca al
     // QR propio: ese (`PRD-<sku>`) es el protocolo interno de la app, y el
     // escaner de la caja lo resuelve contra el maestro. Pisarlo haria que la
     // etiqueta propia dejara de funcionar.
     const filaBarras = crear('div', { clase: 'campo-con-boton' });
     filaBarras.append(
       campoBarras.campo,
-      botonEscanear({ campo: campoBarras.input, nombre: 'el codigo de barras' }),
+      botonEscanear({ campo: campoBarras.input, nombre: 'el código de barras' }),
     );
 
     const selectCategoria = crear('select', { clase: 'campo__control' });
@@ -88,18 +88,18 @@ import { botonEscanear } from '../escaner-campo.js';
     const errorCategoria = errorDe(selectCategoria);
 
     const campoCosto = campoTexto({ etiqueta: 'Costo unitario (USD)', placeholder: 'Ej: 850.00', type: 'number', paso: '0.01', descripcion: 'Lo que costo una unidad. Con esto se calcula el valor del inventario.' });
-    const campoMin = campoTexto({ etiqueta: 'Stock minimo', placeholder: 'Ej: 3', type: 'number', valor: '0', descripcion: 'Por debajo de este numero, el producto aparece para reponer.' });
-    const campoMax = campoTexto({ etiqueta: 'Stock maximo', placeholder: 'Ej: 20', type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este numero, el producto esta por sobre stockeado.' });
+    const campoMin = campoTexto({ etiqueta: 'Stock mínimo', placeholder: 'Ej: 3', type: 'number', valor: '0', descripcion: 'Por debajo de este número, el producto aparece para reponer.' });
+    const campoMax = campoTexto({ etiqueta: 'Stock máximo', placeholder: 'Ej: 20', type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este número, el producto está por sobre stockeado.' });
 
     // EL PRELLENADO (cuando se duplica un producto)
     //
-    // Se copian los campos que describen la LINEA del producto: la marca, el
-    // modelo, la variante, la categoria, el costo y los puntos de stock.
+    // Se copian los campos que describen la Línea del producto: la marca, el
+    // modelo, la variante, la categoría, el costo y los puntos de stock.
     //
-    // NO se copian el SKU, el QR ni el codigo de barras:
-    //   - El SKU es UNIQUE: tiene que ser distinto, y es lo unico que el
+    // NO se copian el SKU, el QR ni el código de barras:
+    //   - El SKU es UNIQUE: tiene que ser distinto, y es lo único que el
     //     operador tiene que escribir.
-    //   - El QR (`PRD-<sku>`) y el codigo de barras se derivan del SKU, y
+    //   - El QR (`PRD-<sku>`) y el código de barras se derivan del SKU, y
     //     copiarlos seria un conflicto de unicidad.
     if (base) {
       campoMarca.control.value = base.brand ?? '';
@@ -121,8 +121,8 @@ import { botonEscanear } from '../escaner-campo.js';
       },
     });
 
-    // Los atributos de la CATEGORIA elegida (caducidad, lote, dimensiones...).
-    // El backend los valida contra la definicion de la categoria, asi que
+    // Los atributos de la Categoría elegida (caducidad, lote, dimensiones...).
+    // El backend los válida contra la definición de la categoría, así que
     // solo se mandan los que el operador lleno.
     const zonaAtributos = crear('div', { clase: 'apilado' });
 
@@ -137,7 +137,7 @@ import { botonEscanear } from '../escaner-campo.js';
       campoModelo.campo,
       campoSKU.campo,
       campoVariante.campo,
-      etiquetaConDescripcion('Categoria *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
+      etiquetaConDescripcion('Categoría *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
       zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
@@ -151,7 +151,7 @@ import { botonEscanear } from '../escaner-campo.js';
     });
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Guardar producto',
       atributos: { type: 'submit' },
     });
@@ -159,7 +159,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -172,7 +172,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
       // Los errores van debajo de cada campo, con el control marcado, y el
       // foco salta al primero. Un cartel flotante que se va solo no dice que
-      // campo esta mal.
+      // campo está mal.
       campoMarca.limpiar();
       campoModelo.limpiar();
       campoSKU.limpiar();
@@ -182,7 +182,7 @@ import { botonEscanear } from '../escaner-campo.js';
       if (!brand) campoMarca.marcar('La marca es obligatoria.');
       if (!model) campoModelo.marcar('El modelo es obligatorio.');
       if (!sku) campoSKU.marcar('El SKU es obligatorio: es la clave con la que se compra y se cuenta el stock.');
-      if (!category_id) errorCategoria.marcar('Selecciona una categoria.');
+      if (!category_id) errorCategoria.marcar('Selecciona una categoría.');
 
       const resumen = resumenDeErrores([campoMarca, campoModelo, campoSKU, errorCategoria]);
       if (resumen) {
@@ -236,7 +236,7 @@ import { botonEscanear } from '../escaner-campo.js';
         cerrarModal(true);
         cargar();
       } catch (error) {
-        // Un 409 es un problema de un campo (el SKU ya existe, el QR esta
+        // Un 409 es un problema de un campo (el SKU ya existe, el QR está
         // repetido). Va al campo, no a un cartel que se va solo.
         if (error.status === 409) {
           const mensaje = error.message || 'Revisa los datos.';
@@ -254,11 +254,11 @@ import { botonEscanear } from '../escaner-campo.js';
 
     cerrarModal = abrirDialogo({
       titulo: 'Nuevo producto',
-      nota: 'El SKU es unico. Es la clave con la que se compra y se cuenta el stock.',
+      nota: 'El SKU es único. Es la clave con la que se compra y se cuenta el stock.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
-      // Si el operador cerro sin guardar, se le avisa: perder diez campos
+      // Si el operador cerró sin guardar, se le avisa: perder diez campos
       // escritos sin decir nada es la peor forma de perder el trabajo.
       avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
@@ -290,14 +290,14 @@ import { botonEscanear } from '../escaner-campo.js';
     const campoQR = campoTexto({ etiqueta: 'Código QR', placeholder: 'Ej: PRD-NB-DELL-5520', mono: true });
     campoQR.input.value = p.qr_code || '';
     const campoBarras = campoTexto({ etiqueta: 'Código de barras', placeholder: 'Ej: el SKU', mono: true,
-      descripcion: 'El codigo de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.', });
+      descripcion: 'El código de barras del producto: el del proveedor (un GTIN) o el SKU. Es lo que se imprime en la caja.', });
 
-    // El mismo escaner que en el alta: el codigo del proveedor se lee de la
+    // El mismo escaner que en el alta: el código del proveedor se lee de la
     // caja, no se escribe. Ver la nota del alta.
     const filaBarras = crear('div', { clase: 'campo-con-boton' });
     filaBarras.append(
       campoBarras.campo,
-      botonEscanear({ campo: campoBarras.input, nombre: 'el codigo de barras' }),
+      botonEscanear({ campo: campoBarras.input, nombre: 'el código de barras' }),
     );
     campoBarras.input.value = p.barcode || '';
 
@@ -315,9 +315,9 @@ import { botonEscanear } from '../escaner-campo.js';
 
     const campoCosto = campoTexto({ etiqueta: 'Costo unitario (USD)', placeholder: 'Ej: 850.00', type: 'number', paso: '0.01', descripcion: 'Lo que costo una unidad. Con esto se calcula el valor del inventario.' });
     campoCosto.input.value = p.unit_cost ?? '';
-    const campoMin = campoTexto({ etiqueta: 'Stock minimo', placeholder: 'Ej: 3', type: 'number', valor: '0', descripcion: 'Por debajo de este numero, el producto aparece para reponer.' });
+    const campoMin = campoTexto({ etiqueta: 'Stock mínimo', placeholder: 'Ej: 3', type: 'number', valor: '0', descripcion: 'Por debajo de este número, el producto aparece para reponer.' });
     campoMin.input.value = String(p.min_stock ?? 0);
-    const campoMax = campoTexto({ etiqueta: 'Stock maximo', placeholder: 'Ej: 20', type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este numero, el producto esta por sobre stockeado.' });
+    const campoMax = campoTexto({ etiqueta: 'Stock máximo', placeholder: 'Ej: 20', type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este número, el producto está por sobre stockeado.' });
     campoMax.input.value = String(p.max_stock ?? 100);
 
     const form = crear('form', {
@@ -337,11 +337,11 @@ import { botonEscanear } from '../escaner-campo.js';
     // final del formulario.
     const zonaResumen = crear('div');
 
-    // LA VISTA PREVIA DE LOS CODIGOS
+    // LA VISTA PREVIA DE LOS Códigos
     //
-    // En la edicion del producto, el QR y el codigo de barras se VEN: el
-    // campo de texto dice QUE codigo tiene, pero el operador necesita ver
-    // COMO se ve la etiqueta (si el QR esta borroso, si las barras se
+    // En la edicion del producto, el QR y el código de barras se VEN: el
+    // campo de texto dice QUE código tiene, pero el operador necesita ver
+    // COMO se ve la etiqueta (si el QR está borroso, si las barras se
     // leen) antes de imprimirla.
     const zonaCodigos = crear('div', { clase: 'etiqueta__vista-previa' });
     if (p.id) {
@@ -371,7 +371,7 @@ import { botonEscanear } from '../escaner-campo.js';
       campoModelo.campo,
       campoSKU.campo,
       campoVariante.campo,
-      etiquetaConDescripcion('Categoria *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
+      etiquetaConDescripcion('Categoría *', selectCategoria, 'La rama del maestro a la que pertenece el producto. Define que atributos tiene.'),
       zonaAtributos,
       campoCosto.campo,
       campoMin.campo,
@@ -388,7 +388,7 @@ import { botonEscanear } from '../escaner-campo.js';
     pintarAtributos(zonaAtributos, selectCategoria.value, p.atributos || {});
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -396,7 +396,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -413,7 +413,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
       if (!brand) campoMarca.marcar('La marca es obligatoria.');
       if (!model) campoModelo.marcar('El modelo es obligatorio.');
-      if (!category_id) errorCategoria.marcar('Selecciona una categoria.');
+      if (!category_id) errorCategoria.marcar('Selecciona una categoría.');
 
       const resumen = resumenDeErrores([campoMarca, campoModelo, errorCategoria]);
       if (resumen) {
@@ -468,7 +468,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
     cerrarModal = abrirDialogo({
       titulo: `Editar producto — ${p.sku || p.model || p.brand}`,
-      nota: 'El SKU no se puede modificar: es la clave historica del producto.',
+      nota: 'El SKU no se puede modificar: es la clave histórica del producto.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -480,7 +480,7 @@ import { botonEscanear } from '../escaner-campo.js';
     });
   }
 
-// La vista de productos las llama. Se exportan para que este modulo sea
+// La vista de productos las llama. Se exportan para que este módulo sea
 // testeable por separado y para que el orden de lectura del archivo sea el
 // mismo que el del flujo.
 export { abrirAlta, abrirEdicion };

@@ -1,19 +1,19 @@
 /**
- * La sesion: entrar, salir, restaurar, y el login que aparece cuando el
- * token se vence en mitad de una operacion.
+ * La sesión: entrar, salir, restaurar, y el login que aparece cuando el
+ * token se vence en mitad de una operación.
  *
  * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
  * ---------------------------------------
- * La sesion es un TEMA con sus propias reglas: el token vive en memoria, el
+ * La sesión es un TEMA con sus propias reglas: el token vive en memoria, el
  * refresh en `sessionStorage`, hay un login que se abre SIN cambiar de vista
  * (para no perder el formulario que el operador estaba llenando) y una
- * operacion pendiente que se reanuda sola. Todo eso mezclado con el arranque
- * de la app era un archivo de 900 lineas donde no se sabia que era la sesion y
+ * operación pendiente que se reanuda sola. Todo eso mezclado con el arranque
+ * de la app era un archivo de 900 líneas donde no se sabia que era la sesión y
  * que era el arranque.
  *
  * EL LOGIN QUE NO NAVEGA
  * ---------------------
- * Cuando el token se vence en mitad de una operacion, la app NO tira al
+ * Cuando el token se vence en mitad de una operación, la app NO tira al
  * login: le pide la clave en un modal y sigue. Perder un formulario de diez
  * camposfilled por un token vencido es la clase de error que hace que el
  * operador deje trusting la app.
@@ -46,21 +46,21 @@ export function pintarLogin() {
   // Se desenvuelve `elemento` igual que en `mostrarVista`: el login usa el
   // mismo contrato `{ elemento, destruir? }` que las demas vistas.
   //
-  // Sin el `?? login`, se insertaba el objeto entero y el cuerpo de la pagina
+  // Sin el `?? login`, se insertaba el objeto entero y el cuerpo de la página
   // quedaba con un literal "[object Object]" en vez del formulario. No lo
-  // detecta ningun test de unidad: solo se ve corriendo la app.
+  // detecta ningún test de unidad: solo se ve corriendo la app.
   const login = vistaLogin({
     alEntrar: async (datos) => {
       try {
         setUsuario(datos.usuario ?? { role_name: datos.role_name });
         // Se leen los permisos reales del servidor, no los del rol del JWT: el
-        // backend decide, y una copia aca se desincroniza en el primer cambio
+        // backend decide, y una copia acá se desincroniza en el primer cambió
         // de permisos.
         await cargarUsuario();
         cabecera.hidden = false;
-      // LA PANTALLA DE ENTRADA: se elige con que modulo se trabaja.
+      // LA PANTALLA DE ENTRADA: se elige con que módulo se trabaja.
       //
-      // Con un solo modulo (operador o tecnico) no hay nada que elegir y se
+      // Con un solo módulo (operador o técnico) no hay nada que elegir y se
       // entra directo. Con dos (admin) se elige, y la eleccion se recuerda.
       const guardado = moduloGuardado(estado.usuario);
       if (guardado) {
@@ -69,18 +69,18 @@ export function pintarLogin() {
       } else {
         mostrarPantallaDeEntrada();
       }
-      // La campana de avisos de SLA arranca con la sesion: sin ella, el
+      // La campana de avisos de SLA arranca con la sesión: sin ella, el
       // pedido de conteo seria un 401 en cada arranque de la app.
       iniciarCampana();
       actualizarEstadoIA();
       avisar(`Hola, ${estado.usuario.full_name ?? estado.usuario.email ?? ''}`.trim(), 'exito', 2500);
-        // Reanudar operación pendiente (si venía de expiración con refresh token válido)
+        // Reanudar operación pendiente (si venia de expiracion con refresh token válido)
         await reanudarOperacionPendiente();
       } catch (error) {
-        // Si algo falla DESPUES de autenticarse, el operador se queda en la
-        // pantalla de login sin saber por que: la sesion esta bien, pero la
-        // app no entra. Sin este mensaje, el unico sintoma es "no me deja
-        // entrar" y el operador piensa que la clave esta mal.
+        // Si algo falla Después de autenticarse, el operador se queda en la
+        // pantalla de login sin saber por que: la sesión está bien, pero la
+        // app no entra. Sin este mensaje, el único sintoma es "no me deja
+        // entrar" y el operador piensa que la clave está mal.
         console.error('No se pudo completar el ingreso:', error);
         mostrarErrorFalloIngreso(error);
       }
@@ -90,7 +90,7 @@ export function pintarLogin() {
   estado.vistaActual = login;
   reemplazar(contenido, login.elemento ?? login);
 
-  // Tambien es una app arrancada: el login ES la pantalla. Sin esta marca, un
+  // También es una app arrancada: el login ES la pantalla. Sin está marca, un
   // arranque lento que pasa los 12 segundos del vigilante reemplaza el login
   // por "La app no pudo arrancar".
   document.body.dataset.appLista = '1';
@@ -99,7 +99,7 @@ export function pintarLogin() {
 /**
  * El error de un ingreso que se autentico pero no pudo completar.
  *
- * Se muestra en la PANTALLA DE LOGIN, que es donde esta el operador: si el
+ * Se muestra en la PANTALLA DE LOGIN, que es donde está el operador: si el
  * error aparece en un toast que se va solo a los 4 segundos, no sirve de nada.
  */
 function mostrarErrorFalloIngreso(error) {
@@ -113,9 +113,9 @@ function mostrarErrorFalloIngreso(error) {
 }
 
 /**
- * La pantalla de entrada: elegir modulo.
+ * La pantalla de entrada: elegir módulo.
  *
- * Se muestra DESPUES de autenticarse y ANTES de entrar a la app. Es la
+ * Se muestra Después de autenticarse y ANTES de entrar a la app. Es la
  * separacion entre las dos soluciones: cada persona entra a la suya, y la
  * app se le abre coherente con su rol.
  */
@@ -125,16 +125,16 @@ function mostrarPantallaDeEntrada() {
     alEntrar: (modulo) => {
       setModulo(modulo);
       guardarModulo(modulo);
-      // Las pestanas dependen del modulo: se repintan antes de mostrar la
-      // vista, o la app queda con las del modulo anterior.
+      // Las pestañas dependen del módulo: se repintan antes de mostrar la
+      // vista, o la app queda con las del módulo anterior.
       actualizarCabeceraUsuario();
       mostrarVista('inicio');
     },
   });
 
   reemplazar(contenido, pantalla);
-  // La navegacion y el selector de modulo se ocultan durante el lanzador: la
-  // app todavia no empezo, y ver las pestanas de un modulo que todavia no se
+  // La navegacion y el selector de módulo se ocultan durante el lanzador: la
+  // app todavía no empezo, y ver las pestañas de un módulo que todavía no se
   // eligio confunde.
   cabecera.classList.add('cabecera--lanzador');
   document.body.dataset.appLista = '1';
@@ -145,20 +145,20 @@ function mostrarPantallaDeEntrada() {
  */
 export async function cargarUsuario() {
   try {
-    // `api.miPerfil()` y `api.roles()`: el PERFIL y los PERMISOS los decide el
+    // `api.miPerfil()` y `api.roles()`: el PERFIL y los Permisos los decide el
     // servidor. El frontend no los calcula: una copia de la tabla de permisos
-    // acá se desincroniza en el primer cambio y produce botones visibles que
+    // acá se desincroniza en el primer cambió y produce botones visibles que
     // devuelven 403.
     //
     // `roles()` puede fallar sin romper: un usuario que no tenga `roles:read`
     // (un Operador) sigue usando la app, solo sin la lista de roles.
     // `miPerfil()` devuelve `{ usuario, permisos, sesiones_activas }`. ANTES el
-    // codigo hacia `usuario = { ...usuario, ...perfil }`, que metia un campo
+    // código hacia `usuario = { ...usuario, ...perfil }`, que metia un campo
     // `usuario` adentro de `usuario` y dejaba `role_name` sin actualizar; y
     // encima pisaba `permisos` con `api.roles()`, que devuelve `{roles: [...]}`
     // (los nombres de rol), NO la lista de permisos. Resultado: `usuario.permisos`
-    // era un objeto, `permisos.includes(...)` tiraba, y NINGUNA pestana que
-    // dependa de permisos se mostraba — el sintoma era "la pestana Nuevo nunca
+    // era un objeto, `permisos.includes(...)` tiraba, y Ninguna pestaña que
+    // dependa de permisos se mostraba — el sintoma era "la pestaña Nuevo nunca
     // aparece" con el rol correcto.
     const [perfil, roles] = await Promise.all([
       api.miPerfil(),
@@ -174,19 +174,19 @@ export async function cargarUsuario() {
     // La lista de roles (nombres) es para selects de administracion, no permisos.
     if (roles?.roles) estado.usuario.roles = roles.roles;
 
-    // Sin esta llamada, las pestanas que dependen de permisos NO se refrescaban
+    // Sin está llamada, las pestañas que dependen de permisos NO se refrescaban
     // tras un login exitoso: el nombre de usuario se pintaba (eso lo hace el
     // llamador), pero "Productos"/"Compras"/"Nuevo" seguian con el `hidden` del
     // HTML. `actualizarCabeceraUsuario` solo se llamaba en el `catch`.
     actualizarCabeceraUsuario();
   } catch (error) {
     // ANTES este `catch` era `catch {}` y se comia hasta los TypeError, que es
-    // como paso lo de `api.pedir`: el modulo exportaba la funcion pero no el
-    // metodo, y la app Follow andando con el perfil sin cargar y sin que nadie
+    // como paso lo de `api.pedir`: el módulo exportaba la función pero no el
+    // método, y la app Follow andando con el perfil sin cargar y sin que nadie
     // se enterara.
     //
-    // Un error de autenticacion ya lo maneja `api.js` (cierra la sesion). Lo
-    // que se registra aca es todo lo demas.
+    // Un error de autenticación ya lo maneja `api.js` (cierra la sesión). Lo
+    // que se registra acá es todo lo demas.
     if (error?.status !== 401 && error?.status !== 403) {
       console.error('No se pudo cargar el perfil del usuario:', error);
     }
@@ -196,7 +196,7 @@ export async function cargarUsuario() {
 }
 
 /**
- * Intenta restaurar la sesion de una pestana anterior.
+ * Intenta restaurar la sesión de una pestaña anterior.
  *
  * Sin storage (Safari privado, iframe) o sin refresh token, `restaurarSesion`
  * devuelve null y se muestra el login: es lo correcto, no un error a mostrar.
@@ -206,23 +206,23 @@ export async function intentarRestaurar() {
 }
 
 /**
- * Cierra la sesion, con confirmacion.
+ * Cierra la sesión, con confirmacion.
  */
 export function cerrar() {
   const btnCancelar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Cancelar',
     atributos: { type: 'button' },
   });
   const btnConfirmar = crear('button', {
-    clase: 'boton boton--peligro',
+    clase: 'botón botón--peligro',
     texto: 'Cerrar sesión',
     atributos: { type: 'button' },
   });
 
   abrirDialogo({
     titulo: '¿Cerrar sesión?',
-    mensaje: 'Se cerrará tu sesión actual. ¿Continuar?',
+    mensaje: 'Se cerrara tu sesión actual. ¿Continuar?',
     clase: 'modal--confirmacion',
     acciones: [btnCancelar, btnConfirmar],
     alAbrir: (_modal, cerrarModal) => {
@@ -236,7 +236,7 @@ export function cerrar() {
 }
 
 /**
- * Muestra modal de login (para expiración de token durante operación).
+ * Muestra modal de login (para expiracion de token durante operación).
  * NO navega a login page - mantiene la vista actual en background.
  *
  * @param {Function} alExito - Callback cuando login exitoso
@@ -293,7 +293,7 @@ export function mostrarLoginModal(alExito) {
   });
 
   const btnSubmit = crear('button', {
-    clase: 'boton boton--bloque',
+    clase: 'botón botón--bloque',
     texto: 'Entrar',
     atributos: { type: 'submit' },
   });
@@ -319,10 +319,10 @@ export function mostrarLoginModal(alExito) {
 /**
  * Reanuda operación pendiente tras login exitoso.
  *
- * `consumirOperacionPendiente` es un export con nombre de `api.js`, no un metodo
+ * `consumirOperacionPendiente` es un export con nombre de `api.js`, no un método
  * del objeto `api`: llamar `api.consumirOperacionPendiente()` es `undefined`
- * y tira un TypeError que el manejador de promesas no controladas de mas abajo
- * convierte en un error rojo en la consola, sin relación visible con lo que el
+ * y tira un TypeError que el manejador de promesas no controladas de más abajo
+ * convierte en un error rojo en la consola, sin relacion visible con lo que el
  * operador estaba haciendo.
  */
 export async function reanudarOperacionPendiente() {
@@ -342,7 +342,7 @@ export async function reanudarOperacionPendiente() {
 }
 
 /**
- * Cierra la sesion en el servidor y vuelve al login.
+ * Cierra la sesión en el servidor y vuelve al login.
  */
 export function hacerLogout() {
   api.logout().finally(() => {
@@ -354,8 +354,8 @@ export function hacerLogout() {
 /**
  * El arranque de la app.
  *
- * Es lo UNICO que hace `main.js`: esperar la base, y decidir si se muestra el
- * login o se restaura la sesion.
+ * Es lo Único que hace `main.js`: esperar la base, y decidir si se muestra el
+ * login o se restaura la sesión.
  */
 export async function arrancar() {
   const restaurada = await intentarRestaurar();
@@ -365,7 +365,7 @@ export async function arrancar() {
     await cargarUsuario();
     cabecera.hidden = false;
 
-    // El modulo: el guardado si el usuario puede usarlo, y si no, el que le
+    // El módulo: el guardado si el usuario puede usarlo, y si no, el que le
     // corresponde por rol.
     const guardado = moduloGuardado(estado.usuario);
     setModulo(guardado ?? moduloPorDefecto(estado.usuario));
@@ -381,7 +381,7 @@ export async function arrancar() {
 
 // El registro de vistas, para el hash de la URL. Se importa aparte para no
 // meter a `navegacion.js` (que importa todas las vistas) en el camino del
-// login: sin sesion, el login tiene que cargar rapido.
+// login: sin sesión, el login tiene que cargar rápido.
 const VISTAS_POR_NOMBRE = {
   inicio: true,
   escanear: true,
@@ -405,17 +405,17 @@ const VISTAS_POR_NOMBRE = {
 //
 // LA DIFERENCIA ENTRE LOS DOS
 // ---------------------------
-// `alExpirar` (401 en una peticion cualquiera) VUELVE AL LOGIN: la sesion se
+// `alExpirar` (401 en una petición cualquiera) VUELVE AL LOGIN: la sesión se
 // fue y hay que empezar de cero.
 //
-// `alRequerirLogin` (401 en una peticion CON la operacion pendiente guardada)
+// `alRequerirLogin` (401 en una petición CON la operación pendiente guardada)
 // ABRE UN MODAL SIN CAMBIAR DE VISTA: el operador estaba llenando un
 // formulario y perderlo por un token vencido es la clase de error que hace
 // que deje de confiar en la app.
 //
-// `alRequerirLogin` se dispara desde `api.js` cuando hay una operacion
-// pendiente: es el unico caso en el que el formulario que hay que preservar
-// es el que esta en pantalla.
+// `alRequerirLogin` se dispara desde `api.js` cuando hay una operación
+// pendiente: es el único caso en el que el formulario que hay que preservar
+// es el que está en pantalla.
 configurar({
   alExpirar: () => {
     setUsuario(null);

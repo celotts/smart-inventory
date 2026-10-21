@@ -6,29 +6,29 @@
  * El atributo `title` de HTML. El `title` nativo:
  *
  *   - No aparece en un celular (iOS y Android lo ignoran al tocar).
- *   - Tarda mas de un segundo en aparecer y no se puede controlar.
+ *   - Tarda más de un segundo en aparecer y no se puede controlar.
  *   - No se muestra al navegar con el teclado, que es como operan los lectores
  *     de pantalla y los usuarios que no usan el mouse.
- *   - Aparece ENCIMA de la ventana del navegador, fuera de la pagina, con su
+ *   - Aparece ENCIMA de la ventana del navegador, fuera de la página, con su
  *     propio estilo, que no sigue el tema de la app.
  *
- * Este tooltip es un elemento de la pagina: se ve al pasar el mouse Y al
- * enfocar con el teclado, se puede dar con el toque, y esta enlazado con
- * `aria-describedby`, asi que un lector de pantalla lo anuncia como
- * descripcion del control.
+ * Este tooltip es un elemento de la página: se ve al pasar el mouse Y al
+ * enfocar con el teclado, se puede dar con el toque, y está enlazado con
+ * `aria-describedby`, así que un lector de pantalla lo anuncia como
+ * descripción del control.
  *
  * LA REGLA DE ORO
  * ---------------
- * Un tooltip NUNCA es la unica forma de saber que hace un control. Es un
+ * Un tooltip NUNCA es la única forma de saber que hace un control. Es un
  * extra: el nombre accesible del control tiene que seguir siendo completo
- * sin el (`aria-label` o el texto visible). Por eso aca el tooltip se usa
+ * sin el (`aria-label` o el texto visible). Por eso acá el tooltip se usa
  * para EXPLICAR, no para nombrar.
  *
- * UN SOLO ELEMENTO PARA TODA LA APP
+ * UN Solo ELEMENTO PARA TODA LA APP
  * ---------------------------------
  * Un tooltip por elemento seria un nodo en el DOM por cada control con
- * descripcion. Este usa uno solo, que se mueve de lugar. Menos DOM, menos
- * Layout y un solo lugar donde esta el estilo.
+ * descripción. Este usa uno solo, que se mueve de lugar. Menos DOM, menos
+ * Layout y un solo lugar donde está el estilo.
  */
 
 import { crear } from './dom.js';
@@ -48,15 +48,15 @@ function obtenerTooltip() {
   elementoTooltip = crear('div', {
     id: 'tooltip-app',
     clase: 'tooltip',
-    // `aria-hidden`: el tooltip VISUAL es un adorno. La descripcion que lee
+    // `aria-hidden`: el tooltip VISUAL es un adorno. La descripción que lee
     // el lector de pantalla es el texto oculto del control (el `span` con
-    // `sr-only`), que existe siempre. Si el tooltip tambien fuera legible,
+    // `sr-only`), que existe siempre. Si el tooltip también fuera legible,
     // el lector anunciaria el texto DOS veces.
     atributos: { role: 'tooltip', 'aria-hidden': 'true' },
   });
-  // El tooltip vive en el body y NO se lee solo: esta oculto para los lectores
+  // El tooltip vive en el body y NO se lee solo: está oculto para los lectores
   // hasta que tiene contenido, que es lo que hace `aria-describedby` (un
-  // elemento vacio no describe nada).
+  // elemento vacío no describe nada).
   elementoTooltip.hidden = true;
 
   document.body.appendChild(elementoTooltip);
@@ -66,7 +66,7 @@ function obtenerTooltip() {
 /**
  * Coloca el tooltip junto al destino, dentro de la ventana.
  *
- * Se posiciona con `position: fixed` y coordenadas de pantalla: asi no hay
+ * Se posiciona con `position: fixed` y coordenadas de pantalla: así no hay
  * que preocuparse por los ancestros con `transform` o `overflow`, que es
  * donde se rompe un tooltip posicionado en el flujo normal.
  */
@@ -118,16 +118,16 @@ function programarOcultar() {
 }
 
 /**
- * Le pone descripcion a un control.
+ * Le pone descripción a un control.
  *
- * @param {HTMLElement} elemento  El control (boton, campo, tarjeta).
- * @param {string} texto          La descripcion.
+ * @param {HTMLElement} elemento  El control (botón, campo, tarjeta).
+ * @param {string} texto          La descripción.
  * @returns {HTMLElement} El mismo elemento, para encadenar.
  */
 export function conTooltip(elemento, texto) {
   if (!texto) return elemento;
 
-  // LA DESCRIPCION REAL: un texto oculto, con `aria-describedby` fijo.
+  // LA Descripción REAL: un texto oculto, con `aria-describedby` fijo.
   //
   // Va SIEMPRE, no solo cuando el tooltip se muestra. Un lector de pantalla
   // tiene que poder leer la explicacion de un control sin que nadie pase el
@@ -139,9 +139,9 @@ export function conTooltip(elemento, texto) {
     clase: 'sr-only',
     texto,
   });
-  // Se pone como HERMANO del control, no dentro: dentro de un boton, el
-  // texto pasaria a formar parte de su nombre accesible, y el boton se
-  // anunciaria como "Cerrar sesion, Cerrar la sesion en este dispositivo".
+  // Se pone como HERMANO del control, no dentro: dentro de un botón, el
+  // texto pasaria a formar parte de su nombre accesible, y el botón se
+  // anunciaria como "Cerrar sesión, Cerrar la sesión en este dispositivo".
   (elemento.parentElement || document.body).appendChild(descripcion);
   elemento.setAttribute('aria-describedby', idDescripcion);
 
@@ -166,19 +166,19 @@ export function conTooltip(elemento, texto) {
 }
 
 /**
- * Un boton de solo icono, con su nombre accesible y su descripcion.
+ * Un botón de solo ícono, con su nombre accesible y su descripción.
  *
- * El nombre va en `aria-label` (lo lee el lector de pantalla) y la descripcion
- * va en el tooltip (lo ve el operador al pasar el mouse). Un boton de icono
- * sin `aria-label` es un boton que el lector de pantalla anuncia como
- * "boton", y no hay forma de saber que hace.
+ * El nombre va en `aria-label` (lo lee el lector de pantalla) y la descripción
+ * va en el tooltip (lo ve el operador al pasar el mouse). Un botón de ícono
+ * sin `aria-label` es un botón que el lector de pantalla anuncia como
+ * "botón", y no hay forma de saber que hace.
  *
  * @param {object} opciones
- * @param {string} opciones.nombre        Nombre accesible. Ej: 'Cerrar sesion'.
- * @param {string} [opciones.descripcion]  Texto del tooltip.
+ * @param {string} opciones.nombre        Nombre accesible. Ej: 'Cerrar sesión'.
+ * @param {string} [opciones.descripción]  Texto del tooltip.
  * @param {string} [opciones.clase]
  * @param {string} [opciones.ruta]         Path del SVG.
- * @param {number} [opciones.tamano]
+ * @param {number} [opciones.tamaño]
  * @returns {HTMLElement}
  */
 export function botonIcono({ nombre, descripcion, clase = 'boton', ruta, tamano = 18 }) {

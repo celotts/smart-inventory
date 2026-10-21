@@ -3,13 +3,13 @@ Tests del contraste de los tokens de color del front.
 
 POR QUE UN TEST Y NO "LO MIRE CON LOS OJOS"
 --------------------------------------------
-Los contrastes del CSS estan anotados a mano (`--color-text-secondary: 7:1
-AAA`). Un comentario no se rompe solo: el proximo que cambie un color deja el
+Los contrastes del CSS están anotados a mano (`--color-text-secondary: 7:1
+AAA`). Un comentario no se rompe solo: el próximo que cambie un color deja el
 comentario mintiendo, y el texto con 3:1 pasa a ser ilegible en un celular a
-la luz del sol, en un deposito, con guantes.
+la luz del sol, en un depósito, con guantes.
 
 Este test lee el CSS REAL, calcula el contraste de cada par y falla si alguno
-baja del minimo de WCAG 2.2 (4.5:1 para texto normal, 3:1 para texto grande).
+baja del mínimo de WCAG 2.2 (4.5:1 para texto normal, 3:1 para texto grande).
 
 QUE MIDE
 --------
@@ -38,18 +38,18 @@ RAIZ = Path(__file__).resolve().parents[2]
 # Donde puede estar el CSS del front.
 #
 # El test vive en el backend, y el front es otro directorio. Cuando los tests
-# corren en el HOST, el CSS esta a dos directorios. Cuando corren en el
+# corren en el HOST, el CSS está a dos directorios. Cuando corren en el
 # CONTENEDOR (que es como los corre el Makefile), el front se monta en
 # `/app/frontend-src` (ver `docker-compose.dev.yml`).
 #
-# En produccion, donde la imagen del backend no tiene el front, el test se
+# En producción, donde la imagen del backend no tiene el front, el test se
 # saltea con un motivo claro: no hay CSS que medir.
 RUTAS_CSS = (
     RAIZ / "frontend" / "src" / "styles.css",
     Path("/app/frontend-src/styles.css"),
 )
 
-# El contraste minimo de WCAG 2.2 AA.
+# El contraste mínimo de WCAG 2.2 AA.
 MINIMO_TEXTO = 4.5
 MINIMO_TEXTO_GRANDE = 3.0
 MINIMO_BORDE = 3.0
@@ -78,7 +78,7 @@ def _tokens_de(css: str, tema: str | None = None) -> dict[str, str]:
     Los tokens de color del bloque `:root` (o del bloque del tema).
 
     Los alias (`--texto`, `--superficie`) se resuelven contra los canonicos,
-    asi que el test mide lo que la pantalla muestra de verdad.
+    así que el test mide lo que la pantalla muestra de verdad.
     """
     if tema is None:
         bloque = re.search(r":root\s*\{(.*?)\}", css, re.S)
@@ -176,7 +176,7 @@ class TestContraste:
     def test_el_texto_atenuado_alcanza_aa_para_texto_grande(self, tema):
         """
         El texto atenuado (`--color-text-muted`) se usa en tipografia chica.
-        Por eso tiene que alcanzar el minimo de texto GRANDE (3:1), no el de
+        Por eso tiene que alcanzar el mínimo de texto GRANDE (3:1), no el de
         texto normal: si no, un "12 de marzo" en 12px es ilegible.
         """
         tokens = _tokens_de(_leer_css(), tema)
@@ -187,7 +187,7 @@ class TestContraste:
 
     @pytest.mark.parametrize("tema", [None, "dark"])
     def test_el_boton_primario_tiene_contraste(self, tema):
-        """El texto del boton primario contra su fondo."""
+        """El texto del botón primario contra su fondo."""
         tokens = _tokens_de(_leer_css(), tema)
         if "--btn-primary-text" not in tokens:
             pytest.skip("El tema no define el color del texto del boton.")
@@ -206,7 +206,7 @@ class TestContraste:
 
         El token es `--color-border-control`, NO `--color-border-strong`: el
         borde de una tarjeta es decorativo y puede ser sutil, pero el de un
-        campo es la unica pista de que ahi se escribe.
+        campo es la única pista de que ahí se escribe.
         """
         tokens = _tokens_de(_leer_css(), tema)
         contraste = _contraste(tokens["--color-border-control"], tokens["--color-surface"])

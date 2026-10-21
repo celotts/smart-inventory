@@ -1,15 +1,15 @@
 """
 Tests de los headers de seguridad y del rate limit.
 
-POR QUE ESTOS TESTS IMPORTAN MAS DE LO QUE PARECEN
+POR QUE ESTOS TESTS IMPORTAN Más DE LO QUE PARECEN
 ---------------------------------------------------
 La API manda `Permissions-Policy: camera=(), geolocation=()`. Ese header
 IMPEDIA USAR EL ESCANER: el navegador aplica la politica de permisos a todo el
-origen, no a una pagina, asi que el `getUserMedia()` del lector de QR fallaba
+origen, no a una página, asi que el `getUserMedia()` del lector de QR fallaba
 con NotAllowedError y el escaneo no existia. La politica era "correcta para una
 API sin camara" y por eso rompio el producto.
 
-Un test que verifica que los headers ESTAN no alcanza: habria pasado igual con
+Un test que verifica que los headers Estan no alcanza: habria pasado igual con
 `camera=()`. Lo que hay que fijar es QUE DICEN, porque el valor es lo que
 importa.
 """
@@ -47,8 +47,8 @@ class TestPermissionsPolicy:
         """
         EL REGRESO DE ESTE TEST.
 
-        Si la politica vuelve a decir `camera=()`, el lector de QR deja de
-        funcionar en TODOS los navegadores, sin ningun error visible en la API:
+        Si la política vuelve a decir `camera=()`, el lector de QR deja de
+        funcionar en TODOS los navegadores, sin ningún error visible en la API:
         el `getUserMedia()` falla en el navegador y el frontend muestra un error
         que no tiene nada que ver con el motivo.
         """
@@ -62,7 +62,7 @@ class TestPermissionsPolicy:
 
     def test_permite_geolocalizacion_para_el_geo_scaneo(self):
         """
-        La geo-validacion del escaneo necesita el GPS del dispositivo.
+        La geo-validación del escaneo necesita el GPS del dispositivo.
 
         Sin esto, `navigator.geolocation` falla y todos los escaneos quedan con
         `is_valid_location = NULL`: el sistema funciona pero pierde la mitad de
@@ -77,8 +77,8 @@ class TestPermissionsPolicy:
         """
         Habilitar camara y GPS no habilita el microfono.
 
-        La politica tiene que seguir siendo una restriccion: si todo dice
-        `=(self)`, no es una politica.
+        La política tiene que seguir siendo una restriccion: si todo dice
+        `=(self)`, no es una política.
         """
         r = client.get("/health")
         politica = r.headers.get("Permissions-Policy", "")
@@ -93,7 +93,7 @@ class TestCSP:
         `script-src 'none'`: si una inyeccion de HTML se colara en una
         respuesta de la API, no se ejecutaria.
 
-        La API devuelve JSON, asi que no necesita ejecutar nada. Es la capa que
+        La API devuelve JSON, así que no necesita ejecutar nada. Es la capa que
         hace que un XSS en el FRONT no escale a las respuestas de la API.
         """
         r = client.get("/health")
@@ -133,10 +133,10 @@ class TestHeadersExistentes:
 
     def test_x_xss_protection_no_se_manda(self):
         """
-        La cabecera se ELIMINO, y que siga sin mandandose es una decision.
+        La cabecera se ELIMINO, y que siga sin mandandose es una decisión.
 
         Los navegadores que la soportan la ignoran; en los que no, activa un
-        filtro que puede mangar paginas legitimas. La defensa real es la CSP.
+        filtro que puede mangar páginas legitimas. La defensa real es la CSP.
         """
         assert client.get("/health").headers.get("X-XSS-Protection") is None
 
@@ -148,12 +148,12 @@ class TestIPConfiable:
 
         `X-Forwarded-For` lo pone cualquiera. Si una API lo creyera para
         decidir a quien limitar, un atacante manda uno distinto por request y el
-        limite por IP no limita nada.
+        límite por IP no limita nada.
         """
         from starlette.datastructures import Headers
         from starlette.requests import Request
 
-        # `request.app` se lee de `scope["app"]`: no tiene setter, asi que la
+        # `request.app` se lee de `scope["app"]`: no tiene setter, así que la
         # app se inyecta por el scope y no asignando el atributo.
         scope = {
             "type": "http",
@@ -196,9 +196,9 @@ class TestIPConfiable:
 
     def test_red_mal_escrita_se_ignora_en_vez_de_reventar(self):
         """
-        Una red invalida se descarta con un warning, no lanza.
+        Una red inválida se descarta con un warning, no lanza.
 
-        El default (no confiar en nadie) es el seguro, asi que un typo en la
+        El default (no confiar en nadie) es el seguro, así que un typo en la
         config deja la puerta CERRADA en vez de abierta.
         """
         assert _parse_redes_confiadas(["no-es-una-red", "10.0.0.0/8"]) != []
@@ -212,7 +212,7 @@ class TestIPConfiable:
 class TestRateLimit:
     def test_429_con_retry_after(self):
         """
-        Agota el limite y verifica el header `Retry-After`.
+        Agota el límite y verifica el header `Retry-After`.
 
         Sin `Retry-After`, el cliente reintenta a ciegas y el problema se
         agrava; con el, sabe cuando volver.
@@ -232,14 +232,14 @@ class TestRateLimit:
         """
         El healthcheck no cuenta.
 
-        Si se limitara, un arranque lento consume el limite del proceso, el
+        Si se limitara, un arranque lento consume el límite del proceso, el
         orquestador ve un 429, marca unhealthy y reinicia: un reinicio en loop
         causado por el propio mecanismo de salud.
         """
         c = TestClient(app)
         for _ in range(50):
             codigo = c.get("/health").status_code
-            # 503 significa "la base no esta disponible" (que es lo que pasa
+            # 503 significa "la base no está disponible" (que es lo que pasa
             # cuando los tests corren en el host, sin base). Lo que NO puede
             # ser es 429: el healthcheck no se rate-limitea.
             assert codigo in (200, 503), f"/health devolvio {codigo}"
@@ -250,7 +250,7 @@ class TestRateLimit:
 
         El `defaultdict` original guardaba una IP para siempre: con IPs
         rotativas eso es memoria infinita y el contenedor muere sin dejar
-        rastro. El `_buckets` es un LRU con tope, asi que 20.000 IPs distintas
+        rastro. El `_buckets` es un LRU con tope, así que 20.000 IPs distintas
         siguen ocupando 10.000 entradas.
         """
         rl = RateLimitMiddleware(app)
@@ -263,7 +263,7 @@ class TestRateLimit:
 
     def test_ips_que_siguen_pediendo_no_se_expulsan(self):
         """
-        El LRU expulsa la que hace mas que no pide.
+        El LRU expulsa la que hace más que no pide.
 
         En el caso de un ataque de IPs rotativas eso es lo correcto: las viejas
         ya no atacan.
@@ -272,7 +272,7 @@ class TestRateLimit:
 
         rl._consumir("1.1.1.1", 1000.0)
         rl._consumir("2.2.2.2", 1000.0)
-        # 1.1.1.1 vuelve a pedir mas tarde: pasa al final del OrderedDict.
+        # 1.1.1.1 vuelve a pedir más tarde: pasa al final del OrderedDict.
         rl._consumir("1.1.1.1", 1001.0)
 
         assert list(rl._buckets.keys())[-1] == "1.1.1.1"
@@ -292,11 +292,11 @@ class TestCORS:
 
     def test_origen_desconocido_no_recibe_permiso(self):
         """
-        Un origen que no esta en la lista NO recibe
+        Un origen que no está en la lista NO recibe
         `Access-Control-Allow-Origin`.
 
-        Es la garantia de que una pagina cualquiera no puede leer las respuestas
-        de la API desde el navegador, por mas que tenga un token.
+        Es la garantía de que una página cualquiera no puede leer las respuestas
+        de la API desde el navegador, por más que tenga un token.
         """
         r = client.options(
             "/health",

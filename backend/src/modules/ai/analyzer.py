@@ -7,12 +7,12 @@ Recibe un `device_id` y devuelve una clasificacion cerrada (excelente...critico)
 un puntaje de riesgo de 0 a 100 y las razones. No inventa una escala nueva cada
 vez: la escala es FIJA y esta en el prompt, y el modelo tiene que elegir de ahi.
 
-POR QUE UN PUNTAJE Y NO SOLO UNA FRASE
+POR QUE UN PUNTAJE Y NO Solo UNA FRASE
 -------------------------------------
 Una frase como "este equipo deberia revisarse" no se puede ordenar ni comparar
-entre 400 equipos. Un numero del 0 al 100 se puede: se ordena, se agrupa, se
-muestra en un semaforo. El texto queda como explicacion DEL numero, no al
-revés.
+entre 400 equipos. Un número del 0 al 100 se puede: se ordena, se agrupa, se
+muestra en un semaforo. El texto queda como explicacion DEL número, no al
+reves.
 
 QUE DATOS SE LE MANDAN
 ---------------------
@@ -20,10 +20,10 @@ Solo agregados. Un SELECT con COUNT y AVG sobre el historial del equipo y de su
 mismo modelo. NO se mandan las filas de movimientos, ni los nombres de los
 clientes, ni los de los técnicos.
 
-La excepción son los `initial_diagnosis` del taller, y estan detras de un
-parametro (`incluir_diagnosticos`, True por defecto) porque son el unico dato
+La excepcion son los `initial_diagnosis` del taller, y estan detras de un
+parametro (`incluir_diagnosticos`, True por defecto) porque son el único dato
 de este endpoint que no es una cifra, y sin ellos el modelo no puede decir por
-que un equipo esta roto. Son textos redactados por tecnicos internos, no datos
+que un equipo esta roto. Son textos redactados por técnicos internos, no datos
 de clientes.
 
 LO QUE NO PUEDE HACER
@@ -45,11 +45,11 @@ from src.core.config import get_settings
 from src.core.llm import LLMError, LLMProvider, get_llm
 from src.modules.ai.schemas import AnalisisDispositivoResponse
 
-SYSTEM_ANALISIS = """Sos un tecnico senior de un taller de mantenimiento de dispositivos.
+SYSTEM_ANALISIS = """Sos un técnico senior de un taller de mantenimiento de dispositivos.
 
 Recibes el estado de UN equipo y tenes que evaluarlo.
 
-Respondé UNICAMENTE en JSON, con esta forma exacta:
+Responde UNICAMENTE en JSON, con está forma exacta:
 {
   "clasificacion": "excelente" | "bueno" | "regular" | "malo" | "urgente" | "critico",
   "puntaje_riesgo": <entero 0-100>,
@@ -62,22 +62,22 @@ Respondé UNICAMENTE en JSON, con esta forma exacta:
 
 ESCALA DE RIESGO (0 = nada mal, 100 = sacar del servicio ya)
 - 0-15   excelente: recien ingresado o sin actividad, sin fallas
-- 16-30  bueno: uso normal, mantenimiento al dia
+- 16-30  bueno: uso normal, mantenimiento al día
 - 31-45  regular: hay que vigilarlo, alguna señal negativa
 - 46-60  malo: multiple señal negativa o una grave
 - 61-80  urgente: requiere intervencion pronta
-- 81-100 critico: no debe volver a servicio sin reparacion
+- 81-100 critico: no debe volver a servicio sin reparación
 
 REGLAS
 - El puntaje tiene que ser coherente con la clasificacion que elegiste.
 - Los factores y las recomendaciones tienen que citar numbers que esten en las
   metricas que te pasaron. No inventes datos.
 - Si las metricas son pocas o el equipo no tiene historial, la confianza es
-  "baja" y lo decís en el razonamiento.
-- NO estas prediciendo una falla futura: no tenés datos historicos de fallas
-  resueltas. Estás evaluando el estado actual con criterio tecnico. No digas
-  "va a fallar"; decí "requiere atencion" y por que.
-- JSON puro. Sin texto antes ni despues.
+  "baja" y lo decis en el razonamiento.
+- NO estás prediciendo una falla futura: no tenes datos historicos de fallas
+  resueltas. Estás evaluando el estado actual con criterio técnico. No digas
+  "va a fallar"; deci "requiere atención" y por que.
+- JSON puro. Sin texto antes ni después.
 """
 
 
@@ -98,7 +98,7 @@ def analizar_dispositivo(
     prompt = (
         f"{json.dumps(encabezado, ensure_ascii=False, indent=2)}\n\n"
         f"{json.dumps(metricas, ensure_ascii=False, indent=2)}\n\n"
-        "Evaluá este equipo y respondé en JSON."
+        "Evalua este equipo y responde en JSON."
     )
 
     try:
@@ -138,7 +138,7 @@ def obtener_metricas(
     Trae las cifras agregadas del equipo. Un solo SELECT.
 
     OJO con el FROM: el equipo se busca por `devices.id`, no por
-    `serial_number`. Buscarlo por el numero de serie que manda el cliente
+    `serial_number`. Buscarlo por el número de serie que manda el cliente
     significa que un `int` mal tipeado devuelve el analisis del equipo equivocado
     sin ningun error visible.
     """
@@ -148,7 +148,7 @@ def obtener_metricas(
         "COALESCE((SELECT array_agg(initial_diagnosis) FROM repairs "
         " WHERE device_id = d.id AND initial_diagnosis IS NOT NULL), '{}') AS diagnosticos"
         if incluir_diagnosticos
-        # Sin diagnosticos se manda un array VACIO, no la columna: es la unica
+        # Sin diagnósticos se manda un array Vacío, no la columna: es la única
         # forma de que el modelo no la espere y no se queje de que falta.
         else "'{}'::text[] AS diagnosticos"
     )
@@ -161,7 +161,7 @@ def obtener_metricas(
             d.warehouse_entry_date,
             d.created_at,
             EXTRACT(EPOCH FROM (NOW() - COALESCE(d.installation_date, d.warehouse_entry_date, d.created_at)))
-                / 86400.0 AS dias_en_servicio,
+                / 86400.0 AS días_en_servicio,
             mo.brand,
             mo.model,
             mo.warranty_months,
@@ -183,22 +183,22 @@ def obtener_metricas(
                 AND mh.replacement_reason IS NOT NULL) AS motivos_de_reemplazo,
             -- Tasa de falla del MISMO modelo en la flota: si el 40% de los
             -- Galaxy A10 del parque pasa por el taller, este equipo esta en un
-            -- modelo problemático, y eso cambia el diagnostico por completo.
+            -- modelo problematico, y eso cambia el diagnostico por completo.
             (SELECT count(*) FROM repairs r2
                 JOIN devices d2 ON d2.id = r2.device_id
               WHERE d2.model_id = d.model_id) AS reparaciones_del_mismo_modelo,
             (SELECT count(*) FROM devices d3
               WHERE d3.model_id = d.model_id AND d3.deleted_at IS NULL) AS flota_del_mismo_modelo,
-            -- Dias desde la ultima visita al taller. Un equipo que no vuelve
+            -- Días desde la última visita al taller. Un equipo que no vuelve
             -- hace 2 años no esta "sano", esta "abandonado".
             --
             -- El / 86400.0 no es cosmetico: EXTRACT(EPOCH ...) devuelve
             -- SEGUNDOS. Sin la division, un equipo reparado hace 3 meses
-            -- reportaba 1036849 dias, y el modelo leia eso como "esta en el
-            -- taller desde antes de Cristo" — un numero tan absurdo que no
+            -- reportaba 1036849 días, y el modelo leia eso como "esta en el
+            -- taller desde antes de Cristo" — un número tan absurdo que no
             -- sesa en ninguna conclusion, pero se cuela igual en el texto.
             COALESCE((SELECT EXTRACT(EPOCH FROM (NOW() - MAX(r3.entry_date))) / 86400.0
-                FROM repairs r3 WHERE r3.device_id = d.id), NULL) AS dias_desde_ultima_reparacion,
+                FROM repairs r3 WHERE r3.device_id = d.id), NULL) AS días_desde_ultima_reparación,
             {diagnosticos}
         FROM devices d
         LEFT JOIN models mo     ON mo.id = d.model_id
@@ -220,8 +220,8 @@ def obtener_metricas(
         )
 
     # `encabezado` es lo que va al prompt. No incluye el cliente: un JOIN a
-    # `clients` no esta porque el nombre comercial no aporta nada al diagnostico
-    # tecnico y es dato del cliente. La ubicacion entra, que si es relevante.
+    # `clients` no está porque el nombre comercial no aporta nada al diagnóstico
+    # técnico y es dato del cliente. La ubicación entra, que si es relevante.
     encabezado = {
         "serial_number": fila["serial_number"],
         "current_status": fila["current_status"],
@@ -249,9 +249,9 @@ def obtener_metricas(
         "diagnosticos_del_taller": fila["diagnosticos"] or [],
     }
 
-    # La tasa de falla de la flota se calcula ACA y no se le pide al modelo que
+    # La tasa de falla de la flota se calcula Acá y no se le pide al modelo que
     # la divida. Un modelo chico divide mal, y un porcentaje mal calculado en la
-    # conclusion tecnica es peor que no tenerlo.
+    # conclusion técnica es peor que no tenerlo.
     flota = fila["flota_del_mismo_modelo"] or 0
     reparadas = fila["reparaciones_del_mismo_modelo"] or 0
     metricas["tasa_reparacion_del_modelo"] = (
@@ -264,7 +264,7 @@ def obtener_metricas(
 # ---------------------------------------------------------------------------
 # Parseo defensivo de la respuesta
 # ---------------------------------------------------------------------------
-# Un modelo chico, cuando se le pide JSON, devuelve JSON con corchetes de mas,
+# Un modelo chico, cuando se le pide JSON, devuelve JSON con corchetes de más,
 # con un ```json alrededor, o mezclado con una frase. Todo eso se acepta; lo
 # que no se acepta es reventar el endpoint por eso.
 
@@ -276,8 +276,8 @@ def _parsear_json(texto: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         pass
 
-    # 2. El objeto mas grande que haya dentro del texto. Un ```json``` de un
-    #    modelo de 3b suele venir con una linea de prosa antes.
+    # 2. El objeto más grande que haya dentro del texto. Un ```json``` de un
+    #    modelo de 3b suele venir con una línea de prosa antes.
     bloque = re.search(r"```(?:json)?\s*(\{.+?\})\s*```", texto, re.DOTALL)
     candidato = bloque.group(1) if bloque else None
 
@@ -293,9 +293,9 @@ def _parsear_json(texto: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
-    # 3. Ultimo recurso: el modelo no devolvio JSON. Se devuelve una evaluacion
-    #    vacia con su texto crudo en el razonamiento. Perder la clasificacion
-    #    automatica es molesto; perder el analisis entero es peor.
+    # 3. Último recurso: el modelo no devolvio JSON. Se devuelve una evaluacion
+    #    vacía con su texto crudo en el razonamiento. Perder la clasificacion
+    #    automática es molesto; perder el análisis entero es peor.
     return {
         "clasificacion": "regular",
         "puntaje_riesgo": 40,
@@ -317,7 +317,7 @@ def _acotar(valor: Any, minimo: int, maximo: int) -> int:
 
 
 def _lista(valor: Any) -> list[str]:
-    """Acepta lista, string unico o None. Devuelve lista de strings."""
+    """Acepta lista, string único o None. Devuelve lista de strings."""
     if valor is None:
         return []
     if isinstance(valor, str):

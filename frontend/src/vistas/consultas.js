@@ -1,7 +1,7 @@
 /**
  * Consultas en lenguaje natural y reportes.
  *
- * EL XSS DE ESTA VISTA
+ * EL XSS DE Está VISTA
  * --------------------
  * El `index.html` anterior hacia:
  *
@@ -14,7 +14,7 @@
  * El segundo es peor, porque es indirecto: la respuesta de la IA suele devolver
  * en prosa parte de lo que se le pregunto ("Los equipos con serial `<img
  * src=x onerror=...>` son..."). O sea que un texto malicioso entra por el
- * usuario, sale por el modelo y vuelve a ejecutarse. Es el camino de XSS mas
+ * usuario, sale por el modelo y vuelve a ejecutarse. Es el camino de XSS más
  * subestimado que hay, y por eso la respuesta del modelo se trata exactamente
  * como la del usuario: `textContent`, siempre.
  *
@@ -27,15 +27,15 @@ import { crear } from '../dom.js';
 import { avisar } from '../avisos.js';
 
 const PREGUNTAS_SUGERIDAS = [
-  'Cuantos equipos hay en deposito?',
-  'Que equipos estan instalados hace mas de un ano?',
+  'Cuantos equipos hay en depósito?',
+  'Que equipos están instalados hace más de un ano?',
   'Cuantas reparaciones abiertas hay?',
-  'Que modelos se estan rompiendo mas?',
+  'Que modelos se están rompiendo más?',
 ];
 
 // Cuantos turnos se guardan para darle contexto a la pregunta siguiente.
 // Seis es lo suficiente para "y de esos, cuales..." y lo bastante poco para
-// que el pedido no crezca sin limite.
+// que el pedido no crezca sin límite.
 const MAX_TURNOS = 6;
 
 // Los nombres de columna que se repiten, traducidos. El resto se muestra con
@@ -44,8 +44,8 @@ const MAX_TURNOS = 6;
 const COLUMNAS_TRADUCIDAS = {
   count: 'Cantidad',
   total: 'Total',
-  serial_number: 'Numero de serie',
-  qr_code: 'Codigo QR',
+  serial_number: 'Número de serie',
+  qr_code: 'Código QR',
   current_status: 'Estado',
   store_name: 'Ubicacion',
   address: 'Direccion',
@@ -70,7 +70,7 @@ const COLUMNAS_TRADUCIDAS = {
   work_performed: 'Trabajo realizado',
   location_name: 'Ubicacion',
   available_count: 'Disponibles',
-  min_stock: 'Stock minimo',
+  min_stock: 'Stock mínimo',
 };
 
 /** El nombre de una columna, para mostrarlo. */
@@ -113,7 +113,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
     atributos: {
       rows: 2,
       placeholder: 'Preguntale al inventario…',
-      // `maxlength`: el backend tambien limita el largo, pero acortarlo aca
+      // `maxlength`: el backend también limita el largo, pero acortarlo acá
       // evita mandar un parrafo de 500 KB y esperar una respuesta de 15 s.
       maxlength: 500,
     },
@@ -140,12 +140,12 @@ export function vistaConsultas({ permisos = [] } = {}) {
   formulario.append(filaEntrada);
 
   // Sugerencias. Saves clicks pero son la mitad del espacio de la pantalla en
-  // un celular, asi que se muestran solo si hay lugar.
+  // un celular, así que se muestran solo si hay lugar.
   const sugerencias = crear('div', { clase: 'fila-botones' });
   for (const texto of PREGUNTAS_SUGERIDAS) {
     sugerencias.append(
       crear('button', {
-        clase: 'boton boton--suave',
+        clase: 'botón botón--suave',
         texto: texto,
         atributos: {
           type: 'button',
@@ -181,7 +181,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
   // --- Reporte --------------------------------------------------------------
   if (permisos.includes('ai:report')) {
     const botonReporte = crear('button', {
-      clase: 'boton boton--exito boton--bloque',
+      clase: 'botón botón--exito botón--bloque',
       texto: 'Generar reporte operativo',
       atributos: { type: 'button', onclick: () => generarReporte(caja) },
     });
@@ -217,7 +217,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
       // -------------
       // "Cual es ese equipo que se encontro?" no se puede responder sin
       // saber de que equipo se trata. El backend lo usa para no cambiar de
-      // tema y para traer el DETALLE de lo que antes se contó.
+      // tema y para traer el DETALLE de lo que antes se conto.
       const respuesta = await api.preguntar(pregunta, historial);
       pensando.remove();
 
@@ -236,10 +236,10 @@ export function vistaConsultas({ permisos = [] } = {}) {
         caja.lastChild.append(tablaDeDatos(respuesta));
       }
 
-      // La accion sugerida ("andá a Productos"): un boton, no un texto.
+      // La accion sugerida ("anda a Productos"): un botón, no un texto.
       if (respuesta.sugerencia?.vista) {
         const btnSugerencia = crear('button', {
-          clase: 'boton boton--suave boton--chico',
+          clase: 'botón botón--suave botón--chico',
           texto: respuesta.sugerencia.texto,
           atributos: { type: 'button' },
         });
@@ -253,8 +253,8 @@ export function vistaConsultas({ permisos = [] } = {}) {
 
       // El SQL se muestra solo si el backend lo devolucion. Ver la nota de
       // seguridad: el modelo escribe el SELECT, y verlo ayuda a entender de
-      // donde sale el numero.
-      // El turno se guarda para la proxima pregunta. El resumen lo arma el
+      // donde sale el número.
+      // El turno se guarda para la próxima pregunta. El resumen lo arma el
       // backend: es el tema de la consulta y los valores que identifican a
       // cada fila (el serial, el SKU).
       if (!respuesta.error) {
@@ -314,7 +314,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
   /**
    * La tabla con los datos de la consulta.
    *
-   * POR QUE ESTA Y NO SOLO LA PROSA
+   * POR QUE Está Y NO Solo LA PROSA
    * ------------------------------
    * El operador pregunto "cual es ese equipo que se encontro?". La prosa
    * dice "se encontro 1 equipo" y la tabla dice cual es. Con las dos, la
@@ -359,7 +359,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
     envoltorio.append(tabla);
 
     // El pie solo cuando aporta: "1 fila." debajo de una tabla de una fila
-    // es ruido. Cuando hay varias (o se truncaron) el numero importa.
+    // es ruido. Cuando hay varias (o se truncaron) el número importa.
     if (respuesta.truncado || respuesta.cantidad_filas > 1) {
       envoltorio.append(
         crear('p', {
@@ -379,7 +379,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
    * Un mensaje en la caja de conversacion.
    *
    * El texto va SIEMPRE por `textContent`. No hay rama de este archivo que use
-   * `innerHTML`, y esa es la garantia de que la salida del modelo no puede
+   * `innerHTML`, y esa es la garantía de que la salida del modelo no puede
    * ejecutar nada.
    */
   function agregarMensaje(quien, texto, tono) {
@@ -403,7 +403,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
     bloque.append(autor, cuerpo);
     caja.append(bloque);
 
-    // Se baja al final para que el ultimo mensaje se vea sin tener que scrollear.
+    // Se baja al final para que el último mensaje se vea sin tener que scrollear.
     caja.scrollTop = caja.scrollHeight;
   }
 
@@ -411,7 +411,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
     agregarMensaje(
       'Inventario',
       'Preguntame por el inventario. Puedo contar equipos por estado, listar ' +
-        'los que llevan mucho instalados y buscar los que mas visitas al taller. ' +
+        'los que llevan mucho instalados y buscar los que más visitas al taller. ' +
         'Te muestro los datos en una tabla y entiendo las preguntas de ' +
         'seguimiento ("cual es ese equipo que se encontro?").',
       'info',

@@ -1,11 +1,11 @@
 """
 Tests de la guardia de SQL.
 
-POR QUE ESTOS CASOS ESTAN ESCRITOS A MANO Y NO GENERADOS
+POR QUE ESTOS CASOS Están ESCRITOS A MANO Y NO GENERADOS
 -------------------------------------------------------
-Cada caso es un ataque o una consulta real que se rompio en produccion de
+Cada caso es un ataque o una consulta real que se rompio en producción de
 alguien. Un generador de casos produciria variaciones que nunca pasan por el
-codigo; esta lista viene de los errores que cometimos al escribir el validador.
+código; está lista viene de los errores que cometimos al escribir el validador.
 
 Para correrlos:  docker compose exec backend pytest -q
 """
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.modules.ai import guard
 
-# (sql, debe pasar la validacion, porque falla)
+# (sql, debe pasar la validación, porque falla)
 CASOS = [
     # --- Consultas legitimas ------------------------------------------
     ("SELECT * FROM devices", True),
@@ -50,7 +50,7 @@ CASOS = [
     ("SELECT 1; DROP TABLE devices", False),
     ("SELECT * FROM devices; SELECT * FROM users", False),
     # --- Evasion por WITH ---------------------------------------------
-    # Esta es la que paso de verdad: el filtro por prefijo la dejaba pasar.
+    # Está es la que paso de verdad: el filtro por prefijo la dejaba pasar.
     (("WITH x AS (INSERT INTO devices VALUES (1) RETURNING *) SELECT * FROM x"), False),
     (
         (
@@ -59,7 +59,7 @@ CASOS = [
         ),
         False,
     ),
-    # --- Cambio de sesion / escalada ----------------------------------
+    # --- Cambió de sesión / escalada ----------------------------------
     ("SELECT 1; SET ROLE postgres", False),
     ("SELECT pg_sleep(60)", False),
     ("SELECT pg_read_file('/etc/passwd')", False),
@@ -68,10 +68,10 @@ CASOS = [
     ("SELECT old_value FROM audit_logs", False),
     ("SELECT new_value FROM audit_logs", False),
     # --- Falsos positivos que NO deben dispararse --------------------
-    # Un valor que contiene una palabra vetada es un DATO, no codigo.
+    # Un valor que contiene una palabra vetada es un DATO, no código.
     ("SELECT * FROM devices WHERE serial_number = 'DROP TABLE'", True),
     ("SELECT * FROM clients WHERE commercial_name = 'Pedro'", True),
-    # `create_time` no es `create`: el limite de palabra es lo que evita que
+    # `create_time` no es `create`: el límite de palabra es lo que evita que
     # una columna legitima se lea como palabra prohibida.
     ("SELECT * FROM devices WHERE created_at > NOW()", True),
 ]
@@ -89,7 +89,7 @@ def test_validar_select(sql, debe_pasar):
 def test_mensaje_de_rechazo_es_util():
     """
     El motivo importa: 'no permitido' sin decir cual deja al operador
-    adivinando si el modelo esta roto o si hay un problema de permisos.
+    adivinando si el modelo está roto o si hay un problema de permisos.
     """
     with pytest.raises(guard.SQLRechazado) as excepcion:
         guard.validar_select("SELECT password FROM users")

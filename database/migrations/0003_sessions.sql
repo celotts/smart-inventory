@@ -2,7 +2,7 @@
 -- 0003 — Sesiones: revocación de tokens
 -- ===========================================================================
 --
--- QUE NECESITA ESTA TABLA
+-- QUE NECESITA Está TABLA
 -- -----------------------
 -- Un JWT es stateless por naturaleza: el servidor no guarda nada y no puede
 -- darlo por vencido. Para dar de baja a un usuario hay que guardar el estado.
@@ -13,11 +13,11 @@
 --   access token  JWT, 15 minutos. Viaja en cada request. NO se guarda: es
 --                  verificable por firma sola, sin tocar la base.
 --   refresh token JWT, 30 días. Solo se usa en POST /api/auth/refresh, y es el
---                  ÚNICO que queda guardado (hasheado) en esta tabla.
+--                  ÚNICO que queda guardado (hasheado) en está tabla.
 --
 -- Verificar un access token es una firma: microsegundos. Revocar es borrar la
 -- fila de la sesión, o marcar la de todos los access de ese usuario con una
--- `revoked_before`. Por eso esta tabla existe y por eso tiene dos funciones.
+-- `revoked_before`. Por eso está tabla existe y por eso tiene dos funciones.
 --
 -- EL HASH DEL REFRESH TOKEN
 -- -------------------------
@@ -48,14 +48,14 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_agent TEXT,
     ip_address VARCHAR(45),
 
-    -- Logout de ESTA sesion.
+    -- Logout de Está sesión.
     revoked_at TIMESTAMPTZ,
 
     -- Logout de TODAS las sesiones del usuario. `revoked_before` es la marca
     -- de tiempo: cualquier access token emitido antes de ese instante es
-    -- invalido, aunque su sesion siga "viva".
+    -- inválido, aunque su sesión siga "viva".
     --
-    -- Es la unica forma de cortar un access token ya entregado sin esperar a
+    -- Es la única forma de cortar un access token ya entregado sin esperar a
     -- que expire, que es justamente el caso de "le robaron el token".
     revoked_before TIMESTAMPTZ,
 
@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
 
--- El indice que usa `revoked_before`: revocar todo el usuario tiene que
+-- El índice que usa `revoked_before`: revocar todo el usuario tiene que
 -- encontrar sus sesiones, no recorrer la tabla.
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
--- Limpieza de sesiones vencidas. Es un indice parcial: solo las vivas, que
+-- Limpieza de sesiones vencidas. Es un índice parcial: solo las vivas, que
 -- son pocas; las muertas se pueden borrar sin esperar.
 CREATE INDEX IF NOT EXISTS idx_sessions_vivas ON sessions(expires_at)
     WHERE revoked_at IS NULL;

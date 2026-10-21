@@ -14,17 +14,17 @@
  * que entra. Por eso el selector de rol muestra lo que cada rol puede hacer
  * (el backend decide, pero el que elige tiene que saber lo que elige).
  *
- * LA CONTRASENA NUNCA SE MUESTRA
+ * LA Contraseña NUNCA SE MUESTRA
  * -------------------------------
  * Al crear o al resetear, la clave se escribe en un campo de password con el
  * medidor de fortaleza, y no se vuelve a mostrar: el backend guarda el hash
- * (bcrypt), asi que ni siquiera el servidor la tiene. El admin la define y
+ * (bcrypt), así que ni siquiera el servidor la tiene. El admin la define y
  * se la comunica al usuario por el canal que corresponda.
  *
- * SOLO ADMIN
+ * Solo ADMIN
  * -----------
- * La pantalla entera pide `users:read`, que solo tiene ADMIN. Un tecnico que
- * puede ver el inventario no puede ver la lista de usuarios: es informacion
+ * La pantalla entera pide `users:read`, que solo tiene ADMIN. Un técnico que
+ * puede ver el inventario no puede ver la lista de usuarios: es información
  * que no necesita para trabajar, y el que la tiene puede cambiar el rol de
  * cualquiera.
  */
@@ -42,14 +42,14 @@ import { PasswordStrengthMeter } from '../composables/usePasswordStrength.js';
  * Que puede hacer cada rol.
  *
  * La fuente de verdad son los permisos del BACKEND (`core/permissions.py`).
- * Aca va la version para el humano: el que crea un usuario tiene que
- * entender lo que esta creando, y un "Rol: OPERATOR" no dice nada.
+ * Acá va la versión para el humano: el que crea un usuario tiene que
+ * entender lo que está creando, y un "Rol: OPERATOR" no dice nada.
  */
 const ROLES = [
   {
     valor: 'ADMIN',
     texto: 'Administrador',
-    ayuda: 'Control total: usuarios, roles, catálogo, precios y auditoría.',
+    ayuda: 'Control total: usuarios, roles, catalogo, precios y auditoría.',
   },
   {
     valor: 'TECHNICIAN',
@@ -143,9 +143,9 @@ export function vistaUsuarios({ permisos = [] } = {}) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  // LA PAGINACION
+  // LA Paginación
   //
-  // La lista venia con un tope de 100 usuarios: con mas de 100, el
+  // La lista venia con un tope de 100 usuarios: con más de 100, el
   // administrador veia 100 y no podia llegar a los demas.
   let pagina = 0;
   let limite = 50;
@@ -235,7 +235,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
 
       if (puedeEditar) {
         const btnClave = crear('button', {
-          clase: 'boton boton--suave boton--chico',
+          clase: 'botón botón--suave botón--chico',
           texto: 'Clave',
           atributos: { type: 'button', onclick: () => abrirReset(u) },
         });
@@ -249,7 +249,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
         conTooltip(
           btnEstado,
           u.is_active
-            ? 'No podra entrar. Su historial de movimientos y de auditoria se conserva.'
+            ? 'No podra entrar. Su historial de movimientos y de auditoría se conserva.'
             : 'Vuelve a poder entrar a la app.',
         );
 
@@ -268,17 +268,17 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       etiqueta: 'Email *',
       placeholder: 'operador@empresa.com',
       tipo: 'email',
-      descripcion: 'Es el nombre de usuario: con esto inicia sesion.',
+      descripcion: 'Es el nombre de usuario: con esto inicia sesión.',
     });
 
     const campoNombre = campoTexto({
       etiqueta: 'Nombre y apellido *',
       placeholder: 'Ana Gomez',
-      descripcion: 'Como aparece en la app y en la auditoria.',
+      descripcion: 'Como aparece en la app y en la auditoría.',
     });
 
     const campoTelefono = campoTexto({
-      etiqueta: 'Telefono *',
+      etiqueta: 'Teléfono *',
       placeholder: '+54 11 0000-0000',
       tipo: 'tel',
       descripcion: 'El contacto del usuario. Es obligatorio para poder avisarle.',
@@ -293,10 +293,10 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     campoRol.control.value = 'OPERATOR';
 
     const campoClave = campoTexto({
-      etiqueta: 'Contrasena *',
-      placeholder: 'Minimo 8 caracteres',
+      etiqueta: 'Contraseña *',
+      placeholder: 'Mínimo 8 caracteres',
       tipo: 'password',
-      descripcion: 'La contrasena inicial. Comunicasela al usuario por un canal seguro.',
+      descripcion: 'La contraseña inicial. Comunicasela al usuario por un canal seguro.',
     });
 
     // El medidor de fortaleza: el ADMIN tiene que elegir una clave que no sea
@@ -327,7 +327,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Crear usuario',
       atributos: { type: 'submit' },
     });
@@ -347,9 +347,9 @@ export function vistaUsuarios({ permisos = [] } = {}) {
 
       if (!email) campoEmail.marcar('El email es obligatorio: es el usuario.');
       if (!nombre) campoNombre.marcar('El nombre es obligatorio.');
-      if (!telefono) campoTelefono.marcar('El telefono es obligatorio.');
-      if (!rol) campoRol.marcar('Elegi el rol.');
-      if (clave.length < 8) campoClave.marcar('La contrasena necesita al menos 8 caracteres.');
+      if (!telefono) campoTelefono.marcar('El teléfono es obligatorio.');
+      if (!rol) campoRol.marcar('Elegí el rol.');
+      if (clave.length < 8) campoClave.marcar('La contraseña necesita al menos 8 caracteres.');
 
       const resumen = resumenDeErrores([campoEmail, campoNombre, campoTelefono, campoRol, campoClave]);
       if (resumen) {
@@ -377,18 +377,18 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       }
     }
 
-    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // El botón de CERRAR. Un modal sin salida visible solo se cierra con la
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
 
     cerrarModal = abrirDialogo({
       titulo: 'Nuevo usuario',
-      nota: 'La contrasena se guarda hasheada: no se puede volver a leer. Comunicasela al usuario.',
+      nota: 'La contraseña se guarda hasheada: no se puede volver a leer. Comunicasela al usuario.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -400,13 +400,13 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     });
   }
 
-  // --- Reset de contrasena --------------------------------------------------
+  // --- Reset de contraseña --------------------------------------------------
   async function abrirReset(usuario) {
     const campoClave = campoTexto({
-      etiqueta: 'Contrasena nueva *',
-      placeholder: 'Minimo 8 caracteres',
+      etiqueta: 'Contraseña nueva *',
+      placeholder: 'Mínimo 8 caracteres',
       tipo: 'password',
-      descripcion: 'La nueva contrasena del usuario. Se cierran sus sesiones abiertas.',
+      descripcion: 'La nueva contraseña del usuario. Se cierran sus sesiones abiertas.',
     });
 
     const medidor = PasswordStrengthMeter({ mostrarRequisitos: true });
@@ -427,8 +427,8 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     form.append(zonaResumen, campoClave.campo, medidor.elemento);
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
-      texto: 'Cambiar contrasena',
+      clase: 'botón botón--bloque',
+      texto: 'Cambiar contraseña',
       atributos: { type: 'submit' },
     });
     form.append(btnGuardar);
@@ -441,7 +441,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       zonaResumen.replaceChildren();
 
       if (clave.length < 8) {
-        campoClave.marcar('La contrasena necesita al menos 8 caracteres.');
+        campoClave.marcar('La contraseña necesita al menos 8 caracteres.');
         zonaResumen.replaceChildren(resumenDeErrores([campoClave]) || crear('div'));
         return;
       }
@@ -455,15 +455,15 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       } catch (error) {
         avisar(error.message, 'error');
         btnGuardar.disabled = false;
-        btnGuardar.textContent = 'Cambiar contrasena';
+        btnGuardar.textContent = 'Cambiar contraseña';
       }
     }
 
-    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // El botón de CERRAR. Un modal sin salida visible solo se cierra con la
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -488,7 +488,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       titulo: usuario.is_active ? 'Desactivar usuario' : 'Reactivar usuario',
       mensaje: usuario.is_active
         ? `${usuario.full_name || usuario.email} no va a poder entrar a la app. ` +
-          'Su historial de movimientos y de auditoria se conserva.'
+          'Su historial de movimientos y de auditoría se conserva.'
         : `${usuario.full_name || usuario.email} vuelve a poder entrar a la app.`,
       textoConfirmar: usuario.is_active ? 'Desactivar' : 'Reactivar',
       peligro: usuario.is_active,

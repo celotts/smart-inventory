@@ -9,25 +9,25 @@ exactamente esa: "cuanto vale mi flota ahora".
 
 COMO SE CALCULA
 ---------------
-Depreciacion LINEAL, la mas simple y la que se puede explicar en una
+Depreciacion LINEAL, la más simple y la que se puede explicar en una
 reunion:
 
-    depreciacion_mensual = precio_de_compra / vida_util_en_meses
+    depreciacion_mensual = precio_de_compra / vida_útil_en_meses
     depreciacion_acumulada = meses_transcurridos * depreciacion_mensual
     valor_libro = precio_de_compra - depreciacion_acumulada
 
-Con dos limites que evitan los numeros raros:
+Con dos límites que evitan los números raros:
 
 - La depreciacion acumulada no pasa del precio de compra (el valor libro no
   es NEGATIVO: un equipo vale cero, no "debe" dinero).
-- Pasada la vida util, el valor libro es CERO.
+- Pasada la vida útil, el valor libro es CERO.
 
 LO QUE NO SE INVENTA
 --------------------
 - Si el equipo no tiene fecha de compra, no se deprecia: no hay con que
   calcular los meses, y un valor libro estimado con una fecha inventada es
-  una mentira con formato de numero.
-- Si el modelo no tiene vida util, no se deprecia: se deberia definir (es un
+  una mentira con formato de número.
+- Si el modelo no tiene vida útil, no se deprecia: se deberia definir (es un
   dato del modelo, no del equipo) pero no se inventa un default.
 - El valor residual no se considera: es un dato del negocio (un equipo de
   TI suele ser residual cero o un porcentaje del precio), y si el negocio
@@ -42,10 +42,10 @@ from sqlalchemy import text
 
 from src.db.session import get_db_session as db_session_factory
 
-# El SQL del calculo. Va en SQL y no en Python por una razon: el filtro (por
-# cliente, por estado, por categoria) se aplica ANTES de calcular, y el
+# El SQL del calculo. Va en SQL y no en Python por una razón: el filtro (por
+# cliente, por estado, por categoría) se aplica ANTES de calcular, y el
 # total sale de las mismas filas que se listan. Calcular en Python y traer
-# todo para filtrar despues es traer el inventario entero del cliente para
+# todo para filtrar después es traer el inventario entero del cliente para
 # mostrar diez filas.
 SQL_VALOR_LIBRO = """
 SELECT
@@ -114,7 +114,7 @@ SELECT
         )
     END AS valor_libro,
 
-    -- Si la vida util ya se cumplio, el equipo esta totalmente amortizado.
+    -- Si la vida útil ya se cumplio, el equipo esta totalmente amortizado.
     CASE
         WHEN d.purchase_date IS NULL OR m.useful_life_months IS NULL
              OR m.useful_life_months <= 0 THEN FALSE
@@ -142,7 +142,7 @@ def valor_libro(
     """
     El valor libro de los activos, equipo por equipo y en total.
 
-    `client_id` filtra por el cliente dontre esta instalado el equipo: es el
+    `client_id` filtra por el cliente dontre está instalado el equipo: es el
     recorte que pide el cliente ("cuanto vale lo que tengo en la calle").
     """
     condiciones = []
@@ -174,7 +174,7 @@ def valor_libro(
         ).mappings().all()
 
         # Los totales, sobre las MISMAS filas que se listan (no sobre todo el
-        # inventario): si el listado esta filtrado, el total tambien.
+        # inventario): si el listado está filtrado, el total también.
         total_costo = sum(float(f["purchase_value"] or 0) for f in filas)
         total_depreciado = sum(float(f["depreciacion_acumulada"] or 0) for f in filas)
         total_libro = sum(float(f["valor_libro"] or 0) for f in filas)

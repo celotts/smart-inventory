@@ -58,14 +58,14 @@ def admin(base):
         ).mappings().first()
 
     if not fila:
-        pytest.skip("La base de test no tiene un usuario ADMIN. Corré init.sql.")
+        pytest.skip("La base de test no tiene un usuario ADMIN. Corre init.sql.")
 
     return fila["id"]
 
 
 @pytest.fixture
 def limpio(base, admin):
-    """Deja las politicas como estaban y borra lo que crean los tests."""
+    """Deja las políticas como estaban y borra lo que crean los tests."""
     from sqlalchemy import text
 
     with base.connect() as conexion:
@@ -115,7 +115,7 @@ class TestHorarioLaboral:
             ).mappings().first()
 
         plazo = fila["plazo"]
-        # El dia local tiene que ser lunes (0 = domingo, 1 = lunes).
+        # El día local tiene que ser lunes (0 = domingo, 1 = lunes).
         assert plazo.astimezone(timezone(timedelta(hours=-3))).isoweekday() == 1
         # Y dentro del horario de trabajo: las 12:00.
         assert plazo.astimezone(timezone(timedelta(hours=-3))).hour == 12
@@ -167,8 +167,8 @@ class TestHorarioLaboral:
                 )
             )
 
-        # El alta usa `created_at` (que es NOW()), asi que el plazo se calcula
-        # desde el momento real. Lo que se verifica aca es que la FUNCION de
+        # El alta usa `created_at` (que es NOW()), así que el plazo se calcula
+        # desde el momento real. Lo que se verifica acá es que la Función de
         # calculo devuelve un plazo en el horario laboral, que es lo que la
         # dispara.
         with base.connect() as conexion:
@@ -209,7 +209,7 @@ class TestAvisos:
             user_id=admin,
         )
 
-        # El plazo ya paso (o esta por pasar): el barrido tiene que avisar.
+        # El plazo ya paso (o está por pasar): el barrido tiene que avisar.
         resultado = service.barrer_sla(minutos_aviso=60)
         assert resultado["avisos_creados"] >= 1
 
@@ -318,7 +318,7 @@ class TestEscalamiento:
         assert resultado["escalados"] >= 1
 
         detalle = service.obtener_incidencia(incidencia["id"])
-        # Quedo asignado (a alguien que puede resolverlo) y con el evento.
+        # Quedó asignado (a alguien que puede resolverlo) y con el evento.
         assert detalle["assigned_to"] is not None
         assert any(e["event_type"] == "ESCALATED" for e in detalle["eventos"])
 

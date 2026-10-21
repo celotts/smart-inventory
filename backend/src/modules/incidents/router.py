@@ -5,24 +5,24 @@ QUE PERMITE HACER
 -----------------
 - Reportar una incidencia (cualquiera del equipo).
 - Ver las abiertas, filtradas por severidad, responsable, equipo o vencidas.
-- Cambiar el estado, asignar, comentar: todo queda en la linea de tiempo.
+- Cambiar el estado, asignar, comentar: todo queda en la línea de tiempo.
 - Ver el resumen del tablero: cuantas abiertas, cuantas vencidas, cuanto tarda
   el taller.
 
-LOS PERMISOS
+LOS Permisos
 ------------
-- `incidents:read`: ver. Lo tiene el operador, el tecnico y el admin.
+- `incidents:read`: ver. Lo tiene el operador, el técnico y el admin.
 - `incidents:create`: reportar. Lo tiene el operador (el que esta en el
-  deposito y ve el equipo roto) y el tecnico.
-- `incidents:manage`: cambiar el estado, asignar y cerrar. Es del tecnico y
+  deposito y ve el equipo roto) y el técnico.
+- `incidents:manage`: cambiar el estado, asignar y cerrar. Es del técnico y
   del admin: reportar un problema es de cualquiera, resolverlo es del taller.
 
 REPARAR Y REABRIR
 -----------------
-Reabrir una incidencia resuelta es una transicion VALIDA (el problema
+Reabrir una incidencia resuelta es una transicion Válida (el problema
 volvio), y el trigger de la base lo permite. Un caso cerrado o cancelado no
 se reabre: para eso se abre uno nuevo. La razon esta en el trigger
-`incident_transicion_valida`.
+`incident_transicion_válida`.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def _errores(exc: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
     # Un 500 NUNCA es silencioso: sin este log, un bug queda sin rastro y lo
-    # unico que se ve es "Error interno." en la pantalla del operador.
+    # único que se ve es "Error interno." en la pantalla del operador.
     logger.exception("Error inesperado en incidencias: %s", exc)
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno.")
 
@@ -97,7 +97,7 @@ def listar(
     Listado paginado, con filtros combinables.
 
     El orden es el que un operador necesita: las VENCIDAS primero, y dentro de
-    cada grupo, las mas graves y las mas antiguas.
+    cada grupo, las más graves y las más antiguas.
     """
     return service.listar_incidencias(
         estado=estado,
@@ -130,7 +130,7 @@ def metricas(
     """
     Cuantas abiertas, cuantas vencidas, y cuanto se demora el taller (MTTR).
 
-    El MTTR es el numero que le importa al responsable: no como hay many
+    El MTTR es el número que le importa al responsable: no como hay many
     tickets, sino cuanto tarda el taller en resolverlos.
     """
     return service.metricas(user_id=usuario.id)
@@ -156,7 +156,7 @@ def listar_notificaciones(
     Los avisos: los propios y los generales.
 
     Un aviso general (sin destinatario) le llega a todos los que pueden ver
-    el caso: "el deposito se quedo sin conexion" le interesa a mas de uno.
+    el caso: "el depósito se quedó sin conexión" le interesa a más de uno.
     """
     return service.listar_notificaciones(
         user_id=usuario.id,
@@ -222,7 +222,7 @@ def ver_calendario(
     La ventana en la que corren los plazos del SLA.
 
     Es lo que define si un SLA de 4 horas son 4 horas de reloj o 4 horas de
-    trabajo. Y los dias que el sistema NO conoce (feriados) son una limitacion
+    trabajo. Y los días que el sistema NO conoce (feriados) son una limitacion
     declarada: la lista se carga a mano.
     """
     try:
@@ -249,8 +249,8 @@ def cambiar_calendario(
       "holidays": ["2026-12-25"]
     }
 
-    La zona horaria se valida contra las que el propio Postgres tiene: una
-    zona invalida hace fallar el calculo del SLA en el ALTA de una incidencia,
+    La zona horaria se válida contra las que el propio Postgres tiene: una
+    zona inválida hace fallar el calculo del SLA en el ALTA de una incidencia,
     que es el peor momento para descubrirlo.
     """
     try:
@@ -289,8 +289,8 @@ def crear(
 
     IDEMPOTENTE: si viene `client_ref` y ya existe una incidencia con ese
     ref, se devuelve LA MISMA. La app es una PWA con cobertura mala y el
-    mismo alta puede llegar dos veces; sin esto, un corte de conexion a mitad
-    del envio deja dos casos iguales.
+    mismo alta puede llegar dos veces; sin esto, un corte de conexión a mitad
+    del envió deja dos casos iguales.
     """
     try:
         return service.crear_incidencia(
@@ -315,8 +315,8 @@ def actualizar(
     """
     Edicion parcial, con BLOQUEO OPTIMISTA.
 
-    El `version` que manda el cliente es la que leyo. Si otro operador guardo
-    antes, la base tiene otra version y el backend responde 409 con un
+    El `versión` que manda el cliente es la que leyo. Si otro operador guardo
+    antes, la base tiene otra versión y el backend responde 409 con un
     conflicto explicito, en vez de pisar su trabajo.
     """
     try:
@@ -342,7 +342,7 @@ def cambiar_estado(
     """
     Una transicion de estado.
 
-    Las transiciones validas las exige la BASE (trigger): si el par
+    Las transiciones válidas las exige la BASE (trigger): si el par
     actual -> nuevo no esta permitido, el UPDATE falla y se traduce a un 409
     con el motivo. La API no reimplementa la maquina de estados: dos
     implementaciones se desincronizan, y la que queda sin actualizar es la que
@@ -371,7 +371,7 @@ def tomar_caso(
     """
     Toma un caso de la bandeja: queda asignado a quien lo toma.
 
-    Es la accion del tecnico al empezar el turno: un clic y el caso es suyo,
+    Es la accion del técnico al empezar el turno: un clic y el caso es suyo,
     con su plazo de respuesta ya arrancando y el que lo reporto avisado.
     """
     try:
@@ -393,9 +393,9 @@ def cerrar_caso(
     """
     Cierra el caso y dice que paso con el EQUIPO.
 
-    - TALLER: el equipo quedo roto, en el taller (`IN_REPAIR`).
-    - REPARADO: se reparo y volvio al deposito (`IN_WAREHOUSE`).
-    - DANO_TOTAL: no se arregla; sale del stock con su certificado de baja.
+    - TALLER: el equipo quedó roto, en el taller (`IN_REPAIR`).
+    - REPARADO: se reparo y volvio al depósito (`IN_WAREHOUSE`).
+    - Daño_TOTAL: no se arregla; sale del stock con su certificado de baja.
 
     El que reporto el caso recibe el aviso del cierre.
     """

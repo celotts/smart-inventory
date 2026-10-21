@@ -1,9 +1,9 @@
-"""RAG: indexación y búsqueda semántica con pgvector (opcional)."""
+"""RAG: indexacion y búsqueda semantica con pgvector (opcional)."""
 
 from __future__ import annotations
 
 # Nota: requiere extensión pgvector en Postgres y un proveedor de embeddings.
-# Aquí dejamos la interfaz; la implementación concreta depende del proveedor.
+# Aquí dejamos la interfaz; la implementacion concreta depende del proveedor.
 
 
 class VectorStore:

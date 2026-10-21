@@ -1,11 +1,11 @@
 """
-Router de Catalogo - Maestro de productos (models), categorias y proveedores.
+Router de Catalogo - Maestro de productos (models), categorías y proveedores.
 Montado en /api/catalog.
 
 POR QUE EL MAESTRO DE PRODUCTOS ES `models`
 -------------------------------------------
 El sistema no tiene una tabla `products`: tiene `models`, que es donde ya viven
-el SKU, el stock minimo/maximo y el costo, y que es la unica que el resto del
+el SKU, el stock mínimo/máximo y el costo, y que es la única que el resto del
 backend consulta (stock, purchasing, reporting). Este router expone ese maestro
 al frontend, que hasta ahora no tenia forma de darlo de alta.
 """
@@ -28,7 +28,7 @@ def _error_de_negocio(exc: service.ProductoInvalido) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
-# --- Categorias -------------------------------------------------------------
+# --- Categorías -------------------------------------------------------------
 
 
 @router.get(
@@ -107,7 +107,7 @@ def eliminar_categoria(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
 ) -> dict:
     """
-    No se puede eliminar una categoria con productos o con subcategorias: se
+    No se puede eliminar una categoría con productos o con subcategorias: se
     descontinua (is_active = FALSE) para no perder el historial.
     """
     try:
@@ -117,7 +117,7 @@ def eliminar_categoria(
         raise _error_de_negocio(exc) from exc
 
 
-# --- Atributos de categoria -------------------------------------------------
+# --- Atributos de categoría -------------------------------------------------
 
 
 @router.get(
@@ -187,7 +187,7 @@ def eliminar_atributo(
 ) -> dict:
     """
     Los valores ya cargados en los productos NO se borran: quedan en el JSONB.
-    Un valor huerfano es informacion que el operador escribio.
+    Un valor huerfano es información que el operador escribio.
     """
     try:
         service.eliminar_atributo(atributo_id)
@@ -219,10 +219,10 @@ def listar_productos(
     """
     El maestro de productos, paginado.
 
-    `limite` es opcional a proposito: los SELECTORES (el de "nuevo equipo",
+    `límite` es opcional a propósito: los SELECTORES (el de "nuevo equipo",
     el filtro del inventario) necesitan la lista entera, y la PANTALLA del
-    maestro pagina. Con 5000 productos, traerlos todos y pintarlos todos
-    hace que la app se congele: por eso la pantalla pide de a paginas.
+    maestro página. Con 5000 productos, traerlos todos y pintarlos todos
+    hace que la app se congele: por eso la pantalla pide de a páginas.
     """
     items, total = service.listar_productos(
         busqueda=busqueda,
@@ -273,7 +273,7 @@ def crear_producto(
         return service.crear_producto(body)
     except service.AtributoInvalido as exc:
         # Un atributo con un valor que no corresponde a su tipo, o un atributo
-        # que la categoria no define: es un 409 con el motivo, no un 500.
+        # que la categoría no define: es un 409 con el motivo, no un 500.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except service.ProductoInvalido as exc:
         raise _error_de_negocio(exc) from exc
@@ -334,7 +334,7 @@ def eliminar_producto(
         raise _error_de_negocio(exc) from exc
 
 
-# --- Etiqueta del producto (QR + codigo de barras) ---------------------------
+# --- Etiqueta del producto (QR + código de barras) ---------------------------
 
 
 @router.get(
@@ -354,12 +354,12 @@ def qr_de_producto(
 
     QUE CODIFICA
     ------------
-    El `qr_code` del producto (`PRD-<sku>` por defecto), que es el codigo de la
+    El `qr_code` del producto (`PRD-<sku>` por defecto), que es el código de la
     ETIQUETA DEL PRODUCTO —la caja, el rack—, no la del equipo. La del equipo
     es la que ya existe, en `/api/devices/{id}/qr`.
 
     Se reutiliza el generador de QR de los dispositivos en vez de tener dos
-    copias del mismo codigo: el SVG es el mismo, y un solo lugar donde tocarlo.
+    copias del mismo código: el SVG es el mismo, y un solo lugar donde tocarlo.
     """
     try:
         datos = service.obtener_codigos_producto(producto_id)
@@ -389,7 +389,7 @@ def barcode_de_producto(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> Response:
     """
-    El codigo de barras de la etiqueta del producto, en Code 128.
+    El código de barras de la etiqueta del producto, en Code 128.
 
     Es un SVG: pesa unos pocos KB, se ve nitido a cualquier tamaño y se
     imprime sin perdida. El fondo es blanco explicito, porque un lector mide
@@ -423,7 +423,7 @@ def listar_clientes(
     offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> dict:
-    """Los clientes, con buscador y paginacion."""
+    """Los clientes, con buscador y paginación."""
     items, total = service.listar_clientes(busqueda=busqueda, limite=limite, offset=offset)
     return {"items": items, "total": total, "limite": limite, "offset": offset}
 

@@ -3,7 +3,7 @@
  *
  * FLUJO:
  * 1. Usuario hace query
- * 2. Router clasifica intención → selecciona agente inicial
+ * 2. Router clasifica intencion → selecciona agente inicial
  * 3. Agente procesa (puede llamar tools, hacer handoffs)
  * 4. Si handoff → orquestador invoca agente destino con contexto
  * 5. Respuesta final al usuario
@@ -54,30 +54,30 @@ export class AgentOrchestrator {
   }
 
   /**
-   * Clasifica intención y selecciona agente inicial.
+   * Clasifica intencion y selecciona agente inicial.
    * Usa modelo rápido (3B) para latency <200ms.
    */
   async clasificarIntencion(query) {
-    const systemPrompt = `Eres un clasificador de intención para sistema de inventario.
+    const systemPrompt = `Eres un clasificador de intencion para sistema de inventario.
 Devuelve SOLO JSON válido con:
 {
   "agent": "inventory|maintenance|purchasing|reporting",
   "confidence": 0.0-1.0,
-  "reason": "breve explicación",
+  "reason": "breve explicacion",
   "entities": { "device_id": 123, "po_id": 456, "model_id": 789 }
 }
 
 REGLAS:
 - inventory: stock, dispositivos, ubicaciones, escaneos, movimientos, historial
 - maintenance: mantenimientos pendientes/vencidos, planes, checklists, técnicos, completar
-- purchasing: órdenes de compra, proveedores, recepción, sugerir reorden, stock bajo → PO
-- reporting: reportes ejecutivos, KPIs, estadísticas, tendencias, rotación, tiempo instalación
+- purchasing: órdenes de compra, proveedores, recepcion, sugerir reorden, stock bajo → PO
+- reporting: reportes ejecutivos, KPIs, estadisticas, tendencias, rotacion, tiempo instalacion
 
 EJEMPLOS:
-"Cuánto stock de Latitude 5440?" → inventory
-"Mantenimientos vencidos esta semana" → maintenance
+"Cuanto stock de Latitude 5440?" → inventory
+"Mantenimientos vencidos está semana" → maintenance
 "Crear PO para 10 switches" → purchasing
-"Reporte mensual de rotación" → reporting
+"Reporte mensual de rotacion" → reporting
 "Historial del SN-DEMO-001" → inventory`;
 
     try {
@@ -97,11 +97,11 @@ EJEMPLOS:
       console.warn('[Orchestrator] Error clasificando, fallback a inventory:', e.message);
     }
 
-    // Fallback heurístico simple
+    // Fallback heuristico simple
     const q = query.toLowerCase();
     if (q.includes('mantenimiento') || q.includes('vencido') || q.includes('checklist') || q.includes('técnico')) return { agent: 'maintenance', confidence: 0.8, reason: 'keywords mantenimiento' };
     if (q.includes('orden') || q.includes('compra') || q.includes('proveedor') || q.includes('reorden') || q.includes('po')) return { agent: 'purchasing', confidence: 0.8, reason: 'keywords compras' };
-    if (q.includes('reporte') || q.includes('estadística') || q.includes('kpi') || q.includes('rotación') || q.includes('dashboard')) return { agent: 'reporting', confidence: 0.8, reason: 'keywords reportes' };
+    if (q.includes('reporte') || q.includes('estadistica') || q.includes('kpi') || q.includes('rotacion') || q.includes('dashboard')) return { agent: 'reporting', confidence: 0.8, reason: 'keywords reportes' };
     return { agent: 'inventory', confidence: 0.7, reason: 'default' };
   }
 
@@ -200,7 +200,7 @@ EJEMPLOS:
     // Límite de handoffs alcanzado
     return {
       response: agenteActual.name === 'inventory'
-        ? 'He llegado al límite de delegaciones. ¿Podrías ser más específico en qué necesitas?'
+        ? 'He llegado al límite de delegaciones. ¿Podrias ser más específico en que necesitas?'
         : 'Procesamiento completado tras múltiples delegaciones.',
       agent: agenteActual.name,
       handoffs: this.handoffHistory,

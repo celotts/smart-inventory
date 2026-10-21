@@ -1,7 +1,7 @@
 /**
  * Cliente Ollama para multi-agente.
  *
- * POR QUÉ OLLAMA LOCAL
+ * POR QUE OLLAMA LOCAL
  * --------------------
  * - Privacidad: los datos del inventario nunca salen de la red local
  * - Costo: $0 por request vs $0.01-0.03 en cloud
@@ -45,7 +45,7 @@ export class OllamaClient {
         tools: tools.length ? tools : undefined,
         stream: false,
         options: {
-          temperature: 0.1,        // Determinístico para tool calling
+          temperature: 0.1,        // Deterministico para tool calling
           top_p: 0.9,
           num_predict: 2048,
           ...options,
@@ -172,13 +172,13 @@ export const OllamaModels = {
   // Para tool calling complejo (más parámetros)
   TOOLS: 'llama3.1:8b',        // o 'nemotron3:8b' si disponible
 
-  // Para clasificación rápida (intent routing)
+  // Para clasificacion rápida (intent routing)
   CLASSIFIER: 'llama3.2:3b',   // Ultra rápido, 2GB
 
   // Para código SQL
   CODER: 'codellama:7b',       // Especializado en SQL
 
-  // Para resúmenes largos
+  // Para resumenes largos
   LONG_CTX: 'llama3.1:8b-instruct-q4_K_M', // 8k context
 };
 

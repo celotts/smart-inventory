@@ -3,7 +3,7 @@ Registro de acciones sensibles en la bitacora.
 
 POR QUE ESTE ARCHIVO ESCRIBIA EN LA TABLA EQUIVOCADA
 -----------------------------------------------------
-Habian DOS tablas de auditoria en el esquema, y el codigo escribia en dos
+Habian DOS tablas de auditoria en el esquema, y el código escribia en dos
 distintas:
 
   `audit_logs` (plural)  -> la que escribe `users/service.py`. La que crea
@@ -14,7 +14,7 @@ distintas:
 
 Consecuencia: la bitacora de Crear/Desactivar usuario estaba en una, y la de
 escanear/transferir en la otra. Ningun reporte las podia mostrar juntas, porque
-no hay consulta que las una. Y la tabla mas rica —la que puede decir QUE ROL
+no hay consulta que las una. Y la tabla más rica —la que puede decir QUE ROL
 tenia el actor cuando lo hizo— perdia la mitad de los eventos.
 
 La migracion 0006 copia las filas de la tabla vieja a la buena y la dropea. Aca
@@ -30,7 +30,7 @@ EL PORQUE DE LAS COLUMNAS QUE NO SON OBVIAS
 
 `record_id` queda NULL a proposito. Es un UUID y casi ninguna de las acciones
 que se auditan tienen un UUID (los `devices.id` son enteros, los `transfers.id`
-son UUID pero no todos), y poner un numero en una columna UUID revienta el
+son UUID pero no todos), y poner un número en una columna UUID revienta el
 INSERT. Un `NULL` honesto es mejor que un id inventado.
 """
 
@@ -77,7 +77,7 @@ def registrar(
 
     if normalizada is None:
         # Se avisa por log y no se escribe: perder una fila es visible; perder
-        # la operacion, no.
+        # la operación, no.
         import logging
 
         logging.getLogger(__name__).warning(
@@ -116,14 +116,14 @@ def registrar(
                     "tabla": (resource or "desconocido")[:100],
                     "detalle": json.dumps(detalle, default=str),
                     # `audit_logs.user_id` es UUID y sin FK: un id de usuario es
-                    # un dato del request, y un id invalido no debe romper la
+                    # un dato del request, y un id inválido no debe romper la
                     # escritura de la bitacora. `None` viaja como NULL.
                     "user_id": user_id,
                     "ip": ip_address,
                 },
             )
     except SQLAlchemyError:
-        # Ver el docstring: la auditoria no puede tumbar la operacion.
+        # Ver el docstring: la auditoría no puede tumbar la operación.
         import logging
 
         logging.getLogger(__name__).exception("No se pudo escribir la bitacora")

@@ -1,24 +1,24 @@
 /**
- * Lector de codigos (QR y codigo de barras).
+ * Lector de códigos (QR y código de barras).
  *
  * POR QUE `BarcodeDetector` Y NO UNA BIBLIOTECA
  * --------------------------------------------
- * La version anterior usaba `html5-qrcode` desde unpkg.com: un CDN de terceros
- * con la aplicacion entera depende de que ese dominio este vivo y no
+ * La versión anterior usaba `html5-qrcode` desde unpkg.com: un CDN de terceros
+ * con la aplicación entera depende de que ese dominio este vivo y no
  * comprometido. Con `BarcodeDetector`, que es una API NATIVA del navegador, hay
  * cero dependencias: nada que auditar, nada que actualizar, nada que pueda
  * inyectar script.
  *
- * Ademas es mas rapido: la deteccion ocurre en el motor del navegador, sin
- * decodificar el frame en JavaScript, y con deteccion automatica de formatos.
+ * Además es más rápido: la deteccion ocurre en el motor del navegador, sin
+ * decodificar el frame en JavaScript, y con deteccion automática de formatos.
  *
  * SOPORTE REAL, NO TEORICO
  * ------------------------
- * `BarcodeDetector` esta en Chrome/Edge (Android y escritorio) y en Safari 17+.
- * En Firefox de escritorio NO esta. Por eso hay tres niveles:
+ * `BarcodeDetector` está en Chrome/Edge (Android y escritorio) y en Safari 17+.
+ * En Firefox de escritorio NO está. Por eso hay tres niveles:
  *
  *   1. `BarcodeDetector` nativo, si existe.
- *   2. Ingreso MANUAL del codigo.
+ *   2. Ingreso MANUAL del código.
  *
  * El ingreso manual no es un parche: es lo que hace que la app funcione en
  * cualquier dispositivo. Un Firefox sin camara soportada tiene que poder
@@ -26,10 +26,10 @@
  *
  * LA CAMARA NUNCA SALE DE ESTE DISPOSITIVO
  * ---------------------------------------
- * El fotograma se queda en el `<video>` local. A la API viaja SOLO el string
- * leido. Esto no es solo privacidad: mandar imagenes a un servidor central desde
- * un deposito con mala senal agrega ~300 ms por lectura y multiplica el ancho
- * de banda. Ademas una imagen es un archivo binario que hay que validar y
+ * El fotograma se queda en el `<video>` local. A la API viaja Solo el string
+ * leído. Esto no es solo privacidad: mandar imagenes a un servidor central desde
+ * un depósito con mala senal agrega ~300 ms por lectura y multiplica el ancho
+ * de banda. Además una imagen es un archivo binario que hay que validar y
  * guardar en disco en algun lado; un string de 12 caracteres, no.
  */
 
@@ -53,17 +53,17 @@ const FORMATOS_DESEADOS = [
 const FORMATOS_MINIMOS = ['qr_code', 'code_128', 'ean_13'];
 
 /**
- * Cuanto tiempo se ignora un codigo que ya se leyo, en modo continuo.
+ * Cuanto tiempo se ignora un código que ya se leyo, en modo continuo.
  *
- * Es el tiempo minimo entre dos escaneos del MISMO valor. Un barrido con la
+ * Es el tiempo mínimo entre dos escaneos del MISMO valor. Un barrido con la
  * camara sobre una etiqueta produce decenas de lecturas por segundo; sin este
  * filtro, un solo equipo se registraria dozens de veces.
  *
  * TRES SEGUNDOS
  * -------------
- * Es lo que tarda un operador en pasar de una etiqueta a otra. Un valor mas
- * corto deja pasar el doble escaneo de la misma etiqueta; uno mas largo hace
- * que un codigo repetido a proposito tarde en registrarse.
+ * Es lo que tarda un operador en pasar de una etiqueta a otra. Un valor más
+ * corto deja pasar el doble escaneo de la misma etiqueta; uno más largo hace
+ * que un código repetido a propósito tarde en registrarse.
  */
 const COOLDOWN_MS = 3000;
 
@@ -75,7 +75,7 @@ export class LectorQR {
 
   #video = null;
 
-  // Modo continuo: el lector NO se detiene al leer, y el mismo codigo se
+  // Modo continuo: el lector NO se detiene al leer, y el mismo código se
   // ignora durante `COOLDOWN_MS`.
   #continuo = false;
   #ultimoValor = null;
@@ -85,9 +85,9 @@ export class LectorQR {
    * @param {HTMLElement} contenedor  Donde se inserta el `<video>`.
    * @param {object} [opciones]
    * @param {boolean} [opciones.continuo]  Si es true, el lector sigue
-   *   escaneando despues de leer, en vez de apagarse.
+   *   escaneando después de leer, en vez de apagarse.
    *
-   * El lector crea su propio `<video>` en vez de recibirlo: asi el `<video>`
+   * El lector crea su propio `<video>` en vez de recibirlo: así el `<video>`
    * nunca puede quedar apuntando a otro lado si la vista se vuelve a montar,
    * y `detener()` siempre sabe exactamente que apagar.
    */
@@ -107,7 +107,7 @@ export class LectorQR {
   }
 
   /**
-   * Los formatos que el navegador negoció con el detector.
+   * Los formatos que el navegador negocio con el detector.
    *
    * No es lo mismo lo que la app pide y lo que el navegador concede: Chrome en
    * macOS no anuncia `upc_a`, por ejemplo. Cuando una etiqueta no se lee, esto
@@ -120,7 +120,7 @@ export class LectorQR {
     return [...this.#formats];
   }
 
-  /** Si el navegador puede decodificar codigos de forma nativa. */
+  /** Si el navegador puede decodificar códigos de forma nativa. */
   static haySoporteNativo() {
     return typeof window !== 'undefined' && 'BarcodeDetector' in window;
   }
@@ -142,12 +142,12 @@ export class LectorQR {
       );
     }
     if (!LectorQR.haySoporteDeCamara()) {
-      return 'Este navegador no permite abrir la camara. Ingresa el codigo a mano.';
+      return 'Este navegador no permite abrir la camara. Ingresa el código a mano.';
     }
     if (!LectorQR.haySoporteNativo()) {
       return (
-        'Este navegador no puede leer codigos automaticamente. ' +
-        'Ingresa el codigo a mano, o probá con Chrome o Safari.'
+        'Este navegador no puede leer códigos automáticamente. ' +
+        'Ingresa el código a mano, o proba con Chrome o Safari.'
       );
     }
     return null;
@@ -157,7 +157,7 @@ export class LectorQR {
     const soportados = await window.BarcodeDetector.getSupportedFormats();
     this.#formats = FORMATOS_DESEADOS.filter((f) => soportados.includes(f));
 
-    // Si el navegador no anuncia ninguno de los basicos, se prueban igual: hay
+    // Si el navegador no anuncia ninguno de los básicos, se prueban igual: hay
     // implementaciones que devuelven una lista incompleta pero funcionan.
     if (this.#formats.length === 0) this.#formats = FORMATOS_MINIMOS;
 
@@ -167,10 +167,10 @@ export class LectorQR {
   /**
    * Abre la camara y empieza a leer.
    *
-   * @param {(codigo: string, formato: string) => void} alLeer
-   *   El formato ('qr_code', 'code_128', 'ean_13'...) viaja con el codigo:
-   *   la interfaz lo usa para cambiar la guia de encuadre. Un codigo de barras
-   *   necesita ocupar cuatro veces mas ancho que un QR, y el operador tiene
+   * @param {(código: string, formato: string) => void} alLeer
+   *   El formato ('qr_code', 'code_128', 'ean_13'...) viaja con el código:
+   *   la interfaz lo usa para cambiar la guia de encuadre. Un código de barras
+   *   necesita ocupar cuatro veces más ancho que un QR, y el operador tiene
    *   que saberlo.
    * @returns {Promise<void>}
    */
@@ -178,7 +178,7 @@ export class LectorQR {
     if (this.#loopActivo) return;
 
     if (!LectorQR.haySoporteNativo()) {
-      throw new Error('Este navegador no puede leer codigos automaticamente.');
+      throw new Error('Este navegador no puede leer códigos automáticamente.');
     }
 
     if (!this.#detector) await this.#construirDetector();
@@ -190,13 +190,13 @@ export class LectorQR {
       this.#stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          // RESOLUCION, Y POR QUE ES EL UNICO AJUSTE QUE IMPORTA PARA LAS
+          // RESOLUCION, Y POR QUE ES EL Único AJUSTE QUE IMPORTA PARA LAS
           // BARRAS
           //
           // Medido en este repo con un Code 128 real: el detector deja de leerlo
-          // cuando el codigo ocupa menos de 240px de los 1280 del cuadro, y lo
-          // lee sin problema a 320, 400, 480... O sea, el limite no es el formato:
-          // es la cantidad de pixeles que caen sobre el codigo.
+          // cuando el código ocupa menos de 240px de los 1280 del cuadro, y lo
+          // lee sin problema a 320, 400, 480... O sea, el límite no es el formato:
+          // es la cantidad de pixeles que caen sobre el código.
           //
           // Por eso se pide 1080p y no 720p. Duplicar la resolucion duplica los
           // pixeles por barra, y con eso una etiqueta que antes habia que poner a
@@ -204,11 +204,11 @@ export class LectorQR {
           // diferencia entre "hay que acercar mucho" y "se lee como una QR".
           //
           // `ideal`, no `exact`: se pide 1080p pero el navegador puede entregar
-          // otra cosa segun el dispositivo. Forzar con `exact` hace fallar la
+          // otra cosa según el dispositivo. Forzar con `exact` hace fallar la
           // camara entera en equipos que no pueden.
           //
-          // El costo es real y es el que se esta pagando: mas pixeles significan
-          // mas decodificacion por frame, y en un celular eso es bateria y calor.
+          // El costo es real y es el que se está pagando: más pixeles significan
+          // más decodificacion por frame, y en un celular eso es bateria y calor.
           // 4K dejaria de lado por eso.
           width: { ideal: 1920 },
           height: { ideal: 1080 },
@@ -247,31 +247,31 @@ export class LectorQR {
       if (!this.#loopActivo) return;
 
       // El video tiene que tener dimensiones antes de detectar: en el primer
-      // frame todavia puede estar en 0x0, y `detect()` sobre eso lanza.
+      // frame todavía puede estar en 0x0, y `detect()` sobre eso lanza.
       if (!leyendo && this.#video.readyState >= 2 && this.#video.videoWidth > 0) {
         leyendo = true;
         try {
           // `detect`, no `detectar`: `BarcodeDetector` es una API del navegador
-          // con un unico metodo, en ingles. Llamar a `detectar` tira un TypeError
+          // con un único método, en ingles. Llamar a `detectar` tira un TypeError
           // ("is not a function") que caia en el `catch` de abajo y se
           // confundia con "este frame no se pudo decodificar": el bucle seguia
-          // reintentando en silencio y el escaner no leia NINGUN codigo, con la
+          // reintentando en silencio y el escaner no leia Ningún código, con la
           // camara encendida y el encuadre perfecto.
           const codigos = await this.#detector.detect(this.#video);
           fallosSeguidor = 0;
           falloAvisado = false;
 
           if (codigos.length > 0 && this.#loopActivo) {
-            // Se toma el primero. Un frame con dos codigos es raro y adivinar
+            // Se toma el primero. Un frame con dos códigos es raro y adivinar
             // cual es el correcto seria peor que mostrar el primero y dejar que
             // el operador lo confirme.
             const valor = (codigos[0].rawValue ?? '').trim();
             if (valor) {
               if (this.#continuo) {
                 // MODO CONTINUO: la camara sigue encendida y el operador
-                // sigue escaneando, que es como se trabaja en un deposito.
+                // sigue escaneando, que es como se trabaja en un depósito.
                 //
-                // El mismo codigo se ignora durante `COOLDOWN_MS`: la etiqueta
+                // El mismo código se ignora durante `COOLDOWN_MS`: la etiqueta
                 // sigue en el encuadre y el detector la vuelve a leer unas
                 // 30 veces por segundo. Sin este filtro, un solo barrido
                 // registraria el mismo equipo treinta veces.
@@ -287,7 +287,7 @@ export class LectorQR {
               } else {
                 // Se detiene ANTES de llamar al callback: seguir leyendo frames
                 // mientras la app procesa el escaneo produce diez escaneos del
-                // mismo codigo en un segundo.
+                // mismo código en un segundo.
                 this.detener();
                 alLeer(valor, codigos[0].format ?? '');
                 return;
@@ -298,14 +298,14 @@ export class LectorQR {
           // Un frame que falla al decodificar es normal (movimiento, foco).
           // Se ignora y se sigue con el siguiente.
           //
-          // PERO no todos los errores son eso: un `TypeError` aca significa que
-          // el detector esta roto, y con el `catch` vacío eso se traduce en un
-          // escaner que jamas lee un codigo y no deja rastro. Al tercer frame
-          // seguido se avisa una vez por sesion, para que quede en la consola.
+          // PERO no todos los errores son eso: un `TypeError` acá significa que
+          // el detector está roto, y con el `catch` vacío eso se traduce en un
+          // escaner que jamas lee un código y no deja rastro. Al tercer frame
+          // seguido se avisa una vez por sesión, para que quede en la consola.
           fallosSeguidor++;
           if (fallosSeguidor === 3 && !falloAvisado) {
             falloAvisado = true;
-            console.error('El detector de codigos esta fallando:', error);
+            console.error('El detector de códigos está fallando:', error);
           }
         } finally {
           leyendo = false;
@@ -354,9 +354,9 @@ export class LectorQR {
 /**
  * Traduce el error de `getUserMedia` a algo que el operador pueda hacer.
  *
- * Los codigos son del navegador y no dicen nada ("NotAllowedError"). El operador
- * necesita distinguir "no diste permiso" de "no hay camara" de "estas en otra
- * pagina", porque la accion es distinta en cada caso.
+ * Los códigos son del navegador y no dicen nada ("NotAllowedError"). El operador
+ * necesita distinguir "no diste permiso" de "no hay camara" de "estás en otra
+ * página", porque la accion es distinta en cada caso.
  */
 function mensajeDePermiso(error) {
   switch (error?.name) {
@@ -370,18 +370,18 @@ function mensajeDePermiso(error) {
     case 'OverconstrainedError':
       return 'No se encontro ninguna camara en este dispositivo.';
     case 'NotReadableError':
-      return 'La camara esta ocupada por otra aplicacion. Cerrala e intenta de nuevo.';
+      return 'La camara está ocupada por otra aplicación. Cerrala e intenta de nuevo.';
     default:
       return `No se pudo abrir la camara: ${error?.message ?? 'error desconocido'}.`;
   }
 }
 
 /**
- * Formatea un codigo leido.
+ * Formatea un código leído.
  *
- * Un lector puede devolver el codigo con espacios, guiones bajos o alatorios de
- * mayusculas alrededor. `device.serial_number` esta en MAYUSCULAS y sin espacios,
- * asi que sin normalizar un escaneo falla segun como suene el beep.
+ * Un lector puede devolver el código con espacios, guiones bajos o alatorios de
+ * mayusculas alrededor. `device.serial_number` está en MAYUSCULAS y sin espacios,
+ * así que sin normalizar un escaneo falla según como suene el beep.
  */
 export function normalizarCodigo(texto) {
   return String(texto ?? '').trim();

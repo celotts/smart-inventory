@@ -3,15 +3,15 @@ Tests de incidencias contra una base REAL.
 
 POR QUE NECESITAN UNA BASE REAL
 -------------------------------
-Lo que se prueba aca NO es logica de Python: son los TRIGGERS y las
-restricciones de Postgres. El codigo del numero de incidente, el calculo del
+Lo que se prueba acá NO es lógica de Python: son los TRIGGERS y las
+restricciones de Postgres. El código del número de incidente, el calculo del
 SLA, la maquina de estados y la inmutabilidad del historial viven en la base,
 y un test que la simule probaria un Postgres de mentira.
 
 QUE NECESITA
 ------------
 Una base Postgres con el esquema de `database/init.sql` aplicado. Si no hay
-conexion, los tests se omiten con un motivo claro.
+conexión, los tests se omiten con un motivo claro.
 
     export DATABASE_URL_TEST=postgresql://postgres:...@localhost:5432/si_test
     python3 -m pytest tests/test_incidencias_e2e.py -v
@@ -49,13 +49,13 @@ def base():
     except SQLAlchemyError as exc:
         pytest.skip(
             f"No hay base de test disponible ({DATABASE_TEST}).\n"
-            f"  Levanta una y corré: createdb si_test && psql -d si_test -f database/init.sql\n"
+            f"  Levanta una y corre: createdb si_test && psql -d si_test -f database/init.sql\n"
             f"  Motivo: {exc}"
         )
 
     import src.modules.ai.executor as executor
 
-    # Se reemplaza el engine de la app por el de test: es la unica costura que
+    # Se reemplaza el engine de la app por el de test: es la única costura que
     # hace falta, porque los services piden `get_ai_engine()`.
     executor._engine = engine
     return engine
@@ -72,7 +72,7 @@ def admin(base):
         ).mappings().first()
 
     if not fila:
-        pytest.skip("La base de test no tiene un usuario ADMIN. Corré init.sql.")
+        pytest.skip("La base de test no tiene un usuario ADMIN. Corre init.sql.")
 
     return fila["id"]
 
@@ -90,7 +90,7 @@ def limpieza(base, admin):
     # dispara los triggers de fila, y con `CASCADE` lleva las tablas
     # dependientes.
     #
-    # OJO CON EL `CASCADE`: vacia tambien las tablas que referencian a las
+    # OJO CON EL `CASCADE`: vacía también las tablas que referencian a las
     # vaciadas (`repairs` y `disposal_certificates`, que cuelgan de
     # `incidents`). En la base de TEST eso no importa: es una base para
     # pruebas. En una base de DESARROLLO con datos, este TRUNCATE se lleva
@@ -112,7 +112,7 @@ class TestAlta:
             user_id=admin,
         )
 
-        # El formato es INC-<año>-<numero de 6 digitos>. NO se comprueba que
+        # El formato es INC-<año>-<número de 6 dígitos>. NO se comprueba que
         # sea el 000001: el correlativo es por AÑO y puede venir de otra
         # ejecucion anterior de los tests.
         assert re.fullmatch(r"INC-\d{4}-\d{6}", incidencia["code"]), incidencia["code"]
@@ -127,7 +127,7 @@ class TestAlta:
         segunda = service.crear_incidencia({"title": "Segunda incidencia del lote"}, user_id=admin)
 
         assert primera["code"] != segunda["code"]
-        # El numero del final es correlativo.
+        # El número del final es correlativo.
         n1 = int(primera["code"].split("-")[-1])
         n2 = int(segunda["code"].split("-")[-1])
         assert n2 == n1 + 1
@@ -140,7 +140,7 @@ class TestAlta:
             user_id=admin,
         )
 
-        # La politica de S1 dice 15 minutos de respuesta.
+        # La política de S1 dice 15 minutos de respuesta.
         minutos = (incidencia["response_due_at"] - incidencia["created_at"]).total_seconds() / 60
         assert 14 <= minutos <= 16
 
@@ -183,7 +183,7 @@ class TestMaquinaDeEstados:
 
         incidencia = service.crear_incidencia({"title": "Teclado sin teclas"}, user_id=admin)
 
-        # OPEN -> CLOSED no esta permitido: hay que resolverla primero.
+        # OPEN -> CLOSED no está permitido: hay que resolverla primero.
         with pytest.raises(service.IncidenciaInvalida):
             service.cambiar_estado(incidencia["id"], "CLOSED", user_id=admin)
 
@@ -222,14 +222,14 @@ class TestHistorial:
         from src.modules.incidents import service
 
         incidencia = service.crear_incidencia({"title": "El escaner no lee"}, user_id=admin)
-        service.cambiar_estado(incidencia["id"], "IN_PROGRESS", user_id=admin, nota="Tomo el caso")
+        service.cambiar_estado(incidencia["id"], "IN_PROGRESS", user_id=admin, nota="Tomó el caso")
 
         detalle = service.obtener_incidencia(incidencia["id"])
         tipos = [e["event_type"] for e in detalle["eventos"]]
 
-        # El historial va del MAS NUEVO al mas viejo: lo que paso ultimo es
+        # El historial va del Más NUEVO al más viejo: lo que paso último es
         # lo que el operador mira primero, y con el caso abierto hacia abajo
-        # habia que scrollear hasta el final para ver el ultimo cambio.
+        # habia que scrollear hasta el final para ver el último cambió.
         assert set(tipos) == {"CREATED", "STATUS_CHANGED"}
         assert tipos[0] == "STATUS_CHANGED"
         # El actor sale del CONTEXTO de la transaccion, no de lo que manda el
@@ -244,7 +244,7 @@ class TestHistorial:
         service.comentar(incidencia["id"], "El cliente dice que ayer funcionaba", user_id=admin)
 
         detalle = service.obtener_incidencia(incidencia["id"])
-        # El comentario es lo ULTIMO que paso: va primero en la lista.
+        # El comentario es lo Último que paso: va primero en la lista.
         assert detalle["eventos"][0]["event_type"] == "COMMENT"
         assert "ayer funcionaba" in detalle["eventos"][0]["note"]
 
@@ -270,13 +270,13 @@ class TestEdicion:
 
         incidencia = service.crear_incidencia({"title": "Conflicto de edicion"}, user_id=admin)
 
-        # Dos operadores leen la misma version.
+        # Dos operadores leen la misma versión.
         version = incidencia["version"]
         service.actualizar_incidencia(
             incidencia["id"], {"title": "Titulo del primer operador", "version": version}, user_id=admin
         )
 
-        # El segundo guarda con la version vieja: no pisa el trabajo del otro.
+        # El segundo guarda con la versión vieja: no pisa el trabajo del otro.
         with pytest.raises(service.ConflictoDeVersion):
             service.actualizar_incidencia(
                 incidencia["id"],
@@ -284,7 +284,7 @@ class TestEdicion:
                 user_id=admin,
             )
 
-        # El titulo es el del primero.
+        # El título es el del primero.
         assert service.obtener_incidencia(incidencia["id"])["title"] == "Titulo del primer operador"
 
     def test_la_version_sube_en_cada_guardado(self, base, admin, limpieza):
@@ -320,7 +320,7 @@ class TestConsultas:
             user_id=admin,
         )
 
-        # Busqueda de texto completo: dos palabras del titulo, en otro orden.
+        # Busqueda de texto completo: dos palabras del título, en otro orden.
         resultado = service.listar_incidencias(busqueda="pantalla parpadea")
         assert creada["code"] in {i["code"] for i in resultado["items"]}
 

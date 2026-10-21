@@ -2,14 +2,14 @@
 Proveedor OpenAI.
 
 Existe para el caso de despliegue, no para el de desarrollo. La misma API que
-habla con Ollama local en la laptop habla con OpenAI en produccion cambiando
-`LLM_PROVIDER=openai` y `OPENAI_API_KEY`. Ningun router, analyzer ni reporte
-cambia una linea.
+habla con Ollama local en la laptop habla con OpenAI en producción cambiando
+`LLM_PROVIDER=openai` y `OPENAI_API_KEY`. Ningún router, analyzer ni reporte
+cambia una línea.
 
 Escribe el request a mano con httpx en vez de usar el SDK oficial. El SDK son
 ~3 MB y sus modelos de pydantic propios; como ya se habla HTTP para Ollama,
-reusar el mismo cliente hace que la clase base sea de verdad la unica
-abstraccion. Si en el futuro hacen falta tools/streaming/multimodal, ahi si
+reusar el mismo cliente hace que la clase base sea de verdad la única
+abstraccion. Si en el futuro hacen falta tools/streaming/multimodal, ahí si
 conviene el SDK.
 """
 
@@ -50,7 +50,7 @@ class OpenAIProvider(LLMProvider):
         self._temperature = temperature
         self._max_tokens = max_tokens
 
-        # base_urlcustom es lo que hace que esto tambien sirva para Azure
+        # base_urlcustom es lo que hace que esto también sirva para Azure
         # OpenAI y para cualquier gateway compatible (vLLM, LiteLLM): es un
         # endpoint OpenAI-compatible, no un cliente atado a OpenAI.
         self._base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
@@ -95,8 +95,8 @@ class OpenAIProvider(LLMProvider):
             raise LLMError(f"Fallo la llamada a {self._base_url}: {exc}") from exc
 
         if respuesta.status_code >= 400:
-            # El 401 es el caso que mas se va a ver y el que peor mensaje trae:
-            # se sube la key equivocada o se subio con espacios de mas.
+            # El 401 es el caso que más se va a ver y el que peor mensaje trae:
+            # se sube la key equivocada o se subio con espacios de más.
             pista = ""
             if respuesta.status_code == 401:
                 pista = (

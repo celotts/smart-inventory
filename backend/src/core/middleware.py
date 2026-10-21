@@ -7,9 +7,9 @@ auth, porque el objetivo es defender el perimetro antes de que llegue al router.
 LO QUE NO HACIA ESTE ARCHIVO Y AHORA SI
 ----------------------------------------
 1. `Permissions-Policy: camera=(), geolocation=()` — IMPEDIA USAR EL ESCANER.
-   El header dice "ninguna pagina de este origen puede abrir la camara ni leer
+   El header dice "ninguna página de este origen puede abrir la camara ni leer
    la ubicacion". La API manda ese header, y el navegador lo aplica a TODO el
-   origen, no a una pagina: con el, el `getUserMedia()` del lector de QR falla
+   origen, no a una página: con el, el `getUserMedia()` del lector de QR falla
    con NotAllowedError y la geolocalizacion del escaneo no existe. La politica
    de permisos era correcta para una API sin camara y por eso rompio el
    escaner. Ahora declara lo que el sistema SI usa y sigue negando el resto.
@@ -21,12 +21,12 @@ LO QUE NO HACIA ESTE ARCHIVO Y AHORA SI
    chicas. El proceso se comes la memoria hasta que lo matan, sin un solo error
    en los logs. Ahora hay un tope de IPs seguidas y las que no se usan se van.
 
-3. `X-Forwarded-For` se ignoraba, lo cual hacia que el limite por IP contara a
+3. `X-Forwarded-For` se ignoraba, lo cual hacia que el límite por IP contara a
    todo el mundo como si fuera la IP del proxy (una sola) o, si se fixaba a
    mano, lo hiciera confiado en un header que cualquiera puede mandar. Ahora se
-   lee SOLO si el peer es un proxy de confianza, y si no, se usa el peer.
+   lee Solo si el peer es un proxy de confianza, y si no, se usa el peer.
 
-4. El login no tenia limite propio. Ver la nota de `login_attempts_per_minute`
+4. El login no tenia límite propio. Ver la nota de `login_attempts_per_minute`
    en `core/config.py`.
 """
 
@@ -51,21 +51,21 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    # `X-XSS-Protection` se elimino a proposito. Esta cabecera estaba en el
+    # `X-XSS-Protection` se elimino a propósito. Está cabecera estaba en el
     # header original y hoy es contraproducente: los navegadores que la
     # soportan la ignoran, y en los que no, activa un filtro que puede
-    # MANGAR paginas legitimas. La defensa real contra XSS es la CSP de abajo,
+    # MANGAR páginas legitimas. La defensa real contra XSS es la CSP de abajo,
     # no un filtro heuristico que ya no existe.
     #
     # ------------------------------------------------------------------------
-    # PERMISSIONS-POLICY: POR QUE CAMERA Y GEOLOCATION ESTAN HABILITADAS
+    # PERMISSIONS-POLICY: POR QUE CAMERA Y GEOLOCATION Están HABILITADAS
     # ------------------------------------------------------------------------
-    # Esta es una API de inventario escaneado. El flujo de trabajo del
+    # Está es una API de inventario escaneado. El flujo de trabajo del
     # operador es: abrir la app, apuntar la camara a una etiqueta, y la app
-    # confirma la ubicacion con el GPS para validar que el escaneo ocurrio en
+    # confirma la ubicación con el GPS para validar que el escaneo ocurrio en
     # la sede. Las dos capacidades son REQUISITOS, no un lujo.
     #
-    # Bloquearlas con `camera=()` no es "defensa": es romper la aplicacion. Y lo
+    # Bloquearlas con `camera=()` no es "defensa": es romper la aplicación. Y lo
     # que se debe negar es lo que el sistema no usa, que es lo que sigue.
     "Permissions-Policy": (
         "camera=(self), "
@@ -87,13 +87,13 @@ SECURITY_HEADERS = {
 # POR QUE UNA CSP Y NO NADA
 # -------------------------
 # Los headers de arriba son defensa en profundidad: cada uno tapa una clase de
-# ataque. La CSP es la que tapa la que importa aca, que es XSS: si una
+# ataque. La CSP es la que tapa la que importa acá, que es XSS: si una
 # inyeccion de HTML se colara en una respuesta, `script-src 'none'` la deja sin
 # poder ejecutarse aunque haya entrado.
 #
 # `style-src 'unsafe-inline'`: NO es ideal y es un precio consciente. Sin eso,
-# los estilos de los componentes con estilos inline no funcionan. Es lo unico
-# que se cede, y es lo unico que puede ejecutar CSS, no JS.
+# los estilos de los componentes con estilos inline no funcionan. Es lo único
+# que se cede, y es lo único que puede ejecutar CSS, no JS.
 #
 # `connect-src 'self'`: la API no puede ser llamada desde otro origen por el
 # navegador, sin importar que diga CORS.
@@ -117,10 +117,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
 
-        # La CSP va SOLO en las respuestas de la API. En `/docs` no, porque
+        # La CSP va Solo en las respuestas de la API. En `/docs` no, porque
         # Swagger UI carga sus scripts de un CDN y una CSP de API lo dejaria en
         # blanco. El reason es el mismo por el que no se sirve `/docs` en
-        # produccion: es una superficie, no un endpoint de negocio.
+        # producción: es una superficie, no un endpoint de negocio.
         if not request.url.path.startswith(("/docs", "/redoc")):
             response.headers.setdefault("Content-Security-Policy", CSP_API)
 
@@ -142,9 +142,9 @@ def _parse_redes_confiadas(redes: list[str]) -> list[ipaddress.IPv4Network | ipa
     Parsea la lista de redes de confianza una sola vez, al construir el
     middleware.
 
-    Parsear en cada request es un trabajo tira-despues-tira sobre una lista que
+    Parsear en cada request es un trabajo tira-después-tira sobre una lista que
     no cambia nunca, y el peor caso de ese error no es performance: es que un
-    texto mal escrito en la config se convierta en una excepcion por request
+    texto mal escrito en la config se convierta en una excepción por request
     que nadie ve.
     """
     redes_ok = []
@@ -153,7 +153,7 @@ def _parse_redes_confiadas(redes: list[str]) -> list[ipaddress.IPv4Network | ipa
             redes_ok.append(ipaddress.ip_network(texto, strict=False))
         except ValueError:
             # Una red mal escrita se IGNORA y se avisa por log, en vez de tirar
-            # la exception. El default (no confiar en nadie) es el seguro, asi
+            # la exception. El default (no confiar en nadie) es el seguro, así
             # que un typo no abre la puerta: la deja cerrada.
             import logging
 
@@ -171,10 +171,10 @@ def ip_de_cliente(request: Request) -> str:
     -------------------------------------------
     Ese header lo pone CUALQUIERA. Si una API lee `X-Forwarded-For` para decidir
     a quien limitar, un atacante manda `X-Forwarded-For: 1.2.3.4` en cada
-    request y el limite por IP no frena nada.
+    request y el límite por IP no frena nada.
 
-    Solo se cree cuando el peer (la IP REAL de la conexion) pertenece a una red
-    de confianza. Detras de un nginx propio, el peer SI es el nginx, y ahi el
+    Solo se cree cuando el peer (la IP REAL de la conexión) pertenece a una red
+    de confianza. Detras de un nginx propio, el peer SI es el nginx, y ahí el
     header es legitimo. Sin proxy configurado, el peer es el cliente y el
     header se ignora.
     """
@@ -193,9 +193,9 @@ def ip_de_cliente(request: Request) -> str:
         return peer
 
     # `X-Real-IP` es el que pone un nginx de un solo salto. `X-Forwarded-For`
-    # es una CADENA de proxies, y el CLIENTE REAL es el ultimo. Se toma el
-    # ultimo porque el primero lo pone el proxy de borde, que es el menos de
-    # fiar: es el unico que ve el atacante.
+    # es una CADENA de proxies, y el CLIENTE REAL es el último. Se toma el
+    # último porque el primero lo pone el proxy de borde, que es el menos de
+    # fiar: es el único que ve el atacante.
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return _validar_ip(real_ip) or peer
@@ -210,7 +210,7 @@ def ip_de_cliente(request: Request) -> str:
 
 
 def _validar_ip(valor: str) -> str | None:
-    """Devuelve la IP si es una IP valida, None si no. Nunca lanza."""
+    """Devuelve la IP si es una IP válida, None si no. Nunca lanza."""
     try:
         ipaddress.ip_address(valor)
         return valor
@@ -225,13 +225,13 @@ def _validar_ip(valor: str) -> str | None:
 # ---------------------------------------------------------------------------
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """
-    Limite simple por IP, con ventana deslizante.
+    Límite simple por IP, con ventana deslizante.
 
     POR QUE SIGUE SIENDO EN MEMORIA Y NO REDIS
     --------------------------------------------
     Porque el compose corre UNA instancia de uvicorn. Con varias replicas hay
     que pasar a Redis. La limitacion de esto: cada replica tiene su propio
-    contador, asi que el limite efectivo es N veces el configurado. Documentado
+    contador, así que el límite efectivo es N veces el configurado. Documentado
     en el docstring de `get_settings().rate_limit_rpm`.
 
     POR QUE UN LRU CON TOPE Y NO UN defaultdict INFINITO
@@ -242,8 +242,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     minuto que nunca se van. No es un problema de performance: es un OOM
     esperando, y el sintoma (el contenedor muere) no dice nada de la causa.
 
-    Aqui, el `_buckets` es un LRU con tope. Cuando llega una IP nueva y el
-    dict esta lleno, se expulsa la MAS VIEJA (la que hace mas que no pide). En
+    Aquí, el `_buckets` es un LRU con tope. Cuando llega una IP nueva y el
+    dict está lleno, se expulsa la Más VIEJA (la que hace más que no pide). En
     el caso de un ataque de IPs rotativas eso es lo correcto: las IPs viejas ya
     no atacan.
     """
@@ -251,7 +251,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     # Endpoints que los probes del orquestador consultan constantly. Limitar el
     # healthcheck hace que un reinicio lento se convierta en un reinicio en
     # loop: el healthcheck da 429, el orquestador marca unhealthy, reinicia, y
-    # el proceso que arrancaba consume su propio limite.
+    # el proceso que arrancaba consume su propio límite.
     SIN_LIMITE = ("/health", "/", "/docs", "/redoc", "/openapi.json")
 
     def __init__(self, app, requests_per_minute: int | None = None, burst: int | None = None):
@@ -279,7 +279,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             # sepa cuando reintentar en vez de hammer en loop.
             ventana_restante = self._segundos_hasta_ventana(ip, ahora)
             return Response(
-                content='{"detail":"Demasiadas solicitudes. Intentá de nuevo en un momento."}',
+                content='{"detail":"Demasiadas solicitudes. Intenta de nuevo en un momento."}',
                 status_code=429,
                 media_type="application/json",
                 headers={
@@ -297,7 +297,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
     def _consumir(self, ip: str, ahora: float) -> bool:
-        """Registra un request. Devuelve False si excede el limite."""
+        """Registra un request. Devuelve False si excede el límite."""
         if ip not in self._buckets:
             # Expulsar la IP menos reciente cuando se llega al tope.
             if len(self._buckets) >= self._max_ips:
@@ -305,7 +305,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self._buckets[ip] = deque()
 
         bucket = self._buckets[ip]
-        # Limpiar lo que ya salio de la ventana.
+        # Limpiar lo que ya salió de la ventana.
         while bucket and bucket[0] < ahora - self._ventana:
             bucket.popleft()
 
@@ -313,7 +313,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return False
 
         bucket.append(ahora)
-        # Marcar como reciente para que el LRU expulse la que hace mas tiempo
+        # Marcar como reciente para que el LRU expulse la que hace más tiempo
         # que no pide.
         self._buckets.move_to_end(ip)
         return True
@@ -327,14 +327,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 class LoginRateLimitMiddleware(BaseHTTPMiddleware):
     """
-    Limite DEDICADO para login y refresh.
+    Límite DEDICADO para login y refresh.
 
-    Por que no alcanza con `RateLimitMiddleware`: el limite general es
+    Por que no alcanza con `RateLimitMiddleware`: el límite general es
     120/min, y un ataque de fuerza bruta a 120/min contra cada cuenta de la
     base no lo frena, porque cada intento individual es una request normal.
     Este middleware cuenta solo intentos CONTRA EL LOGIN y baja el tope a 10/min.
 
-    Cuenta SOLO los fallos, no los exitosos: si contara todos, un operador que
+    Cuenta Solo los fallos, no los exitosos: si contara todos, un operador que
     entra y sale del panel veinte veces en una hora (algo normal) se encontraria
     con un 429 sin saber por que.
     """
@@ -367,7 +367,7 @@ class LoginRateLimitMiddleware(BaseHTTPMiddleware):
                     1, int(self._ventana - (ahora - self._fallos[ip][0])) + 1
                 )
                 return Response(
-                    content='{"detail":"Demasiados intentos de acceso. Esperá un minuto e intentá de nuevo."}',
+                    content='{"detail":"Demasiados intentos de acceso. Espera un minuto e intenta de nuevo."}',
                     status_code=429,
                     media_type="application/json",
                     headers={"Retry-After": str(espera)},
@@ -375,7 +375,7 @@ class LoginRateLimitMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        # 401 = credenciales malas. SOLO ese caso cuenta como intento fallido.
+        # 401 = credenciales malas. Solo ese caso cuenta como intento fallido.
         if response.status_code == 401:
             async with self._lock:
                 self._fallos.setdefault(ip, deque()).append(ahora)
@@ -394,7 +394,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
     `X-Request-ID` del cliente se ACEPTA y se devuelve tal cual, para que un
     trace del frontend y un log del backend se cruzen por el mismo id. No es un
-    dato confiable: va como parametro a los logs, nunca a una consulta SQL.
+    dato confiable: va como parámetro a los logs, nunca a una consulta SQL.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -407,7 +407,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 # En desarrollo, si no se declara CORS_ORIGINS, se permiten los puertos de vite
 # y los de los probadores de API. Es una comodidad de desarrollo y NO un
-# default seguro: por eso no aplica en produccion.
+# default seguro: por eso no aplica en producción.
 ORIGENES_DE_DESARROLLO = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -429,14 +429,14 @@ def configurar_cors(app) -> None:
         origenes = ORIGENES_DE_DESARROLLO
 
     if es_produccion and not origenes:
-        # Sin CORS_ORIGINS en produccion NO se permite ningun origen cruzado.
+        # Sin CORS_ORIGINS en producción NO se permite ningún origen cruzado.
         # Es el default correcto para un front servido en el mismo dominio que
-        # la API (lo que hace el nginx del compose): ahi no hace falta CORS
+        # la API (lo que hace el nginx del compose): ahí no hace falta CORS
         # porque no hay origen cruzado.
         #
         # Lo que NO se hace es inventar un origen (el bug original ponia
         # `https://smart-inventory.local`, que no existe) ni abrir `*` con
-        # credenciales, que es la combinacion que permite que cualquier pagina
+        # credenciales, que es la combinacion que permite que cualquier página
         # lea las respuestas de una API autenticada.
         origenes = []
 

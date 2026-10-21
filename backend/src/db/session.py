@@ -1,7 +1,7 @@
 """
 Sesión de base de datos compartida.
 
-Patrón: engine global + function factory para sesiones.
+Patron: engine global + function factory para sesiones.
 Compatible con el estilo usado en ai.executor y users.models.
 """
 

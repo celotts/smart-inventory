@@ -1,5 +1,5 @@
 """
-Sistema de auditoría mejorado para trazabilidad completa.
+Sistema de auditoria mejorado para trazabilidad completa.
 Registra INSERT, UPDATE, DELETE con old/new values.
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ def registrar_auditoria_completa(
     NUNCA propaga excepciones para no afectar operación principal.
     """
     if action not in {"INSERT", "UPDATE", "DELETE"}:
-        logger.warning(f"Acción inválida para auditoría: {action}")
+        logger.warning(f"Accion invalida para auditoria: {action}")
         return
     
     if table_name not in TABLAS_AUDITABLES and table_name not in {"audit_logs", "movement_history"}:
@@ -75,9 +75,9 @@ def registrar_auditoria_completa(
                 }
             )
     except SQLAlchemyError as e:
-        logger.exception(f"Error al registrar auditoría completa: {e}")
+        logger.exception(f"Error al registrar auditoria completa: {e}")
     except Exception as e:
-        logger.exception(f"Error inesperado en auditoría: {e}")
+        logger.exception(f"Error inesperado en auditoria: {e}")
 
 def obtener_trazabilidad_completa(
     table_name: str | None = None,

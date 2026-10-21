@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/stock", tags=["stock"])
 
 @router.get(
     "/summary",
-    summary="Stock agregado por modelo/ubicación",
+    summary="Stock agregado por modelo/ubicacion",
 )
 def resumen_stock(
     solo_bajo: bool = Query(False, description="Solo modelos con available <= min_stock"),
@@ -37,12 +37,12 @@ def resumen_stock(
     """
     La existencia por producto y por ubicacion, paginada.
 
-    Con 800 productos en 6 ubicaciones son 4800 filas: sin limite, la API las
+    Con 800 productos en 6 ubicaciones son 4800 filas: sin límite, la API las
     devuelve todas y el navegador las pinta todas, y la app deja de
-    responder. Por eso el `limite`, el `offset` y el `total`.
+    responder. Por eso el `límite`, el `offset` y el `total`.
 
     El filtro va en el SERVIDOR: con la lista paginada, filtrar en el
-    navegador solo mira las filas de la pagina, y el operador ve "no hay"
+    navegador solo mira las filas de la página, y el operador ve "no hay"
     con 4800 existencias.
     """
     items, total = service.resumen_stock(
@@ -70,7 +70,7 @@ def stock_bajo(
     """
     Modelos donde available_count <= min_stock.
     Incluye suggested_reorder_qty (redondeado a reorder_multiple).
-    Para generar órdenes de compra automáticas.
+    Para generar órdenes de compra automaticas.
     """
     return service.stock_bajo()
 
@@ -87,7 +87,7 @@ def productos_por_reponer(
     Los productos por reponer.
 
     Es la MISMA consulta que usa la tarjeta "Por reponer" del tablero: el
-    total disponible del producto contra su minimo. La tarjeta y el modal
+    total disponible del producto contra su mínimo. La tarjeta y el modal
     tienen que decir lo mismo, o el operador pulsa un producto y el detalle
     le dice que no hay nada que reponer.
     """
@@ -104,11 +104,11 @@ def listar_alertas(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> list[dict]:
     """
-    Las alertas de stock bajo, con la fecha desde la que el producto esta
-    por debajo del minimo.
+    Las alertas de stock bajo, con la fecha desde la que el producto está
+    por debajo del mínimo.
 
-    Es la diferencia entre "hay 6 productos por reponer" y "este va 9 dias
-    bajo el minimo y el proveedor tarda 14: si no se pide hoy, se rompe".
+    Es la diferencia entre "hay 6 productos por reponer" y "este va 9 días
+    bajo el mínimo y el proveedor tarda 14: si no se pide hoy, se rompe".
     """
     return alertas.listar_alertas(solo_abiertas=solo_abiertas, limite=limite)
 
@@ -136,6 +136,6 @@ def barrer_alertas(
 def recalcular_stock(
     _usuario: UsuarioActual = Depends(exigir(Permiso.AUDITORIA_VER)),
 ) -> dict:
-    """Fuerza recálculo completo de stock_levels desde devices."""
+    """Fuerza recalculo completo de stock_levels desde devices."""
     service.recalcular_todo()
     return {"status": "ok", "message": "Stock levels recalculados"}

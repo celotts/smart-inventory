@@ -17,7 +17,7 @@ def auditar(
     get_new_value: Callable[[Any], dict] | None = None,
 ):
     """
-    Decorador para auditar automáticamente operaciones CRUD.
+    Decorador para auditar automaticamente operaciones CRUD.
     
     Ejemplo:
     @auditar(action="UPDATE", table_name="devices", 

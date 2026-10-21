@@ -10,14 +10,14 @@ CÓMO SE TRADUCEN LOS ERRORES
 ----------------------------
 `ErrorDeUsuario`  -> 400. Es un error de negocio: el email ya existe, el rol no
                      existe, la contraseña no cumple las reglas. El mensaje va
-                     al usuario tal cual porque explica qué corregir.
+                     al usuario tal cual porque explica que corregir.
 `UsuarioNoEncontrado` -> 404.
 `CredencialesInvalidas` / `SesionInvalida` -> 401.
 `ErrorDePassword` -> 400. Es subclase de ValueError, no de ErrorDeUsuario, para
                      que el router pueda diferenciarla.
 
 Un 403 NUNCA significa "no estás autenticado". Si el usuario no tiene permiso es
-porque se autenticó y le falta permiso: 403. Si no tiene quién es, 401.
+porque se autentico y le falta permiso: 403. Si no tiene quien es, 401.
 """
 
 import logging
@@ -64,17 +64,17 @@ def _traducir_error(excepcion: Exception) -> HTTPException:
     Convierte una excepción de la capa de servicio en una HTTPException.
 
     Centralizado para que el mapeo sea IGUAL en los once endpoints. Si cada
-    uno hiciera su propio try/except, uno se olvidaría de mapear `ErrorDeUsuario`
-    y devolvería un 500 por un email duplicado.
+    uno hiciera su propio try/except, uno se olvidaria de mapear `ErrorDeUsuario`
+    y devolveria un 500 por un email duplicado.
     """
     if isinstance(excepcion, ErrorDePassword):
         return HTTPException(status_code=400, detail=str(excepcion))
     if isinstance(excepcion, UsuarioNoEncontrado):
         return HTTPException(status_code=404, detail=str(excepcion))
     if isinstance(excepcion, ErrorDeUsuario):
-        # 409 para duplicados (el cliente debería reintentar con otro dato),
+        # 409 para duplicados (el cliente deberia reintentar con otro dato),
         # 400 para el resto.
-        codigo = 409 if "ya está registrado" in str(excepcion) else 400
+        codigo = 409 if "ya esta registrado" in str(excepcion) else 400
         return HTTPException(status_code=codigo, detail=str(excepcion))
     return HTTPException(status_code=500, detail="Error interno.")
 
@@ -83,13 +83,13 @@ def _ip(request: Request) -> str:
     """
     IP del cliente.
 
-    Se lee `X-Forwarded-For` porque detrás de un proxy o ingress la IP real no
+    Se lee `X-Forwarded-For` porque detras de un proxy o ingress la IP real no
     está en la conexión. Se toma el PRIMER valor de la cadena, que es el
     cliente original, no el último proxy.
 
     ADVERTENCIA: `X-Forwarded-For` lo pone cualquiera. Sirve para auditoría
     interna; NO para decides permisos. En un despliegue donde importara, esto
-    tiene que ser un header que SOLO pone el proxy de confianza.
+    tiene que ser un header que Solo pone el proxy de confianza.
     """
     encabezado = request.headers.get("x-forwarded-for")
     if encabezado:
@@ -106,13 +106,13 @@ def _agente(request: Request) -> str:
 # ===========================================================================
 
 
-@router.post("/api/auth/login", response_model=LoginResponse, summary="Iniciar sesión")
+@router.post("/api/auth/login", response_model=LoginResponse, summary="Iniciar sesion")
 def login(datos: LoginRequest, request: Request):
     """
     Devuelve access + refresh.
 
     Un error de login responde SIEMPRE el mismo mensaje, exista o no el email:
-    distinguirlo permite enumerar qué usuarios tiene el sistema.
+    distinguirlo permite enumerar que usuarios tiene el sistema.
     """
     try:
         resultado = auth_service.login(
@@ -143,11 +143,11 @@ def login(datos: LoginRequest, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except SQLAlchemyError as exc:
-        # La base no esta: NO es un error interno.
+        # La base no está: NO es un error interno.
         #
         # Sin este caso, el `except Exception` de abajo lo convierte en un 500
-        # "Error interno", que le dice al operador que el programa esta roto.
-        # Lo que pasa es que el contenedor de la base no esta arriba.
+        # "Error interno", que le dice al operador que el programa está roto.
+        # Lo que pasa es que el contenedor de la base no está arriba.
         logger.error("La base no esta disponible durante el login: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -191,9 +191,9 @@ def refrescar(datos: RefreshRequest, request: Request):
     try:
         return auth_service.refresh(datos.refresh_token, ip=_ip(request))
     except (auth_service.CredencialesInvalidas, SesionInvalida) as exc:
-        # `SesionInvalida` es la que lanza `refresh` cuando el token esta
-        # revocado, vencido o es de otro tipo. Sin esta linea, un refresh
-        # reutilizado —que es la senal de que el token esta clonado— llegaba
+        # `SesionInvalida` es la que lanza `refresh` cuando el token está
+        # revocado, vencido o es de otro tipo. Sin está línea, un refresh
+        # reutilizado —que es la senal de que el token está clonado— llegaba
         # al usuario como un 500 en vez de un 401 con el motivo, y el operador
         # no tenia forma de entender que paso.
         raise HTTPException(
@@ -203,14 +203,14 @@ def refrescar(datos: RefreshRequest, request: Request):
         ) from exc
 
 
-@router.post("/api/auth/logout", summary="Cerrar esta sesión")
+@router.post("/api/auth/logout", summary="Cerrar esta sesion")
 def logout(
     usuario: UsuarioActual = Depends(get_current_user),
     request: Request = None,
 ):
-    """Cierra SOLO esta sesión. Para cerrar todas: `POST /api/auth/logout-all`."""
+    """Cierra Solo está sesión. Para cerrar todas: `POST /api/auth/logout-all`."""
     cerrado = auth_service.logout(usuario.session_id, usuario.id)
-    return {"mensaje": "Sesión cerrada." if cerrado else "La sesión ya estaba cerrada."}
+    return {"mensaje": "Sesion cerrada." if cerrado else "La sesion ya estaba cerrada."}
 
 
 @router.post("/api/auth/logout-all", summary="Cerrar todas las sesiones")
@@ -222,7 +222,7 @@ def logout_todas(usuario: UsuarioActual = Depends(get_current_user)):
     la mano de alguien sigue sirviendo hasta 15 minutos.
     """
     cantidad = user_service.revocar_todas_las_sesiones(usuario.id, motivo="logout-all")
-    return {"mensaje": f"Se cerraron {cantidad} sesión(es)."}
+    return {"mensaje": f"Se cerraron {cantidad} sesion(es)."}
 
 
 @router.get("/api/auth/yo", response_model=MiPerfilResponse, summary="Mi perfil")
@@ -232,7 +232,7 @@ def mi_perfil(usuario: UsuarioActual = Depends(get_current_user)):
 
     `permisos` viene del SERVIDOR, del diccionario de roles, no del JWT: el
     token puede llevar un rol viejo de hace 15 minutos, y el frontend tiene que
-    saber qué puede hacer HORA.
+    saber que puede hacer HORA.
     """
     datos = user_service.obtener_usuario(usuario.id)
     return MiPerfilResponse(
@@ -248,7 +248,7 @@ def mi_perfil(usuario: UsuarioActual = Depends(get_current_user)):
     summary="Mis sesiones activas",
 )
 def mis_sesiones(usuario: UsuarioActual = Depends(get_current_user)):
-    """Para ver desde dónde se conectó la cuenta y cerrar accesos ajenos."""
+    """Para ver desde dónde se conecto la cuenta y cerrar accesos ajenos."""
     return auth_service.mis_sesiones(usuario.id)
 
 
@@ -259,13 +259,13 @@ def cambiar_mi_password(
     usuario: UsuarioActual = Depends(get_current_user),
 ):
     """
-    Cambio por "mi cuenta". Pide la contraseña ACTUAL.
+    Cambió por "mi cuenta". Pide la contraseña ACTUAL.
 
     Sin eso, cualquiera con un token robado se cambia la contraseña y echa al
     dueño de su propia cuenta.
 
-    Además revoca todas las otras sesiones: si el cambio se hizo porque
-    sospechás de una intrusión, dejarlas vivas es justo lo que no hay que hacer.
+    Además revoca todas las otras sesiones: si el cambió se hizo porque
+    sospechas de una intrusion, dejarlas vivas es justo lo que no hay que hacer.
     """
     try:
         auth_service.cambiar_password_por_api(
@@ -300,10 +300,10 @@ def crear(
     Alta de usuario.
 
     Requiere `users:create`. Solo ADMIN lo tiene: un técnico que puede crear
-    usuarios podría crearse a sí mismo uno con otro rol.
+    usuarios podria crearse a sí mismo uno con otro rol.
 
     No hay registro público: en un sistema interno cualquiera con acceso a la
-    API podría darse de alta como operador.
+    API podria darse de alta como operador.
     """
     try:
         nuevo = user_service.crear_usuario(datos.model_dump(), actor.id)
@@ -347,7 +347,7 @@ def listar(
     """
     Listado paginado con filtros.
 
-    El `LIMIT` tiene tope en el schema para que un `?limite=999999` no se
+    El `LIMIT` tiene tope en el schema para que un `?límite=999999` no se
     convierta en un SELECT de toda la tabla a la memoria del proceso.
     """
     try:
@@ -372,7 +372,7 @@ def listar(
 
 @usuarios_router.get("/roles", summary="Roles disponibles")
 def roles(_: UsuarioActual = Depends(get_current_user)):
-    """Catálogo de roles, para los formularios del frontend."""
+    """Catalogo de roles, para los formularios del frontend."""
     return {"roles": listar_roles()}
 
 
@@ -388,7 +388,7 @@ def obtener(
     """
     Un usuario por id.
 
-    Un ADMIN puede ver cualquiera. Un rol con `users:read` menor no debería
+    Un ADMIN puede ver cualquiera. Un rol con `users:read` menor no deberia
     poder ver la lista completa, pero hoy el permiso es único: si aparece un rol
     que deba ver solo su propia cuenta, esto necesita el chequeo de "soy yo o
     soy admin".
@@ -410,7 +410,7 @@ def actualizar(
     request: Request,
     actor: UsuarioActual = Depends(exigir(Permiso.USERS_EDITAR)),
 ):
-    """Edición parcial. Solo se tocan los campos enviados."""
+    """Edicion parcial. Solo se tocan los campos enviados."""
     cambios = datos.model_dump(exclude_none=True)
 
     if not cambios:
@@ -450,9 +450,9 @@ def resetear_password(
     Reset por ADMIN.
 
     NO pide la contraseña actual: el admin no la sabe y no debe poder averiguarla.
-    Se cierra el caso de uso real (un técnico olvidó su clave).
+    Se cierra el caso de uso real (un técnico olvido su clave).
 
-    A diferencia del cambio propio, NO se revoca todo: el admin no está
+    A diferencia del cambió propio, NO se revoca todo: el admin no está
     cambiando su propia cuenta, y si el usuario está trabajando, cortarle todo
     sin avisar es disruptive. Para un robo, el admin usa `/api/users/{id}/desactivar`,
     que sí revoca.
@@ -492,8 +492,8 @@ def desactivar(
     """
     Baja lógica + cierre de todas sus sesiones.
 
-    No borra la fila: `users` es llave foránea de `movement_history` y `repairs`,
-    y un borrado físico se lleva el historial de todo lo que movió esa persona.
+    No borra la fila: `users` es llave foranea de `movement_history` y `repairs`,
+    y un borrado físico se lleva el historial de todo lo que movio esa persona.
     """
     try:
         resultado = user_service.desactivar_usuario(user_id, actor.id)
@@ -553,10 +553,10 @@ def degradar(
     actor: UsuarioActual = Depends(exigir_admin),
 ):
     """
-    Degradar a OPERATOR. El unico camino para quitar ADMIN.
+    Degradar a OPERATOR. El único camino para quitar ADMIN.
 
     Está separado de `PATCH /users/{id}` a propósito: si degradar fuera un
-    campo más, bastaría con que nadie lo bloquee y un admin nuevo podría
+    campo más, bastaria con que nadie lo bloquee y un admin nuevo podria
     degradar al último admin sin querer. Acá la regla vive en el servicio.
 
     Tampoco se puede degradar a uno mismo: deja el sistema sin nadie que se

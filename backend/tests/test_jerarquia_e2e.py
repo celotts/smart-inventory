@@ -1,20 +1,20 @@
 """
-Tests de catalogo contra una base REAL: jerarquia, atributos, busqueda de
+Tests de catalogo contra una base REAL: jerarquía, atributos, busqueda de
 texto completo y exportacion.
 
 POR QUE ESTOS TESTS NECESITAN LA BASE
 -------------------------------------
-Lo que se prueba aca no es logica pura: son generadores de columnas, indices
+Lo que se prueba acá no es lógica pura: son generadores de columnas, índices
 GIN, `to_tsquery` con diccionario y CTEs recursivos. Un mock diria que todo
 funciona.
 
 QUE NECESITA
 ------------
 Una base Postgres con el esquema de `database/init.sql` aplicado. Si no hay
-conexion, los tests se omiten con un motivo claro.
+conexión, los tests se omiten con un motivo claro.
 
     export DATABASE_URL_TEST=postgresql://postgres:...@localhost:5432/si_test
-    python3 -m pytest tests/test_jerarquia_e2e.py -v
+    python3 -m pytest tests/test_jerarquía_e2e.py -v
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def base():
     except SQLAlchemyError as exc:
         pytest.skip(
             f"No hay base de test disponible ({DATABASE_TEST}).\n"
-            f"  Levanta una y corré: createdb si_test && psql -d si_test -f database/init.sql\n"
+            f"  Levanta una y corre: createdb si_test && psql -d si_test -f database/init.sql\n"
             f"  Motivo: {exc}"
         )
 
@@ -57,10 +57,10 @@ def base():
     import src.db.session as sesion
 
     # Se reemplazan los DOS engines de la app: el del executor (que usan los
-    # modulos de movimientos y dispositivos) y el de la sesion (que usan el
+    # módulos de movimientos y dispositivos) y el de la sesión (que usan el
     # catalogo, las ubicaciones y la exportacion). Con uno solo, estos tests
     # estarian escribiendo en la base de DESARROLLO mientras comprueban contra
-    # la de test, y el fallo se veria como "la categoria no existe".
+    # la de test, y el fallo se veria como "la categoría no existe".
     executor._engine = engine
     sesion._engine = engine
     return engine
@@ -69,7 +69,7 @@ def base():
 @pytest.fixture
 def catalogo(base):
     """
-    Una categoria padre, una subcategoria, un producto y una ubicacion con
+    Una categoría padre, una subcategoria, un producto y una ubicación con
     una hija. Todo se borra al final.
     """
     from sqlalchemy import text
@@ -247,7 +247,7 @@ class TestBusquedaDeTextoCompleto:
             }
         )
 
-        # El orden de las palabras es el del operador, no el del indice.
+        # El orden de las palabras es el del operador, no el del índice.
         # El service devuelve `(items, total)`: el total es lo que permite
         # paginar el maestro sin traerlo entero.
         encontrados, _total = service.listar_productos(busqueda=f"{modelo} {marca}")

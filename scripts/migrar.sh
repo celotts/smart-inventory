@@ -6,45 +6,45 @@
 #   ./scripts/migrar.sh             aplica, preguntando antes.
 #   ./scripts/migrar.sh --si        aplica sin preguntar (CI).
 #
-# POR QUE UN SCRIPT Y NO UNAS LINEAS EN EL MAKEFILE
+# POR QUE UN SCRIPT Y NO UNAS Líneas EN EL MAKEFILE
 # -------------------------------------------------
-# La primera version eran dos bloques de recipe y fallaba de una forma facil de
-# no ver: imprimia el estado, no aplicaba nada y salia con codigo 0. Un `make`
+# La primera versión eran dos bloques de recipe y fallaba de una forma fácil de
+# no ver: imprimia el estado, no aplicaba nada y salia con código 0. Un `make`
 # que dice "ok" y no hace nada es peor que uno que falla, porque el operador
 # cree que migro. Las dos causas son de Make, no bugs:
 #
-#   1. Cada linea de un recipe es un shell DISTINTO. Un `if ... fi` y un
-#      `for ... done` en lineas separadas son dos procesos que no comparten ni
+#   1. Cada línea de un recipe es un shell DISTINTO. Un `if ... fi` y un
+#      `for ... done` en líneas separadas son dos procesos que no comparten ni
 #      las variables, y el `if` se comia el bucle entero.
 #   2. El shell por defecto es /bin/sh, no bash: `read -p`, `case` con `;;` y
 #      los acentos en los patrones se portan mal.
 #
 # En un script hay un shell, el quoting es normal y el exit code es el del
-# script. Ademas se corre sin `make`, que es lo que necesita alguien que no
+# script. Además se corre sin `make`, que es lo que necesita alguien que no
 # conoce el Makefile.
 #
 # POR QUE LA TABLA schema_migrations
 # ----------------------------------
 # Sin ella no se puede saber si una base necesita migraciones. Mirar el esquema
-# NO sirve: `init.sql` replica las migraciones, asi que una base creada desde
-# cero y una migrada son IDENTICAS. Se intento usar una tabla del inventario
-# como discriminante y dio "esta base es vieja" sobre una recien creada,
-# porque `init.sql` tambien la crea.
+# NO sirve: `init.sql` replica las migraciones, así que una base creada desde
+# cero y una migrada son Idénticas. Se intento usar una tabla del inventario
+# como discriminante y dio "está base es vieja" sobre una recien creada,
+# porque `init.sql` también la crea.
 #
 # Un esquema completo no dice de que parte del camino viene la base. El registro
-# si. Es lo mismo que hace Alembic con su tabla de version, que es justo la
-# razon por la que este proyecto no necesita Alembic todavia.
+# si. Es lo mismo que hace Alembic con su tabla de versión, que es justo la
+# razón por la que este proyecto no necesita Alembic todavía.
 #
-# POR QUE NO HAY ALEMBIC TODAVIA
+# POR QUE NO HAY ALEMBIC Todavía
 # ------------------------------
-# Alembic tiene sentido cuando las migraciones se GENERAN de los modelos. Aqui
-# el DDL esta escrito a mano y `init.sql` es la unica fuente de verdad;
+# Alembic tiene sentido cuando las migraciones se GENERAN de los modelos. Aquí
+# el DDL está escrito a mano y `init.sql` es la única fuente de verdad;
 # autogenerarlas seria justo lo que este repo no quiere.
 #
 # LA RUTA DENTRO DEL CONTENEDOR
 # -----------------------------
 # `/docker-entrypoint-initdb.d/migrations/` es donde el compose monta
-# `./database`. NO es `/database/`: el unico montaje es el del init, y usar la
+# `./database`. NO es `/database/`: el único montaje es el del init, y usar la
 # ruta equivocada da "No such file or directory" y parece que las migraciones no
 # existen.
 # ===========================================================================
@@ -65,10 +65,10 @@ ASUMIR_SI=0
 ROJO=$'\033[31m'; VERDE=$'\033[32m'; AMARILLO=$'\033[33m'; GRIS=$'\033[90m'; FIN=$'\033[0m'
 
 # ---------------------------------------------------------------------------
-# Conexion: al contenedor si esta arriba, a postgres local si no.
+# Conexión: al contenedor si está arriba, a postgres local si no.
 # ---------------------------------------------------------------------------
-# La base de desarrollo esta en Docker, pero el caso "tengo postgres en la
-# maquina y el contenedor caido" pasa, y es justo cuando uno mas necesita que
+# La base de desarrollo está en Docker, pero el caso "tengo postgres en la
+# maquina y el contenedor caido" pasa, y es justo cuando uno más necesita que
 # las migraciones corran.
 psql_principal() {
     if docker compose ps --status running --services 2>/dev/null | grep -qx "$DB_SERVICE"; then
@@ -156,7 +156,7 @@ mostrar_estado() {
     echo "  Migraciones — $DB_NAME"
     echo ""
 
-    # El tercer caso: base SIN registro. No es lo mismo que "al dia".
+    # El tercer caso: base SIN registro. No es lo mismo que "al día".
     if ! consulta "SELECT to_regclass('public.schema_migrations') IS NOT NULL;" | grep -qx t; then
         echo "  ${AMARILLO}Esta base NO tiene la tabla schema_migrations.${FIN}"
         echo "  ${GRIS}No hay forma de saber si necesita migraciones: el esquema"
@@ -249,29 +249,29 @@ aplicar() {
         version="$(nombre_version "$archivo")"
         echo "  ${GRIS}->${FIN} $version — $(descripcion_de "$archivo")"
 
-        # POR QUE EL ARCHIVO SE ENVUELVE EN UNA TRANSACCION ACA Y NO DENTRO
+        # POR QUE EL ARCHIVO SE ENVUELVE EN UNA TRANSACCION Acá Y NO DENTRO
         # DEL .sql
         # -------------------------------------------------
         # Sin esto, cada sentencia del archivo hace commit por su cuenta. Un
-        # fallo en la linea 40 deja las 39 anteriores aplicadas y las 41 en
+        # fallo en la línea 40 deja las 39 anteriores aplicadas y las 41 en
         # adelante sin correr: la base queda A MEDIAS, y el `schema_migrations`
-        # no la marca, asi que el proximo `make migrar` la vuelve a correr
+        # no la marca, así que el próximo `make migrar` la vuelve a correr
         # encima y falla en el primer `already exists`.
         #
-        # Eso se probo y paso de verdad con la 0002. El comentario de mas abajo
+        # Eso se probó y paso de verdad con la 0002. El comentario de más abajo
         # decia "el archivo va entero o no va" y era falso.
         #
-        # Envolverlo aqui mantiene esa garantia sin obligar a que cada .sql
+        # Envolverlo aquí mantiene esa garantía sin obligar a que cada .sql
         # recuerde abrir y cerrar su transaccion. Y `ON_ERROR_STOP=1` hace que
         # psql ABORTE al primer error: sin eso sigue, termina el archivo y sale
         # con 0, que es el peor de los dos casos.
         #
-        # El archivo se pasa por STDIN y no con `-f`: el unico montaje dentro
+        # El archivo se pasa por STDIN y no con `-f`: el único montaje dentro
         # del contenedor es /docker-entrypoint-initdb.d/, y leer por stdin
-        # evita depender de que la ruta exista ahi.
+        # evita depender de que la ruta exista ahí.
         #
         # Lo que NO se puede hacer en una transaccion y por eso no se usa
-        # aca: `CREATE INDEX CONCURRENTLY` y `VACUUM`. Si alguna migracion los
+        # acá: `CREATE INDEX CONCURRENTLY` y `VACUUM`. Si alguna migración los
         # necesita, tiene que ir en su propio archivo, fuera de este wrapper.
         if ! {
                 echo "BEGIN;"
@@ -288,8 +288,8 @@ aplicar() {
             return 1
         fi
 
-        # El registro se escribe SOLO despues de que psql salio con 0. Registrar
-        # antes seria marcar como al dia una base a la que no le corrio el DDL.
+        # El registro se escribe Solo después de que psql salió con 0. Registrar
+        # antes seria marcar como al día una base a la que no le corrio el DDL.
         if ! psql_principal -q -c \
             "INSERT INTO schema_migrations (version, description, checksum)
              VALUES ('$version', '$(descripcion_de "$archivo")', '$(checksum_de "$archivo")')

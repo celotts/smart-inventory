@@ -10,8 +10,8 @@ ser la laptop del desarrollador o un nodo compartido. Mandarle filas de
 es una exfiltracion hacia un tercero en cada pregunta.
 
 Con esquema + agregados el modelo responde igual de bien para lo que se le
-pide ("cuantos hay por estado", "que clientes tienen mas repaired") porque esas
-preguntas son de DISTRIBUCION, y las distribuciones se calculan con GROUP BY
+pide ("cuantos hay por estado", "que clientes tienen más repaired") porque esas
+preguntas son de Distribucion, y las distribuciones se calculan con GROUP BY
 en la base, no en el modelo.
 
 El precio de esta decision: el modelo no puede inventar joins raros porque no
@@ -22,13 +22,13 @@ existan datos de clientes fuera del servidor.
 
 from src.modules.ai.guard import tablas_permitidas
 
-# Descripcion del esquema en el formato que los modelos entendieron bien: DDL
+# Descripción del esquema en el formato que los modelos entendieron bien: DDL
 # real, con los ENUM como CHECK, porque el modelo tiene el DDL de Postgres en
-# sus datos de entrenamiento y lo parsea mejor que una descripcion en prosa.
+# sus datos de entrenamiento y lo parsea mejor que una descripción en prosa.
 #
 # Nota: `models` es el nombre de la tabla de catalogos. Choca con el `BaseModel`
-# de pydantic si alguien importa el modulo con `from models import ...`, pero
-# aca no pasa: todo el SQL se genera como TEXTO y lo valida `guard.py`.
+# de pydantic si alguien importa el módulo con `from models import ...`, pero
+# acá no pasa: todo el SQL se genera como TEXTO y lo válida `guard.py`.
 ESQUEMA_SQL = """
 CREATE TYPE device_status AS ENUM (
     'IN_WAREHOUSE', 'IN_TRANSIT', 'INSTALLED', 'IN_REPAIR', 'PERMANENTLY_DISPOSED'
@@ -205,13 +205,13 @@ CREATE TABLE audit_logs (
 
 # Lo que el modelo va a inventar igual si no se le dice. Un LLM con esquema
 # guarda memoria de tablas que no hay (`suppliers`, `inventory`, `warranties`,
-# `sessions`) y las usa en el SQL. Decirselo explicitamente es mas barato que
-# el SQL invalido que devuelve.
+# `sessions`) y las usa en el SQL. Decirselo explicitamente es más barato que
+# el SQL inválido que devuelve.
 #
-# `users.password` NO aparece en el ESQUEMA_SQL de arriba a proposito: el modelo
-# ni siquiera sabe que la columna existe. Es la version mas fuerte de "no podes
+# `users.password` NO aparece en el ESQUEMA_SQL de arriba a propósito: el modelo
+# ni siquiera sabe que la columna existe. Es la versión más fuerte de "no podés
 # leerla" — la de no dizerle que existe — y va respaldada por el chequeo de
-# columna en guard.py, porque el prompt solo no es una garantia.
+# columna en guard.py, porque el prompt solo no es una garantía.
 NOTAS_ESQUEMA = """
 NOTAS IMPORTANTES
 - La tabla de catalogos se llama `models` (no `product_models`), y su PK es `id`.
@@ -223,7 +223,7 @@ NOTAS IMPORTANTES
 - Para el nombre del rol: users.role_id -> roles.id, o directamentero.name = 'ADMIN'.
 - `users` NO tiene columna `password` consultable. No la busques ni la pidas.
 - BORRADO LOGICO: las tablas con `deleted_at` no se borran, se marcan. SIEMPRE
-  filtrá `WHERE deleted_at IS NULL` en users y roles. En audit_logs el registro
+  filtra `WHERE deleted_at IS NULL` en users y roles. En audit_logs el registro
   es historico y no lleva deleted_at.
 - `audit_logs.action` es un ENUM: 'INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'.
 - Los valores de los ENUM van con comillas simples y en MAYUSCULAS.
@@ -231,7 +231,7 @@ NOTAS IMPORTANTES
   Para leerlo: JOIN models m ON d.model_id = m.id, luego m.specifications->>'campo'.
   ERROR COMUN: NO uses `d.specifications` directamente — NO EXISTE en devices.
 - `is_warehouse` en devices es BOOLEAN derivado de current_status = 'IN_WAREHOUSE'.
-  Usá `current_status = 'IN_WAREHOUSE'` en vez de is_warehouse para consistencia.
+  Usa `current_status = 'IN_WAREHOUSE'` en vez de is_warehouse para consistencia.
 
 EJEMPLOS DE JOINS CORRECTOS:
 -- Cuantos Latitude 5440 en deposito central:
@@ -243,7 +243,7 @@ WHERE d.current_status = 'IN_WAREHOUSE'
   AND m.model ILIKE '%latitude%5440%' 
   AND l.store_name ILIKE '%deposito central%';
 
--- Stock de modelos Dell en depósito:
+-- Stock de modelos Dell en deposito:
 SELECT m.model, COUNT(*) 
 FROM devices d 
 JOIN models m ON m.id = d.model_id 
@@ -255,12 +255,12 @@ GROUP BY m.model;
 -- `devices.current_location_id` PUEDE SER NULL: un equipo sin ubicacion NO tiene
   fila en `locations`. Un `JOIN locations` (que es un INNER JOIN) deja afuera a
   esos equipos y la cuenta sale mal. Si la pregunta NO es por ubicacion,
-  usá `LEFT JOIN locations`.
+  usa `LEFT JOIN locations`.
 -- `devices.model_id` es NOT NULL: ahi el `JOIN models` siempre se puede.
 
 -- PREGUNTAS DE SEGUIMIENTO
 -- Si te pasan el historial y la pregunta pide el detalle de algo que antes se
--- CONTÓ, partí de la consulta anterior y sacá el COUNT. Un ejemplo exacto:
+-- CONTO, parti de la consulta anterior y saca el COUNT. Un ejemplo exacto:
 --
 --   Pregunta anterior: "Cuantos equipos hay en deposito?"
 --   Consulta anterior: SELECT COUNT(*) FROM devices d JOIN locations l ON l.id = d.current_location_id WHERE d.current_status = 'IN_WAREHOUSE' AND l.deleted_at IS NULL
@@ -268,15 +268,15 @@ GROUP BY m.model;
 --   Consulta correcta: SELECT d.serial_number, d.qr_code, m.model, m.brand, l.store_name FROM devices d JOIN models m ON m.id = d.model_id JOIN locations l ON l.id = d.current_location_id WHERE d.current_status = 'IN_WAREHOUSE' AND l.deleted_at IS NULL
 --
 -- Ojo: NO agregues `WHERE d.id = 1`. La pregunta pide el detalle de lo que
--- se contó, no un equipo en particular: agregar un id que no estaba en la
+-- se conto, no un equipo en particular: agregar un id que no estaba en la
 -- consulta anterior hace que no devuelva nada.
 
--- Coordenadas están en locations (latitude, longitude), NO en devices.
--- Coordenadas del escaneo están en movement_history (scan_latitude, scan_longitude).
+-- Coordenadas estan en locations (latitude, longitude), NO en devices.
+-- Coordenadas del escaneo estan en movement_history (scan_latitude, scan_longitude).
 """
 
 POCISOSOS = (
-    f"""Podes consultar SOLO estas tablas: {", ".join(sorted(tablas_permitidas()))}."""
+    f"""Podes consultar Solo estas tablas: {", ".join(sorted(tablas_permitidas()))}."""
 )
 
 

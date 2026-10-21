@@ -9,7 +9,7 @@ mano con `text()` por dos razones concretas:
   1. La tabla tiene triggers de auditoria (`set_audit_role_id`) que copian el
      rol de quien hizo el cambio. Con un ORM hay que acordarse de setear
      `created_by_user_id` a mano en cada alta; aca se centraliza en `_preparar_`.
-  2. Es la tabla mas sensible del sistema. SQL explicito se lee entero y se
+  2. Es la tabla más sensible del sistema. SQL explicito se lee entero y se
      revisa; un `session.add(...)` esconde en que columnas se escribe.
 
 `src.modules.ai.executor` tiene el patron equivalente para las consultas de la
@@ -45,7 +45,7 @@ def get_db():
     return _engine
 
 
-# Columnas que un administrador puede ver de otro usuario. `password` NO esta:
+# Columnas que un administrador puede ver de otro usuario. `password` NO está:
 # ni el admin ni nadie deberia poder leer un hash, y no exponerlo ni por
 # error es la razon de escribir la lista a mano en vez de `SELECT *`.
 COLUMNAS_USUARIO = """
@@ -90,17 +90,17 @@ def _normalizar_fila(fila: dict[str, Any]) -> dict[str, Any]:
     """
     Convierte lo que devuelve psycopg2 a lo que declaran los schemas.
 
-    `UUID` -> `str`. TODOS los schemas de este modulo declaran los ids como
-    `str`, y el driver devuelve `uuid.UUID`. Sin esta conversion, pydantic
+    `UUID` -> `str`. TODOS los schemas de este módulo declaran los ids como
+    `str`, y el driver devuelve `uuid.UUID`. Sin está conversión, pydantic
     rechaza la respuesta con
 
         ResponseValidationError: {'type': 'string_type', 'input': UUID(...)}
 
     que es un 500 en un login que ya verifico la password. O sea: el fallo
-    aparece en el ultimo paso y no dice nada de por que.
+    aparece en el último paso y no dice nada de por que.
 
-    La conversion va ACA y no en cada schema porque el problema es del driver,
-    no de un endpoint. Convertir en cada schema significa que el proximo
+    La conversión va Acá y no en cada schema porque el problema es del driver,
+    no de un endpoint. Convertir en cada schema significa que el próximo
     endpoint que se escriba se olvide, y el error vuelve a aparecer.
     """
     import datetime
@@ -112,7 +112,7 @@ def _normalizar_fila(fila: dict[str, Any]) -> dict[str, Any]:
             resultado[clave] = str(valor)
         elif isinstance(valor, (datetime.datetime, datetime.date)):
             # pydantic los maneja bien, pero dejarlos como datetime da
-            # respuestas con formato distinto segun el endpoint.
+            # respuestas con formato distinto según el endpoint.
             resultado[clave] = valor
         elif isinstance(valor, dict):
             resultado[clave] = _normalizar_fila(valor)
@@ -129,12 +129,12 @@ def _fila_a_dict(fila) -> dict[str, Any]:
 
 def buscar_usuario_por_id(user_id: str) -> dict[str, Any] | None:
     """
-    Usuario por id, con su rol. Devuelve `deleted_at` a proposito: la dependencia
-    de autenticacion lo necesita para rechazar cuentas dadas de baja.
+    Usuario por id, con su rol. Devuelve `deleted_at` a propósito: la dependencia
+    de autenticación lo necesita para rechazar cuentas dadas de baja.
 
     Se busca por id y NO por email: el email es un dato que el usuario puede
     cambiar, y usar un dato mutable como identidad hace que "cambiarme el mail"
-    rompa la sesion de un usuario que en realidad es el mismo.
+    rompa la sesión de un usuario que en realidad es el mismo.
     """
     if not user_id:
         return None
@@ -161,7 +161,7 @@ def buscar_usuario_por_email(email: str, incluir_password: bool = False):
     """
     Usuario por email.
 
-    `incluir_password=True` SOLO para el login. Es un parametro explicito y no
+    `incluir_password=True` Solo para el login. Es un parámetro explicito y no
     un flag global porque el default seguro tiene que ser "sin hash".
     """
     columnas = COLUMNAS_USUARIO
@@ -208,7 +208,7 @@ def resolver_rol_id(role_name: str) -> str:
     NO se acepta un role_id suelto del cliente: si lo aceptara, cualquiera que
     pueda crear usuarios podria inventar un UUID y asignar un rol que no existe,
     y el usuario quedaria con cero permisos sin que nadie lo note. El nombre
-    es lo que se valida contra la tabla.
+    es lo que se válida contra la tabla.
     """
     with get_db().connect() as conexion:
         fila = (

@@ -107,7 +107,7 @@ def completar_mantenimiento(
         # Validar result
         valid_results = {'OK', 'NEEDS_REPAIR', 'NEEDS_REPLACEMENT', 'OBSERVATION'}
         if result not in valid_results:
-            raise ValueError(f"result inválido: {result}. Válidos: {valid_results}")
+            raise ValueError(f"result invalido: {result}. Válidos: {valid_results}")
 
         # Actualizar
         query = """
@@ -121,7 +121,7 @@ def completar_mantenimiento(
                 parts_cost = :parts_cost,
                 total_cost = COALESCE(:labor_cost, 0) + COALESCE(:parts_cost, 0),
                 next_scheduled_for = :next_scheduled_for,
-                tecnico_id = :tecnico_id
+                técnico_id = :tecnico_id
             WHERE id = :mid
             RETURNING id, device_id, plan_id, status, completed_at
         """

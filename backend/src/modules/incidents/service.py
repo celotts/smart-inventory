@@ -4,7 +4,7 @@ Servicio de incidencias.
 QUE ES UNA INCIDENCIA
 ---------------------
 El reporte de un problema: "este equipo no prende", "el cliente no tiene
-internet". Es la unidad de trabajo del dia a dia, y tiene tres cosas que la
+internet". Es la unidad de trabajo del día a día, y tiene tres cosas que la
 diferencian de un ticket generico:
 
   1. UN SLA POR SEVERIDAD, con los plazos calculados y guardados.
@@ -13,7 +13,7 @@ diferencian de un ticket generico:
 
 EL ACTOR DE CADA EVENTO
 -----------------------
-La linea de tiempo no puede confiar en el `actor_id` que manda el cliente: un
+La línea de tiempo no puede confiar en el `actor_id` que manda el cliente: un
 historial de soporte es una prueba, y una prueba no la escribe el interesado.
 Por eso el service setea `app.actor_id` en el CONTEXTO de la transaccion
 (`SET LOCAL`), que lo lee el trigger de la base. El cliente no puede
@@ -52,7 +52,7 @@ class ConflictoDeVersion(LookupError):
     """
     Alguien edito la incidencia antes que este cliente. 409.
 
-    El bloqueo optimista: el cliente manda la `version` que leyo, y si la base
+    El bloqueo optimista: el cliente manda la `versión` que leyo, y si la base
     tiene otra, otro operador guardo en el medio. Pisar su trabajo sin
     avisar es peor que un error.
     """
@@ -131,15 +131,15 @@ def listar_incidencias(
         # usa el tablero del Helpdesk para mostrar "los casos que vencen".
         condiciones.append("i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')")
     if solo_sin_asignar:
-        # Nadie las todavia: son las que se van a perder, porque un caso sin
+        # Nadie las todavía: son las que se van a perder, porque un caso sin
         # responsable no lo mira nadie.
         condiciones.append("i.assigned_to IS NULL AND i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')")
     if fuera_de_sla:
-        # Se resolvieron despues del plazo: el SLA incumplido, que es lo que se
-        # mide despues para evaluar al taller.
+        # Se resolvieron después del plazo: el SLA incumplido, que es lo que se
+        # mide después para evaluar al taller.
         condiciones.append("i.resolved_at IS NOT NULL AND i.resolved_at > i.resolution_due_at")
     if sin_atender:
-        # EL BACKLOG: los casos que NADIE TOMO. No es lo mismo que "sin
+        # EL BACKLOG: los casos que NADIE Tomó. No es lo mismo que "sin
         # asignar": un caso asignado a alguien que lo tiene abandonado sigue
         # sin atendido, y es el que de verdad se pierde. El backlog mira la
         # PRIMERA RESPUESTA, no la asignacion.
@@ -182,8 +182,8 @@ def listar_incidencias(
                 LEFT JOIN v_incident_sla s ON s.id = i.id
                 WHERE {where}
                 ORDER BY
-                    -- Las vencidas primero, y dentro de cada grupo, las mas
-                    -- graves y las mas antiguas: ese es el orden en el que un
+                    -- Las vencidas primero, y dentro de cada grupo, las más
+                    -- graves y las más antiguas: ese es el orden en el que un
                     -- operador tiene que atacarlas.
                     (i.resolved_at IS NULL AND i.resolution_due_at < NOW()) DESC,
                     i.severity ASC,
@@ -210,7 +210,7 @@ def listar_incidencias(
 def obtener_incidencia(
     incidencia_id: UUID, *, limite_eventos: int = 100
 ) -> dict[str, Any]:
-    """La incidencia con su linea de tiempo completa."""
+    """La incidencia con su línea de tiempo completa."""
     engine = get_ai_engine()
     with engine.connect() as conexion:
         fila = conexion.execute(
@@ -229,14 +229,14 @@ def obtener_incidencia(
         if not fila:
             raise IncidenciaNoEncontrada("No existe esa incidencia.")
 
-        # LA LINEA DE TIEMPO, ACOTADA
+        # LA Línea DE TIEMPO, ACOTADA
         #
         # Un caso abierto durante años tiene miles de eventos, y la pantalla
         # los pinta TODOS: el modal se vuelve una lista interminable y el
         # operador tiene que scrollear hasta el principio para ver el
-        # ultimo cambio (que es el que importa).
+        # último cambió (que es el que importa).
         #
-        # Se traen los ULTIMOS y se dice cuantos hay en total: el que quiere
+        # Se traen los Últimos y se dice cuantos hay en total: el que quiere
         # el historial completo lo pide por la API.
         eventos = conexion.execute(
             text(
@@ -261,8 +261,8 @@ def obtener_incidencia(
         ).scalar_one()
 
     datos = _a_resumen(dict(fila))
-    # Del mas nuevo al mas viejo: lo que paso ultimo es lo que se mira
-    # primero. La linea de tiempo del modal ya la muestra asi.
+    # Del más nuevo al más viejo: lo que paso último es lo que se mira
+    # primero. La línea de tiempo del modal ya la muestra así.
     datos["eventos"] = [dict(e) for e in eventos]
     datos["total_eventos"] = int(total_eventos or 0)
     datos["eventos_omitidos"] = max(0, int(total_eventos or 0) - len(eventos))
@@ -277,7 +277,7 @@ def crear_incidencia(datos: dict[str, Any], *, user_id: UUID, client_ref: str | 
     ------------
     Si viene `client_ref` y ya existe una incidencia con ese ref, se devuelve
     LA MISMA. La app reintenta el alta cuando vuelve la red, y sin esto un
-    corte de conexion a mitad del envio deja dos casos iguales.
+    corte de conexión a mitad del envió deja dos casos iguales.
     """
     engine = get_ai_engine()
 
@@ -338,13 +338,13 @@ def crear_incidencia(datos: dict[str, Any], *, user_id: UUID, client_ref: str | 
             ).scalar_one()
 
             # El evento de alta lo escribe el trigger `incident_registra_creacion`:
-            # asi queda en el historial aunque la fila se cree por otro camino
-            # (un script, una migracion, un `psql`).
+            # así queda en el historial aunque la fila se cree por otro camino
+            # (un script, una migración, un `psql`).
     except IntegrityError as exc:
         detalle = str(getattr(exc, "orig", exc))
         if "client_ref" in detalle:
             # Dos altas simultaneas con el mismo ref: se devuelve la que
-            # quedo, en vez de un error.
+            # quedó, en vez de un error.
             with engine.connect() as conexion:
                 fila = conexion.execute(
                     text("SELECT id FROM incidents WHERE client_ref = :ref"),
@@ -370,7 +370,7 @@ def actualizar_incidencia(
     """
     Edicion de una incidencia, con bloqueo optimista.
 
-    `version` es la version que el cliente leyo. Si la base tiene otra, otro
+    `versión` es la versión que el cliente leyo. Si la base tiene otra, otro
     operador guardo en el medio: se responde 409 con un conflicto explicito, en
     vez de pisar su trabajo.
     """
@@ -420,7 +420,7 @@ def actualizar_incidencia(
         )
 
         if resultado.rowcount == 0:
-            # O no existe, o la version no es la que el cliente leyo.
+            # O no existe, o la versión no es la que el cliente leyo.
             existe = conexion.execute(
                 text("SELECT version FROM incidents WHERE id = :id AND deleted_at IS NULL"),
                 {"id": str(incidencia_id)},
@@ -475,7 +475,7 @@ def cambiar_estado(
     """
     Cambia el estado de una incidencia.
 
-    La TRANSICION la valida la base (trigger): si el par actual->nuevo no esta
+    La Transicion la válida la base (trigger): si el par actual->nuevo no esta
     permitido, el UPDATE falla con el error de la base, que se traduce a un
     409 con el motivo. La API no reimplementa la maquina de estados: dos
     implementaciones se desincronizan, y la que queda sin actualizado es la
@@ -508,7 +508,7 @@ def cambiar_estado(
             if "Transicion de incidencia no valida" in mensaje:
                 raise IncidenciaInvalida(
                     "Ese cambio de estado no esta permitido. "
-                    "Revisá el estado actual de la incidencia."
+                    "Revisa el estado actual de la incidencia."
                 ) from exc
             raise
 
@@ -519,7 +519,7 @@ def cambiar_estado(
 
 
 def comentar(incidencia_id: UUID, nota: str, *, user_id: UUID) -> dict[str, Any]:
-    """Agrega una nota a la linea de tiempo."""
+    """Agrega una nota a la línea de tiempo."""
     engine = get_ai_engine()
     with engine.begin() as conexion:
         existe = conexion.execute(
@@ -548,20 +548,20 @@ def comentar(incidencia_id: UUID, nota: str, *, user_id: UUID) -> dict[str, Any]
 #
 # QUE ES UNA BANDEJA
 # ------------------
-# Los casos reportados que NADIE TOMO. No es un filtro cosmetico: es el
-# trabajo sin dueño, que es lo unico que se pierde. La bandeja se mira al
-# empezar el turno y se vacia con un clic ("Tomar el caso").
+# Los casos reportados que NADIE Tomó. No es un filtro cosmetico: es el
+# trabajo sin dueño, que es lo único que se pierde. La bandeja se mira al
+# empezar el turno y se vacía con un clic ("Tomar el caso").
 #
-# POR QUE "TOMAR" Y NO "ASIGNAR"
+# POR QUE "Tomar" Y NO "ASIGNAR"
 # ------------------------------
-# Asignar es una decision del supervisor: "este caso es de Juan". Tomar es
-# una decision del tecnico: "este caso es mio". Con las dos, el supervisor
-# puede repartir el trabajo Y el tecnico puede trabajar sin pedir permiso.
+# Asignar es una decisión del supervisor: "este caso es de Juan". Tomar es
+# una decisión del técnico: "este caso es mio". Con las dos, el supervisor
+# puede repartir el trabajo Y el técnico puede trabajar sin pedir permiso.
 #
 # EL AVISO AL QUE REPORTO
 # -----------------------
 # El que reporto el caso quiere saber que paso con el. Si nadie le dice
-# nada, deja de reportar (o reporta por telefono). Por eso, cuando el caso
+# nada, deja de reportar (o reporta por teléfono). Por eso, cuando el caso
 # se toma y cuando se resuelve, el reportador recibe un aviso en su campana.
 
 
@@ -583,7 +583,7 @@ def _notificar_reportador(
     """
     Avisa al que reporto el caso.
 
-    Si el que reporto es el mismo que esta operando, no se avisa: uno no se
+    Si el que reporto es el mismo que está operando, no se avisa: uno no se
     notifica a si mismo.
     """
     reportador = incidencia.get("reported_by")
@@ -616,7 +616,7 @@ def tomar_caso(incidencia_id: UUID, *, user_id: UUID) -> dict[str, Any]:
 
     LA CONCURRENCIA
     ---------------
-    Dos tecnicos pueden tocar el mismo caso en el mismo segundo. El `FOR
+    Dos técnicos pueden tocar el mismo caso en el mismo segundo. El `FOR
     UPDATE` serializa: el segundo ve que ya esta asignado y recibe un 409
     con un mensaje claro, en vez de stealearle el caso.
     """
@@ -649,7 +649,7 @@ def tomar_caso(incidencia_id: UUID, *, user_id: UUID) -> dict[str, Any]:
 
         if caso["assigned_to"] and str(caso["assigned_to"]) != str(user_id):
             raise IncidenciaInvalida(
-                "Otro tecnico ya tomo este caso. Recargá la bandeja para ver el estado real."
+                "Otro tecnico ya tomo este caso. Recarga la bandeja para ver el estado real."
             )
 
         conexion.execute(
@@ -738,25 +738,25 @@ def _aplicar_destino_equipo(
     incidencia_id: UUID | None = None,
 ) -> str:
     """
-    Mueve el equipo del caso segun como termino.
+    Mueve el equipo del caso según como terminó.
 
     QUE SIGNIFICA CADA DESTINO
     --------------------------
-    - TALLER: el equipo esta roto y va al taller. Sale del servicio: pasa a
+    - TALLER: el equipo está roto y va al taller. Sale del servicio: pasa a
       `IN_REPAIR` y deja de contar como disponible.
-    - REPARADO: se arreglo y vuelve al deposito. Pasa a `IN_WAREHOUSE` y
+    - REPARADO: se arreglo y vuelve al depósito. Pasa a `IN_WAREHOUSE` y
       vuelve a contar como stock.
-    - DANO_TOTAL: no se arregla. El equipo se desincorpora del stock (baja
-      logica con certificado, como cualquier baja) y desaparece de los KPIs
+    - Daño_TOTAL: no se arregla. El equipo se desincorpora del stock (baja
+      lógica con certificado, como cualquier baja) y desaparece de los KPIs
       de stock.
 
     POR QUE NO SE TOCA EL INVENTARIO "A MANO"
     ----------------------------------------
     El estado del equipo se cambia con el service de dispositivos, que es el
-    que valida la transicion contra la matriz de estados y el que deja el
+    que válida la transición contra la matriz de estados y el que deja el
     rastro. Si el Service Desk escribiera en la tabla `devices` por su
     cuenta, un caso podria dejar el equipo en un estado que el inventario no
-    acepta, y los dos modulos contarian historias distintas.
+    acepta, y los dos módulos contarian historias distintas.
     """
     from src.modules.devices import service as devices_service
     from src.modules.repairs import service as repairs_service
@@ -767,7 +767,7 @@ def _aplicar_destino_equipo(
         # No alcanza con cambiar el estado del equipo: la base exige que haya
         # una orden de trabajo ABIERTA para ponerlo en `IN_REPAIR` (un equipo
         # "en el taller" sin orden es un equipo que el taller no sabe que
-        # tiene). La orden se abre ACÁ, ligada a este caso: asi se puede
+        # tiene). La orden se abre Acá, ligada a este caso: así se puede
         # responder "de que se estaba quejar este equipo" con un JOIN.
         orden = repairs_service.ingreso_taller(
             device_id,
@@ -782,7 +782,7 @@ def _aplicar_destino_equipo(
 
     if destino == "REPARADO":
         # Se cierra la orden de trabajo (si habia una) y el equipo vuelve al
-        # deposito.
+        # depósito.
         repairs_service.cerrar_reparacion(
             device_id,
             technician_id=user_id,
@@ -805,9 +805,9 @@ def _aplicar_destino_equipo(
         )
 
         if not orden:
-            # El equipo NUNCA entro al taller (se reporto roto y ya no hadia
+            # El equipo NUNCA entró al taller (se reporto roto y ya no hadia
             # caso). Se registra igual la orden, cerrada como no reparable:
-            # el certificado de baja tiene que apuntar a la reparacion que
+            # el certificado de baja tiene que apuntar a la reparación que
             # demostro que no se podia arreglar. Un certificado que dice "se
             # dio de baja" sin decir por que no es una prueba.
             abierta = repairs_service.ingreso_taller(
@@ -846,14 +846,14 @@ def cerrar_caso(
     ---------------------------------------------
     Este no es un help desk de software: es el control de los equipos danados.
     Un caso de "la notebook no prende" no se cierra con un texto: se cierra
-    con el equipo en el taller, reparado, o dado de baja por dano total. Sin
-    eso, el inventario no sabe que el equipo salio del stock y el KPI de
-    "en deposito" miente.
+    con el equipo en el taller, reparado, o dado de baja por daño total. Sin
+    eso, el inventario no sabe que el equipo salió del stock y el KPI de
+    "en depósito" miente.
 
     EL AVISO AL QUE REPORTO
     -----------------------
     Al resolver, el reportador recibe el aviso: por eso puede dejar de
-    preguntar por telefono "ya esta?".
+    preguntar por teléfono "ya está?".
     """
     resolucion = (datos.get("resolution") or "").strip()
     if not resolucion:
@@ -896,12 +896,12 @@ def cerrar_caso(
                 "El caso no tiene ningun equipo asociado: no hay a que aplicarle el destino."
             )
 
-        # EL DESTINO SE VALIDA ANTES DE RESOLVER EL CASO
+        # EL DESTINO SE Válida ANTES DE RESOLVER EL CASO
         #
-        # Si el destino es invalido para el estado actual del equipo (por
-        # ejemplo, "reparado" de un equipo que esta INSTALLED en el cliente: no
-        # puede volver solo al deposito), el caso NO se resuelve. Resolver
-        # primero y fallar despues deja el caso cerrado y el equipo donde
+        # Si el destino es inválido para el estado actual del equipo (por
+        # ejemplo, "reparado" de un equipo que está INSTALLED en el cliente: no
+        # puede volver solo al depósito), el caso NO se resuelve. Resolver
+        # primero y fallar después deja el caso cerrado y el equipo donde
         # estaba: dos verdades sobre lo mismo, que es justo lo que este
         # Service Desk existe para evitar.
         if destino != "NINGUNO":
@@ -925,7 +925,7 @@ def cerrar_caso(
             if "Transicion de incidencia no valida" in mensaje:
                 raise IncidenciaInvalida(
                     "Ese cambio de estado no esta permitido. "
-                    "Revisá el estado actual de la incidencia."
+                    "Revisa el estado actual de la incidencia."
                 ) from exc
             raise
 
@@ -957,7 +957,7 @@ def cerrar_caso(
         )
 
     # El destino del equipo se aplica FUERA de la transaccion del caso: el
-    # service de dispositivos abre su propia conexion, y anidar dos
+    # service de dispositivos abre su propia conexión, y anidar dos
     # transacciones sobre las mismas filas es como se produce un deadlock.
     mensaje_equipo = "El equipo no cambio de estado."
     if destino != "NINGUNO" and caso["device_id"]:
@@ -1029,7 +1029,7 @@ def metricas(user_id: UUID | None = None) -> dict[str, Any]:
                           AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING')
                     ) AS sin_atender,
 
-                    -- La antiguedad del caso sin atender MAS VIEJO: el numero
+                    -- La antiguedad del caso sin atender Más VIEJO: el número
                     -- que dice quantas horas lleva esperando el taller.
                     ROUND(MAX(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0)
                         FILTER (
@@ -1057,8 +1057,8 @@ def metricas(user_id: UUID | None = None) -> dict[str, Any]:
         ).mappings().all()
 
     # "MIS CASOS": los que tiene asignados el usuario y siguen abiertos. Es
-    # el segundo tablero del tecnico: no solo lo que hay que tomar, sino lo
-    # que ya esta en sus manos.
+    # el segundo tablero del técnico: no solo lo que hay que tomar, sino lo
+    # que ya está en sus manos.
     mias = 0
     if user_id:
         with engine.connect() as conexion:
@@ -1156,7 +1156,7 @@ def _crear_notificaciones(
     Crea los avisos, sin duplicar.
 
     El `dedup_key` es UNIQUE: si el aviso ya existe, el `ON CONFLICT DO
-    NOTHING` no inserta nada. Asi el barrido puede correr cada minuto sin
+    NOTHING` no inserta nada. Así el barrido puede correr cada minuto sin
     llenar la bandeja de copias del mismo aviso.
     """
     creados = 0
@@ -1191,16 +1191,16 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
     QUE HACE
     --------
     1. AVISA de los casos que vencen en los proximos `minutos_aviso` y que
-       todavia no tienen respuesta.
-    2. AVISA de los casos cuyo plazo de RESOLUCION esta por vencer.
+       todavía no tienen respuesta.
+    2. AVISA de los casos cuyo plazo de RESOLUCION está por vencer.
     3. ESCALA los casos que pasaron el plazo de respuesta sin que nadie los
        haya tomado: les asigna un responsable de escalamiento y avisa.
 
-    POR QUE ES UNA FUNCION Y NO UN CRON
+    POR QUE ES UNA Función Y NO UN CRON
     ------------------------------------
-    Es una funcion, y el backend la corre en segundo plano (ver `main.py`). Un
-    cron externo necesitaria una imagen mas, un despliegue mas y un lugar mas
-    donde se rompe. Ademas, llamar la funcion a mano desde la API sirve para
+    Es una función, y el backend la corre en segundo plano (ver `main.py`). Un
+    cron externo necesitaria una imagen más, un despliegue más y un lugar más
+    donde se rompe. Además, llamar la función a mano desde la API sirve para
     probarla y para un operador que quiere forzar el barrido.
 
     LA IDEMPOTENCIA
@@ -1235,7 +1235,7 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
             incidencia = dict(fila)
             destinatarios = _destinatarios(incidencia)
 
-            # 1. AVISO DE VENCIMIENTO PROXIMO.
+            # 1. AVISO DE VENCIMIENTO Próximo.
             if ahora < incidencia["response_due_at"]:
                 avisos += _crear_notificaciones(
                     conexion,
@@ -1332,7 +1332,7 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
                             escalados += 1
 
         # 3. AVISO DE VENCIMIENTO DE LA RESOLUCION (con respuesta, pero sin
-        #    resolver): el caso ya se respondio, pero se le acaba el tiempo.
+        #    resolver): el caso ya se respondió, pero se le acaba el tiempo.
         por_resolver = conexion.execute(
             text(
                 """
@@ -1367,8 +1367,8 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
 
             # EL PLAZO YA PASO: el supervisor tiene que enterarse.
             #
-            # El escalamiento por "nadie respondio" (arriba) cubre el caso de
-            # un caso que nadie tomo. Este cubre el otro: alguien lo tomo, pero
+            # El escalamiento por "nadie respondió" (arriba) cubre el caso de
+            # un caso que nadie tomó. Este cubre el otro: alguien lo tomó, pero
             # no lo resuelve, y el plazo vencio. Sin este aviso, un caso
             # abandonado con un responsable asignado no escala nunca, y el
             # backlog crece sin que nadie lo note.
@@ -1443,7 +1443,7 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
 
 
 def _destinatario_de_escalamiento(conexion, politica) -> UUID | None:
-    """A quien se escala el caso: el usuario fijo de la politica, o el del rol."""
+    """A quien se escala el caso: el usuario fijo de la política, o el del rol."""
     if politica.get("escalate_to_user"):
         return UUID(str(politica["escalate_to_user"]))
 
@@ -1478,7 +1478,7 @@ def listar_notificaciones(
     Los avisos del usuario: los propios y los generales (sin destinatario).
 
     Los generales son los que importan a todos los que pueden ver el caso
-    (por ejemplo, "el deposito se quedo sin conexion": le interesa a todos).
+    (por ejemplo, "el depósito se quedó sin conexión": le interesa a todos).
     """
     engine = get_ai_engine()
     with engine.connect() as conexion:
@@ -1529,7 +1529,7 @@ def contar_notificaciones(*, user_id: UUID) -> int:
 
 
 def marcar_notificacion_leida(notificacion_id: int, *, user_id: UUID) -> dict[str, Any]:
-    """Marca un aviso como leido."""
+    """Marca un aviso como leído."""
     engine = get_ai_engine()
     with engine.begin() as conexion:
         resultado = conexion.execute(
@@ -1549,7 +1549,7 @@ def marcar_notificacion_leida(notificacion_id: int, *, user_id: UUID) -> dict[st
 
 
 def obtener_calendario() -> dict[str, Any]:
-    """La configuracion del calendario laboral."""
+    """La configuración del calendario laboral."""
     engine = get_ai_engine()
     with engine.connect() as conexion:
         fila = conexion.execute(
@@ -1575,13 +1575,13 @@ def obtener_calendario() -> dict[str, Any]:
 
 def actualizar_calendario(datos: dict[str, Any]) -> dict[str, Any]:
     """
-    Cambia la configuracion del calendario laboral.
+    Cambia la configuración del calendario laboral.
 
-    LA ZONA HORARIA SE VALIDA
+    LA ZONA HORARIA SE Válida
     -------------------------
-    `AT TIME ZONE` con una zona invalida hace fallar la funcion del SLA en el
+    `AT TIME ZONE` con una zona inválida hace fallar la función del SLA en el
     momento del calculo, es decir, en el alta de una incidencia y no ahora.
-    Por eso se valida ACA, contra la lista de zonas que el propio Postgres
+    Por eso se válida Acá, contra la lista de zonas que el propio Postgres
     tiene.
     """
     timezone = (datos.get("timezone") or "America/Argentina/Buenos_Aires").strip()

@@ -1,16 +1,16 @@
 /**
  * Vista "Productos" — Maestro de productos (SKUs).
  *
- * QUE ES UN PRODUCTO ACA
+ * QUE ES UN PRODUCTO Acá
  * ----------------------
- * Un producto es una combinacion marca + modelo + SKU con su categoria, sus
- * puntos de reposicion (min/max) y su costo. NO es un equipo fisico: cada laptop
+ * Un producto es una combinacion marca + modelo + SKU con su categoría, sus
+ * puntos de reposición (min/max) y su costo. NO es un equipo físico: cada laptop
  * con su serial es un `device` que apunta a un producto. El stock agregado
- * ("tengo 5 Dell Latitude en deposito") se cuenta por producto, no por serial.
+ * ("tengo 5 Dell Latitude en depósito") se cuenta por producto, no por serial.
  *
  * POR QUE HAY DOS PASOS Y NO UNO
  * ------------------------------
- * Primero se da de alta el producto (el "que"), y despues se cargan las unidades
+ * Primero se da de alta el producto (el "que"), y después se cargan las unidades
  * (el "cuanto") desde Compras. Mezclar los dos en un formulario obliga a cargar
  * un equipo nuevo cada vez que llega mercancia de un producto que ya existe.
  *
@@ -19,9 +19,9 @@
  * ESTE ARCHIVO
  * ------------
  * La lista, la etiqueta del producto y las confirmaciones. El formulario de
- * alta y edicion esta en `producto-form.js`, y el gestor de categorias y
- * atributos en `categorias.js`: son tres pantallas distintas con tres ciclos
- * de vida distintos, y en un solo archivo el cambio de una rompia a las otras.
+ * alta y edicion está en `producto-form.js`, y el gestor de categorías y
+ * atributos en `categorías.js`: son tres pantallas distintas con tres ciclos
+ * de vida distintos, y en un solo archivo el cambió de una rompia a las otras.
  */
 
 import { api } from '../api.js';
@@ -40,7 +40,7 @@ export function vistaProductos({ permisos = [] }) {
 
   const puedeEditar = permisos.includes('devices:edit');
 
-  // --- Cabecera con busqueda y boton de alta --------------------------------
+  // --- Cabecera con busqueda y botón de alta --------------------------------
   const tarjetaCabecera = crear('div', { clase: 'tarjeta' });
 
   const inputBuscar = crear('input', {
@@ -67,7 +67,7 @@ export function vistaProductos({ permisos = [] }) {
         crear('p', {
           clase: 'tarjeta__subtitulo',
           estilo: 'margin:0',
-          texto: 'Maestro de SKUs. Aca se define que se puede cargar al inventario.',
+          texto: 'Maestro de SKUs. Acá se define que se puede cargar al inventario.',
         }),
       ],
     }),
@@ -79,16 +79,16 @@ export function vistaProductos({ permisos = [] }) {
       texto: 'Nuevo producto',
       atributos: { type: 'button', onclick: () => abrirAlta() },
     });
-    conTooltip(btnNuevo, 'Alta de un producto del maestro: marca, modelo, SKU, stock y codigos de etiqueta.');
+    conTooltip(btnNuevo, 'Alta de un producto del maestro: marca, modelo, SKU, stock y códigos de etiqueta.');
     const btnCategorias = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Categorias',
       atributos: {
         type: 'button',
         onclick: () => abrirCategorias(),
       },
     });
-    conTooltip(btnCategorias, 'Administra las categorias, sus subcategorias y los atributos que define cada una.');
+    conTooltip(btnCategorias, 'Administra las categorías, sus subcategorias y los atributos que define cada una.');
     encabezado.append(btnCategorias, btnNuevo);
   }
 
@@ -97,11 +97,11 @@ export function vistaProductos({ permisos = [] }) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  // LA PAGINACION
+  // LA Paginación
   //
-  // El maestro de productos es la lista que mas crece: con 5000 SKUs, traerlos
+  // El maestro de productos es la lista que más crece: con 5000 SKUs, traerlos
   // todos y pintarlos todos deja la app sin responder. La pantalla pide de a
-  // paginas, y el operador ve cuantas hay en total.
+  // páginas, y el operador ve cuantas hay en total.
   let pagina = 0;
   let limite = 50;
   let total = 0;
@@ -169,7 +169,7 @@ export function vistaProductos({ permisos = [] }) {
       const item = crear('li', { clase: 'lista__item' });
 
       // El QR del producto, chiquito, al lado del nombre: es la etiqueta de la
-      // caja, y de un vistazo dice "este producto ya esta identificado". Se
+      // caja, y de un vistazo dice "este producto ya está identificado". Se
       // pide perezoso (cuando la fila entra en pantalla) porque una lista de
       // cincuenta productos son cincuenta peticiones de imagen.
       const qr = imagenQrProducto(p.id, p.qr_code || p.sku, 56, { perezoso: true });
@@ -197,31 +197,31 @@ export function vistaProductos({ permisos = [] }) {
       item.append(qr, cuerpo);
 
       const btnEtiqueta = crear('button', {
-        clase: 'boton boton--suave boton--chico',
+        clase: 'botón botón--suave botón--chico',
         texto: 'Etiqueta',
         atributos: { type: 'button', onclick: () => abrirEtiqueta(p) },
       });
-      conTooltip(btnEtiqueta, 'Muestra la etiqueta del producto: QR y codigo de barras, listos para imprimir.');
+      conTooltip(btnEtiqueta, 'Muestra la etiqueta del producto: QR y código de barras, listos para imprimir.');
       item.append(btnEtiqueta);
 
       if (puedeEditar) {
         const btnEditar = crear('button', {
-          clase: 'boton boton--suave boton--chico',
+          clase: 'botón botón--suave botón--chico',
           texto: 'Editar',
           atributos: { type: 'button', onclick: () => abrirEdicion(p) },
         });
-        conTooltip(btnEditar, 'Edita el producto: precio, puntos de stock, codigos de etiqueta y atributos.');
+        conTooltip(btnEditar, 'Edita el producto: precio, puntos de stock, códigos de etiqueta y atributos.');
         const btnDuplicar = crear('button', {
-          clase: 'boton boton--suave boton--chico',
+          clase: 'botón botón--suave botón--chico',
           texto: 'Duplicar',
           atributos: { type: 'button', onclick: () => abrirAlta(p) },
         });
         conTooltip(
           btnDuplicar,
-          'Abre el alta con los datos de este producto ya cargados (marca, modelo, variante, categoria, costo y stock). El SKU queda vacio: es lo unico que hay que escribir.',
+          'Abre el alta con los datos de este producto ya cargados (marca, modelo, variante, categoría, costo y stock). El SKU queda vacío: es lo único que hay que escribir.',
         );
         const btnDescontinuar = crear('button', {
-          clase: 'boton boton--chico boton--peligro',
+          clase: 'botón botón--chico botón--peligro',
           texto: p.is_active ? 'Descontinuar' : 'Reactivar',
           atributos: { type: 'button', onclick: () => confirmarAlternarActivo(p) },
         });
@@ -232,7 +232,7 @@ export function vistaProductos({ permisos = [] }) {
             : 'Vuelve a marcar el producto como vendible.',
         );
         const btnEliminar = crear('button', {
-          clase: 'boton boton--chico boton--peligro',
+          clase: 'botón botón--chico botón--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button', onclick: () => confirmarEliminarProducto(p) },
         });
@@ -266,7 +266,7 @@ export function vistaProductos({ permisos = [] }) {
     const qr = imagenQrProducto(p.id, p.qr_code || p.sku, 180);
     const barras = imagenBarcodeProducto(p.id, p.barcode || p.sku, 280);
 
-    const codigos = crear('div', { clase: 'etiqueta__codigos mono' });
+    const codigos = crear('div', { clase: 'etiqueta__códigos mono' });
     codigos.append(
       crear('div', { texto: `QR: ${p.qr_code || p.sku}` }),
       crear('div', { texto: `Barras: ${p.barcode || p.sku}` }),
@@ -281,7 +281,7 @@ export function vistaProductos({ permisos = [] }) {
     });
     conTooltip(btnImprimir, 'Abre la etiqueta en una ventana aparte, sola y lista para imprimir.');
     const btnCerrar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
@@ -302,14 +302,14 @@ export function vistaProductos({ permisos = [] }) {
   /**
    * Abre la etiqueta en una ventana aparte y la imprime.
    *
-   * POR QUE UNA VENTANA NUEVA Y NO UN `window.print()` DE LA PAGINA
+   * POR QUE UNA VENTANA NUEVA Y NO UN `window.print()` DE LA Página
    * ---------------------------------------------------------------
-   * Imprimir la pagina entera imprime la barra de navegacion, la tabla de
-   * productos y toda la interfaz: en la impresora de un deposito eso es un
-   * papel con diez paginas de ruido. La etiqueta tiene que SALIR sola.
+   * Imprimir la página entera imprime la barra de navegacion, la tabla de
+   * productos y toda la interfaz: en la impresora de un depósito eso es un
+   * papel con diez páginas de ruido. La etiqueta tiene que SALIR sola.
    *
    * La ventana nueva no puede pedir los SVG a la API —no tiene el token—,
-   * asi que se traen antes y se escriben en el documento nuevo.
+   * así que se traen antes y se escriben en el documento nuevo.
    */
   async function imprimirEtiqueta(p) {
     let svgs;
@@ -322,14 +322,14 @@ export function vistaProductos({ permisos = [] }) {
 
     const ventana = window.open('', '_blank', 'width=460,height=620');
     if (!ventana) {
-      avisar('El navegador bloqueó la ventana de impresión.', 'error');
+      avisar('El navegador bloqueo la ventana de impresión.', 'error');
       return;
     }
 
-    // `window.opener` en null: sin esto, la ventana de impresion puede
-    // navegar la pestana de la app. Con `noopener` en el `window.open` el
+    // `window.opener` en null: sin esto, la ventana de impresión puede
+    // navegar la pestaña de la app. Con `noopener` en el `window.open` el
     // navegador devolveria `null` y no habria forma de escribirle el
-    // contenido, asi que se anula el opener a mano.
+    // contenido, así que se anula el opener a mano.
     ventana.opener = null;
 
     const doc = ventana.document;
@@ -372,7 +372,7 @@ export function vistaProductos({ permisos = [] }) {
     }
 
     const codigos = doc.createElement('div');
-    codigos.className = 'mono codigos';
+    codigos.className = 'mono códigos';
     codigos.textContent = `${p.qr_code || p.sku || ''} · ${p.barcode || p.sku || ''}`;
     caja.appendChild(codigos);
 
@@ -386,22 +386,22 @@ export function vistaProductos({ permisos = [] }) {
   function confirmarEliminarProducto(p) {
     abrirDialogo({
       titulo: 'Eliminar producto',
-      mensaje: `¿Eliminar el producto "${etiquetaProducto(p)}"? Esta acción no se puede deshacer.`,
+      mensaje: `¿Eliminar el producto "${etiquetaProducto(p)}"? Esta accion no se puede deshacer.`,
       clase: 'modal--confirmacion modal--peligro',
       acciones: [
         crear('button', {
-          clase: 'boton boton--suave',
+          clase: 'botón botón--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),
         crear('button', {
-          clase: 'boton boton--peligro',
+          clase: 'botón botón--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button' },
         }),
       ],
       alAbrir: (modal, cerrar) => {
-        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .boton');
+        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .botón');
         btnCancelar.addEventListener('click', cerrar);
         btnConfirmar.addEventListener('click', async () => {
           btnConfirmar.disabled = true;
@@ -428,7 +428,7 @@ export function vistaProductos({ permisos = [] }) {
       clase: 'modal--confirmacion',
       acciones: [
         crear('button', {
-          clase: 'boton boton--suave',
+          clase: 'botón botón--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),
@@ -439,7 +439,7 @@ export function vistaProductos({ permisos = [] }) {
         }),
       ],
       alAbrir: (modal, cerrar) => {
-        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .boton');
+        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .botón');
         btnCancelar.addEventListener('click', cerrar);
         btnConfirmar.addEventListener('click', async () => {
           btnConfirmar.disabled = true;

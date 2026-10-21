@@ -1,31 +1,31 @@
 /**
- * El sello de build y la deteccion de una version nueva.
+ * El sello de build y la deteccion de una versión nueva.
  *
  * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
  * ---------------------------------------
  * Son dos cosas que NO son del arranque: una es una consulta al servidor, y
- * la otra decide si hay que recargar la pagina. Estaban en `main.js` junto al
- * service worker, y con el pie y la campana tambien, ese archivo era el
+ * la otra decide si hay que recargar la página. Estaban en `main.js` junto al
+ * service worker, y con el pie y la campana también, ese archivo era el
  * lugar donde todo lo que no es una vista terminaba.
  *
  * EL MECANISMO
  * ------------
  * El servidor expone `/build.txt` con el hash de todo el front (lo calcula
  * el Dockerfile al construir la imagen). La app guarda ese hash en
- * `localStorage` la ultima vez que cargo. Si el del servidor es distinto, este
- * navegador esta corriendo codigo viejo: se recarga.
+ * `localStorage` la última vez que cargo. Si el del servidor es distinto, este
+ * navegador está corriendo código viejo: se recarga.
  *
  * POR QUE NO HAY BUCLE
  * --------------------
  * Porque el hash nuevo se guarda ANTES de recargar. En la recarga siguiente
- * los dos coinciden y no pasa nada. Ademas se marca una bandera en
- * `sessionStorage`: si la recarga no alcanza (el service worker todavia
- * manda), no se vuelve a intentar en esta pestana.
+ * los dos coinciden y no pasa nada. Además se marca una bandera en
+ * `sessionStorage`: si la recarga no alcanza (el service worker todavía
+ * manda), no se vuelve a intentar en está pestaña.
  *
  * POR QUE NO SE ESCRIBE NADA EN EL SERVIDOR
  * ------------------------------------------
- * Es una comparacion de una linea. No necesita un endpoint que devuelva la
- * version de la API: alcanza con el hash de los archivos que se sirven.
+ * Es una comparacion de una línea. No necesita un endpoint que devuelva la
+ * versión de la API: alcanza con el hash de los archivos que se sirven.
  */
 
 let selloDelServidor = null;
@@ -33,8 +33,8 @@ let selloDelServidor = null;
 /**
  * El hash de build que dice el servidor.
  *
- * Se pide UNA vez y se guarda en memoria: el pie lo muestra y la verificacion
- * lo compara, y pedirlo dos veces son dos esperas de red por carga de pagina.
+ * Se pide UNA vez y se guarda en memoria: el pie lo muestra y la verificación
+ * lo compara, y pedirlo dos veces son dos esperas de red por carga de página.
  *
  * @returns {Promise<string|null>}
  */
@@ -54,7 +54,7 @@ export async function obtenerSelloDelServidor() {
 }
 
 /**
- * Verifica si el servidor tiene una version mas nueva que la del navegador.
+ * Verifica si el servidor tiene una versión más nueva que la del navegador.
  */
 export async function verificarVersionDelServidor() {
   const CLAVE = 'si-build';
@@ -80,7 +80,7 @@ export async function verificarVersionDelServidor() {
 
     if (guardado === sello) return;
 
-    // Hay version nueva. Si ya se intento recargar en esta pestana, no se
+    // Hay versión nueva. Si ya se intento recargar en está pestaña, no se
     // insiste: significaria que el service worker sigue sirviendo el bundle
     // viejo y recargar no lo arregla (hace falta una recarga forzada).
     if (sessionStorage.getItem(BANDERA)) return;

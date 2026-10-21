@@ -1,5 +1,5 @@
 """
-Router de Compras - Órdenes de compra, recepción, sugerencias.
+Router de Compras - Órdenes de compra, recepcion, sugerencias.
 Montado en /api/purchase-orders.
 """
 
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/purchase-orders", tags=["purchasing"])
 def _error_de_negocio(exc: ValueError) -> HTTPException:
     """Un `ValueError` del servicio es una regla de negocio, no un 500.
 
-    Sin esto, "cantidad excede pendiente" o "no hay depósito" salían como
-    `internal_error` y el operador veía un error genérico que no decía qué
+    Sin esto, "cantidad excede pendiente" o "no hay depósito" salian como
+    `internal_error` y el operador veia un error generico que no decia que
     corregir. El mensaje del servicio ya está escrito para el usuario.
     """
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
@@ -37,7 +37,7 @@ def crear_orden(
     Body:
     {
       "vendor_id": 1,
-      "lineas": [
+      "líneas": [
         {"model_id": 5, "cantidad": 10, "unit_cost": 250.00}
       ],
       "expected_date": "2026-12-01",
@@ -107,7 +107,7 @@ def recibir_orden(
     """
     Body:
     {
-      "lineas": [
+      "líneas": [
         {"po_line_id": 1, "cantidad_recibida": 5, "serial_numbers": ["SN-001", "SN-002"]}
       ],
       "observations": "Recibido en buen estado"

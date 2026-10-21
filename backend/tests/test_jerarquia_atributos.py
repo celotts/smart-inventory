@@ -1,13 +1,13 @@
 """
-Tests de lo que esta ronda agrego: jerarquia, atributos, busqueda de texto
+Tests de lo que está ronda agrego: jerarquía, atributos, busqueda de texto
 completo, dashboard y exportacion.
 
-POR QUE SON UNITARIOS Y NO DE INTEGRACION
+POR QUE SON UNITARIOS Y NO DE Integración
 -----------------------------------------
-La mayoria de lo que se prueba aca es LOGICA PURA: el armado del arbol, el
-ruta de una categoria, la validacion de un atributo, la tabla de amplitudes
+La mayoria de lo que se prueba acá es Lógica PURA: el armado del árbol, el
+ruta de una categoría, la validación de un atributo, la tabla de amplitudes
 del Code 128. Eso se prueba sin base de datos y sin red: un test que depende
-de la base tarda y falla por reasons que no son del codigo.
+de la base tarda y falla por reasons que no son del código.
 
 Lo que SI necesita base (los endpoints) se prueba en `test_scan_e2e.py`, que
 ya tiene el arnes de la base.
@@ -27,7 +27,7 @@ from src.modules.catalog import barcode
 
 
 class TestArbol:
-    """El armado de arboles: categorias y ubicaciones."""
+    """El armado de árboles: categorías y ubicaciones."""
 
     def test_ruta_de_una_categoria_sin_padre(self):
         filas = [{"id": 1, "name": "Notebook", "parent_id": None}]
@@ -50,7 +50,7 @@ class TestArbol:
 
     def test_un_padre_inexistente_no_rompe(self):
         """
-        Un padre que no esta en la lista es un dato roto, no una excepcion.
+        Un padre que no está en la lista es un dato roto, no una excepción.
 
         Si la ruta no se pudiera armar, el nodo desapareceria de la pantalla: el
         operador no veria el producto y no sabria por que.
@@ -60,7 +60,7 @@ class TestArbol:
 
     def test_una_categoria_no_puede_colgar_de_si_misma(self):
         filas = [{"id": 1, "name": "A", "parent_id": 1}]
-        # Con un ciclo, el recorrido no termina: el limite de profundidad lo
+        # Con un ciclo, el recorrido no termina: el límite de profundidad lo
         # corta, pero la ruta no es infinita.
         ruta = rutas_por_padres(filas)[1]
         assert isinstance(ruta, str)
@@ -86,12 +86,12 @@ class TestArbol:
 
 class TestCode128:
     """
-    El codigo de barras de la etiqueta del producto.
+    El código de barras de la etiqueta del producto.
 
-    La tabla de amplitudes es la del estandar (ISO/IEC 15417). Estos tests
+    La tabla de amplitudes es la del estándar (ISO/IEC 15417). Estos tests
     fijan los valores de la tabla y el algoritmo de checksum, porque un error
-    ahi genera un codigo que PARECE valido y no lo es: el lector no falla, no
-    lee nada, y el operador cree que la etiqueta esta rota.
+    ahí genera un código que PARECE válido y no lo es: el lector no falla, no
+    lee nada, y el operador cree que la etiqueta está rota.
     """
 
     def test_la_tabla_tiene_107_simbolos(self):
@@ -116,7 +116,7 @@ class TestCode128:
         assert barcode._AMPLITUDES[valor] == esperado
 
     def test_el_texto_se_codifica_en_el_set_b(self):
-        # En el set B, el valor del simbolo es el ASCII menos 32.
+        # En el set B, el valor del símbolo es el ASCII menos 32.
         simbolos = barcode._simbolos("AB")
         assert simbolos[0] == 104  # arranque B
         assert simbolos[1] == 33   # 'A'
@@ -124,11 +124,11 @@ class TestCode128:
 
     def test_el_checksum_es_el_del_estandar(self):
         """
-        El checksum del Code 128 es una suma ponderada modulo 103.
+        El checksum del Code 128 es una suma ponderada módulo 103.
 
         Con los valores de la tabla se puede calcular a mano, que es lo que
         hace el test: si el algoritmo cambia, el checksum cambia y el lector
-        rechaza el codigo.
+        rechaza el código.
         """
         simbolos = barcode._simbolos("DEMO-1")
         datos = simbolos[1:-1]
@@ -143,7 +143,7 @@ class TestCode128:
     def test_un_caracter_invalido_no_revienta(self):
         """
         Un caracter que el set B no codifica (un emoji, por ejemplo) tiene que
-        devolver un cartel, no una excepcion: un endpoint que rompe la etiqueta
+        devolver un cartel, no una excepción: un endpoint que rompe la etiqueta
         es peor que uno que muestra un mensaje.
         """
         svg = barcode.codigo128_como_svg("PEDIDO \U0001F600").decode("utf-8")
@@ -152,17 +152,17 @@ class TestCode128:
 
 class TestValidacionDeAtributos:
     """
-    La validacion de los atributos contra la definicion de la categoria.
+    La validación de los atributos contra la definición de la categoría.
 
-    Estas funciones hablan con la base, asi que lo que se prueba aca es la
-    parte pura: los helpers de `core.arbol` y la forma del error. La
-    validacion completa se prueba contra la base en `test_scan_e2e.py`.
+    Estás funciones hablan con la base, así que lo que se prueba acá es la
+    parte pura: los helpers de `core.árbol` y la forma del error. La
+    validación completa se prueba contra la base en `test_scan_e2e.py`.
     """
 
     def test_la_clave_de_un_atributo_se_normaliza(self):
         """
         La clave es la que viaja en el JSONB de valores: tiene que ser
-        estable, sin espacios y en minuscula.
+        estable, sin espacios y en minúscula.
         """
         from src.modules.catalog.service import _normalizar_clave_atributo
 

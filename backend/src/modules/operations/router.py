@@ -14,7 +14,7 @@ cosas que no pueden quedar asi:
      en `POST /api/devices`, con validacion.
 
   2. Ningun endpoint tenia control de permisos. `GET /api/ops/alertas` era
-     publico para cualquiera con un token, incluido un Tecnico que por diseno no
+     publico para cualquiera con un token, incluido un Técnico que por diseno no
      ve datos de la operacion.
 
   3. Ninguno comprobaba que el `device_id` existiera. Mandar uno inexistente
@@ -67,10 +67,10 @@ class TransferenciaRequest(BaseModel):
         """
         Una traslado a la misma sede se rechaza en Python, no en la base.
 
-        El CHECK `ck_transfers_distintas` tambien existe, y es el que manda: aca
-        el mensaje es util ("origen y destino son la misma sede") y el de
+        El CHECK `ck_transfers_distintas` también existe, y es el que manda: acá
+        el mensaje es útil ("origen y destino son la misma sede") y el de
         Postgres es un `violates check constraint`. El trigger de la base sigue
-        siendo la garantia para los caminos que no pasan por aca.
+        siendo la garantía para los caminos que no pasan por acá.
         """
         datos = info.data
         if "from_location" in datos and valor == datos["from_location"]:
@@ -94,7 +94,7 @@ class MantenimientoRequest(BaseModel):
         Los caracteres de control no van a un campo de texto libre.
 
         Sin este filtro, un `tipo` con `\n` o un caracter de control Unicode
-        rompe el `text/plain` de la consola de admin y puede inyectar lineas en
+        rompe el `text/plain` de la consola de admin y puede inyectar líneas en
         un log que se lee como una columna. Es una defensa de bajo costo contra
         una Outputs rarita de los logs.
         """
@@ -111,7 +111,7 @@ def _existe(tabla: str, columna: str, valor: Any, etiqueta: str) -> None:
     """
     Verifica que la FK exista y responde 404 si no.
 
-    `tabla` y `columna` son literales del codigo, nunca vienen del request: por
+    `tabla` y `columna` son literales del código, nunca vienen del request: por
     eso concatenarlos es seguro. Si VINIERAN del cliente, esto seria una
     inyeccion de SQL.
     """
@@ -172,7 +172,7 @@ def solicitar_transferencia(
         if "ck_transfers_status" in detalle:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El estado de la transferencia no es valido.",
+                detail="El estado de la transferencia no es válido.",
             ) from exc
         raise
 
@@ -193,7 +193,7 @@ def listar_transferencias(
     offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> dict:
-    """Transferencias, de la mas reciente a la mas antigua."""
+    """Transferencias, de la más reciente a la más antigua."""
     where = "WHERE (:estado IS NULL OR t.status = :estado)"
     parametros: dict[str, Any] = {"estado": estado, "limite": limite, "offset": offset}
 
@@ -243,7 +243,7 @@ def programar_mantenimiento(
     """
     Programa un mantenimiento preventivo.
 
-    Requiere `repairs:edit` y no `devices:edit`: programar una revision es una
+    Requiere `repairs:edit` y no `devices:edit`: programar una revisión es una
     tarea de taller, y un Operador —que si puede mover equipos— no tiene por que
     poder agendar mantenimientos.
     """
@@ -257,7 +257,7 @@ def programar_mantenimiento(
             text(
                 """
                 INSERT INTO maintenance (
-                    device_id, tipo, descripcion, scheduled_for, tecnico_id
+                    device_id, tipo, descripcion, scheduled_for, técnico_id
                 )
                 VALUES (:device_id, :tipo, :descripcion, :fecha, :tecnico)
                 RETURNING id, scheduled_for
@@ -286,7 +286,7 @@ def listar_mantenimiento(
     offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.REPARACIONES_VER)),
 ) -> dict:
-    """Mantenimientos programados, del mas proximo al mas lejano."""
+    """Mantenimientos programados, del más próximo al más lejano."""
     where = "WHERE (:pendientes = FALSE OR m.completed_at IS NULL)"
     parametros: dict[str, Any] = {"pendientes": pendientes, "limite": limite, "offset": offset}
 
@@ -295,7 +295,7 @@ def listar_mantenimiento(
             text(
                 f"""
                 SELECT m.id, m.tipo, m.descripcion, m.scheduled_for, m.completed_at,
-                       d.serial_number, u.full_name AS tecnico
+                       d.serial_number, u.full_name AS técnico
                 FROM maintenance m
                 LEFT JOIN devices d ON d.id = m.device_id
                 LEFT JOIN users u   ON u.id = m.tecnico_id
@@ -336,10 +336,10 @@ def listar_alertas(
         filas = conexion.execute(
             text(
                 """
-                SELECT id, ubicacion, minimo, actual, resuelto, created_at
+                SELECT id, ubicacion, mínimo, actual, resuelto, created_at
                 FROM stock_alerts
                 WHERE (:incluir = TRUE OR resuelto = FALSE)
-                ORDER BY (minimo - actual) DESC, created_at DESC
+                ORDER BY (mínimo - actual) DESC, created_at DESC
                 LIMIT :limite
                 """
             ),

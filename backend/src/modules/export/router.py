@@ -4,15 +4,15 @@ Router de exportacion. Montado en /api/export.
 QUE ES
 ------
 Cuatro CSV: el inventario, el maestro de productos, el historial de
-movimientos y la auditoria. Son los cuatro "¿pasame esto en Excel?" que un
-supervisor hace en un deposito.
+movimientos y la auditoría. Son los cuatro "¿pasame esto en Excel?" que un
+supervisor hace en un depósito.
 
 POR QUE EL ARCHIVO SE DEVUELVE COMO TEXTO Y NO COMO JSON
 -------------------------------------------------------
 Un CSV no es un JSON: el cliente lo baja como archivo. El `Content-Type` es
 `text/csv` y el `Content-Disposition` le dice al navegador el nombre. El
 frontend lo pide con `comoTexto` y arma el `Blob` en el navegador, porque un
-`<a download>` no puede mandar el token de autorizacion.
+`<a download>` no puede mandar el token de autorización.
 """
 
 from __future__ import annotations

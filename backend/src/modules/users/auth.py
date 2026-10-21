@@ -9,7 +9,7 @@ EL FLUJO COMPLETO
 
     GET /api/...           Authorization: Bearer <access>
     POST /api/auth/refresh  Authorization: Bearer <refresh>  -> access nuevo
-    POST /api/auth/logout   -> mata ESTA sesión
+    POST /api/auth/logout   -> mata Está sesión
 
 POR QUE HAY DOS TOKENS
 ----------------------
@@ -53,9 +53,9 @@ from src.modules.users.models import (
 # Hash bcrypt de una cadena que NADIE va a acertar. Cuesta lo mismo verificarlo
 # que verificar una contraseña real.
 #
-# Es un bcrypt de "contrasena-que-nadie-va-a-adivinar-123" con costo 12. Se
+# Es un bcrypt de "contraseña-que-nadie-va-a-adivinar-123" con costo 12. Se
 # calcula una vez al importar el módulo: hashearlo en cada login fallido
-# gastaría CPU de más sin agregar nada.
+# gastaria CPU de más sin agregar nada.
 _HASH_DUMMY = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5t5nJdMEGlphvQ9GUQQrMyYqvGVxe"
 
 
@@ -68,7 +68,7 @@ def _verificar_contra_dummy(password: str) -> None:
     Verifica contra un hash falso para igualar los tiempos.
 
     Sin esto: email inexistente -> 3 ms (no hay nada que verificar), email
-    existente con contraseña mala -> 300 ms (bcrypt). La diferencia DELATA qué
+    existente con contraseña mala -> 300 ms (bcrypt). La diferencia DELATA que
     emails existen.
 
     Con esto: los dos caminos cuestan un bcrypt, y el atacante no puede
@@ -96,7 +96,7 @@ def login(
     usuario = buscar_usuario_por_email(email, incluir_password=True)
 
     if usuario is None:
-        # Se verifica igual para no filtrar qué emails existen por latencia.
+        # Se verifica igual para no filtrar que emails existen por latencia.
         _verificar_contra_dummy(password)
         raise CredencialesInvalidas("Email o contraseña incorrectos.")
 
@@ -108,10 +108,10 @@ def login(
 
     if not usuario["is_active"]:
         # Acá SÍ se dice algo distinto, y es correcto: el usuario existe, se
-        # equivocó de password o está desactivado. Decir "desactivado" no filtra
+        # equivoco de password o está desactivado. Decir "desactivado" no filtra
         # nada nuevo — para saberlo ya hubo que acertar la contraseña.
         raise CredencialesInvalidas(
-            "Tu cuenta está desactivada. Contactá al administrador."
+            "Tu cuenta esta desactivada. Contacta al administrador."
         )
 
     tokens = _abrir_sesion(usuario, ip=ip, user_agent=user_agent)
@@ -203,7 +203,7 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
     Sin este tope, un login en bucle (un script, o alguien probando)
     acumula cientos de filas y cada refresh las recorre.
 
-    `conservar` ES LA SESION QUE SE ESTA ABRIENDO, y no es una formalidad.
+    `conservar` ES LA Sesion QUE SE Esta ABRIENDO, y no es una formalidad.
     --------------------------------------------------------------
     Sin esto pasaba esto: un usuario con 5 sesiones abiertas entra con una sexta
     desde el celular, `_limitar_sesiones` revoca la más vieja —que era la del
@@ -212,9 +212,9 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
     cerro la sesion sola", que es la clase de fallo que hace que un usuario
     deje de confiar en el sistema.
 
-    Pasa mas de lo que parece porque `/auth/refresh` rota la sesion: cada
+    Pasa más de lo que parece porque `/auth/refresh` rota la sesion: cada
     renovacion crea una fila nueva y revoca la anterior, asi que un mismo
-    dispositivo va dejando filas a su paso. Con dos pestanas abiertas y cinco
+    dispositivo va dejando filas a su paso. Con dos pestañas abiertas y cinco
     sesiones, el corte cae donde caiga.
 
     EL DESEMPATE TIENE QUE SER DETERMINISTA
@@ -222,14 +222,14 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
     `ORDER BY created_at DESC` solo no alcanza: si dos sesiones se crean en el
     mismo microsegundo —y pasando por `/auth/refresh` es lo normal— Postgres no
     garantiza un orden entre ellas, y la sesion recien creada puede caer fuera
-    del corte. `id DESC` desempata de forma estable y siempre deja lo mas
+    del corte. `id DESC` desempata de forma estable y siempre deja lo más
     reciente arriba.
     """
     config = get_settings()
 
     # El SELECT va FUERA de la transaccion: con el `begin()` de abajo, el orden
     # importa. Este bug estaba LATENTE — `begin()` solo se alcanzaba cuando
-    # habia mas de `max_sessions_per_user` sesiones, o sea en el sexto login.
+    # habia más de `max_sessions_per_user` sesiones, o sea en el sexto login.
     with get_db().connect() as conexion:
         filas = (
             conexion.execute(
@@ -244,7 +244,7 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
             .all()
         )
 
-    # La sesion nueva se aparta antes de contar. El `None` esta para el caso de
+    # La sesión nueva se aparta antes de contar. El `None` está para el caso de
     # que `conservar` no venga informado (limpieza manual, tests).
     candidatas = [f["id"] for f in filas if conservar is None or f["id"] != conservar]
 
@@ -255,7 +255,7 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
             transaccion = conexion.begin()
             # IN con placeholders generados: los ids vienen de la base, pero
             # igual se parametrizan. El nombre del marcador lo genera el
-            # indice, no el dato.
+            # índice, no el dato.
             marcadores = ",".join(f":s{i}" for i in range(len(excedente)))
             conexion.execute(
                 text(f"""
@@ -274,7 +274,7 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
     Canjea un refresh por un access nuevo.
 
     ROTACION: el refresh viejo se revoca y se emite uno nuevo. Si alguien
-    clonó el token, los dos lo van a usar y el segundo va a fallar, que es la
+    clono el token, los dos lo van a usar y el segundo va a fallar, que es la
     forma de detectar el robo.
 
     Sin rotar, un refresh robado sirve para siempre: se puede revocar la sesión,
@@ -314,30 +314,30 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
 
         if fila is None:
             transaccion.rollback()
-            raise SesionInvalida("Sesión desconocida. Volvé a iniciar sesión.")
+            raise SesionInvalida("Sesion desconocida. Volve a iniciar sesion.")
 
         if fila["revoked_at"] is not None:
             transaccion.rollback()
-            # Un refresh ya usado que vuelve es la señal clásica de que el
+            # Un refresh ya usado que vuelve es la señal clasica de que el
             # token fue copiado. Se cierran TODAS las sesiones del usuario: si
-            # hay dos usos, no se sabe cuál es el legítimo.
+            # hay dos usos, no se sabe cual es el legitimo.
             from src.modules.users.service import revocar_todas_las_sesiones
 
             revocar_todas_las_sesiones(user_id, motivo="refresh reutilizado")
             raise SesionInvalida(
-                "Esta sesión ya se había usado. Por seguridad se cerraron todas "
-                "las sesiones: iniciá sesión de nuevo."
+                "Esta sesion ya se habia usado. Por seguridad se cerraron todas "
+                "las sesiones: inicia sesion de nuevo."
             )
 
         if fila["expires_at"] <= datetime.now(timezone.utc):
             transaccion.rollback()
-            raise SesionInvalida("La sesión expiró. Volvé a iniciar sesión.")
+            raise SesionInvalida("La sesion expiro. Volve a iniciar sesion.")
 
         if not fila["is_active"] or fila["deleted_at"] is not None:
             transaccion.rollback()
-            raise SesionInvalida("La cuenta está desactivada.")
+            raise SesionInvalida("La cuenta esta desactivada.")
 
-        # Se revoca la fila vieja y `_abrir_sesion` crea una nueva. El `sid`
+        # Se revoca la fila vieja y `_abrir_sesión` crea una nueva. El `sid`
         # cambia, y eso es correcto: el access anterior sigue sirviendo hasta
         # que expire (es su `exp`), pero ya no hay forma de renovarlo con ese
         # refresh, porque quedó revocado.
@@ -368,13 +368,13 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
 
 def logout(session_id: str | None, usuario_id: str | None) -> bool:
     """
-    Cierra ESTA sesión.
+    Cierra Está sesión.
 
-    Marca `revoked_at`, no `revoked_before`: el logout es "salí de acá", no
-    "expulsá a todos los dispositivos". Un usuario que cierra sesión en la
+    Marca `revoked_at`, no `revoked_before`: el logout es "sali de acá", no
+    "expulsa a todos los dispositivos". Un usuario que cierra sesión en la
     computadora del trabajo no quiere que se cierre la del celular.
 
-    Devuelve False si no había sesión que cerrar, para que un logout repetido
+    Devuelve False si no habia sesión que cerrar, para que un logout repetido
     no dé error: es idempotente a propósito.
     """
     if not session_id:
@@ -415,7 +415,7 @@ def mis_sesiones(usuario_id: str) -> list[dict[str, Any]]:
     Sesiones activas del usuario, para "cerrar otros dispositivos".
 
     No se devuelve `token_hash`: no sirve para nada del lado del cliente y que
-    un endpoint devuelva el hash de un refresh es una invitación a filtrarlo.
+    un endpoint devuelva el hash de un refresh es una invitacion a filtrarlo.
     """
     with get_db().connect() as conexion:
         filas = (
@@ -446,10 +446,10 @@ def cambiar_password_por_api(
     ip: str | None = None,
 ) -> None:
     """
-    Cambio de contraseña por "mi cuenta".
+    Cambió de contraseña por "mi cuenta".
 
     Además de cambiar la contraseña, revoca TODAS las otras sesiones: si el
-    cambio se hizo porque sospechás que alguien entró, dejar las sesiones
+    cambió se hizo porque sospechas que alguien entró, dejar las sesiones
     viejas vivas es justamente lo que no hay que hacer.
     """
     from src.modules.users.service import cambiar_password
@@ -480,7 +480,7 @@ def purgar_sesiones_vencidas() -> int:
     Borra las sesiones expiradas o revocadas hace mucho.
 
     Corre por cron, no por request: borrar filas con un DELETE en cada login es
-    una escritura inútil en el camino caliente. Se deja exposed como función
+    una escritura inutil en el camino caliente. Se deja exposed como funcion
     para llamarla desde un job, no desde la API.
     """
     with get_db().connect() as conexion:

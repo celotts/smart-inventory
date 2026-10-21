@@ -3,9 +3,9 @@
  *
  * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
  * ---------------------------------------
- * `main.js` mezclaba el arranque, la sesion, la cabecera y la navegacion. Con
- * el modulo de incidencias y el de mantenimiento, la navegacion dejo de ser
- * "cambiar el texto de la pestana": cada vista tiene su ciclo de vida (la
+ * `main.js` mezclaba el arranque, la sesión, la cabecera y la navegacion. Con
+ * el módulo de incidencias y el de mantenimiento, la navegacion dejo de ser
+ * "cambiar el texto de la pestaña": cada vista tiene su ciclo de vida (la
  * camara del escaner, el polling de la campana, el timer del recibo). Eso es
  * un TEMA con sus propias reglas, y mezclarlo con el arranque hace que
  * cualquiera de los dos crezca hasta ser inmanejable.
@@ -46,7 +46,7 @@ export const VISTAS = {
   consultas: { etiqueta: 'Consultas', construir: vistaConsultas },
   productos: { etiqueta: 'Productos', construir: vistaProductos },
   compras: { etiqueta: 'Compras', construir: vistaCompras },
-  auditoria: { etiqueta: 'Auditoría', construir: vistaAuditoria },
+  auditoria: { etiqueta: 'Auditoria', construir: vistaAuditoria },
   nuevo: { etiqueta: 'Nuevo', construir: vistaNuevo },
   usuarios: { etiqueta: 'Usuarios', construir: vistaUsuarios },
 };
@@ -94,8 +94,8 @@ export function mostrarVista(nombre, opciones = {}) {
     const vista = definicion.construir({
       alAbrirDispositivo: (id) => mostrarVista('dispositivo', { deviceId: id }),
       permisos: permisosDe(),
-      // El modulo va a la vista: el tablero y los filtros dependen de si se
-      // esta trabajando en Inventario o en Service Desk.
+      // El módulo va a la vista: el tablero y los filtros dependen de si se
+      // está trabajando en Inventario o en Service Desk.
       modulo: estado.modulo,
       // Los filtros de entrada: cuando se hace clic en un KPI del tablero, la
       // vista se abre YA filtrada. El operador no tiene que reconstruir en
@@ -105,25 +105,25 @@ export function mostrarVista(nombre, opciones = {}) {
     setVistaActual(vista, nombre);
   }
 
-  // Toda vista devuelve `{ elemento, destruir? }`. Aceptar tambien un elemento
+  // Toda vista devuelve `{ elemento, destruir? }`. Aceptar también un elemento
   // suelto evita que una vista nueva rompa por no conocer el contrato, pero el
   // contrato nuevo es el que se escribe.
   const elemento = estado.vistaActual?.elemento ?? estado.vistaActual;
 
   reemplazar(contenido, elemento);
 
-  // La app empezo: la navegacion y el selector de modulo vuelven.
+  // La app empezo: la navegacion y el selector de módulo vuelven.
   cabecera.classList.remove('cabecera--lanzador');
 
-  // La app YA ARRANCO. El vigilante de `arranque.js` mira esta marca para no
-  // pisar una app que ya esta pintada: sin ella, un arranque lento (celular
-  // con 4G de segundo plano, o un contenedor que tarda en servir los modulos)
-  // agotaba el limite de 12 segundos y reemplazaba la pantalla por "La app no
+  // La app YA ARRANCO. El vigilante de `arranque.js` mira está marca para no
+  // pisar una app que ya está pintada: sin ella, un arranque lento (celular
+  // con 4G de segundo plano, o un contenedor que tarda en servir los módulos)
+  // agotaba el límite de 12 segundos y reemplazaba la pantalla por "La app no
   // pudo arrancar" cuando la app estaba funcionando.
   document.body.dataset.appLista = '1';
 
-  // `aria-current` en la pestana activa, y el estado del historial del
-  // navegador para que el boton "atras" del celular funcione.
+  // `aria-current` en la pestaña activa, y el estado del historial del
+  // navegador para que el botón "atras" del celular funcione.
   for (const boton of cabecera.querySelectorAll('[data-vista]')) {
     if (boton.dataset.vista === nombre) boton.setAttribute('aria-current', 'page');
     else boton.removeAttribute('aria-current');
@@ -135,18 +135,18 @@ export function mostrarVista(nombre, opciones = {}) {
 }
 
 /**
- * Cambia de modulo y vuelve al tablero de ese modulo.
+ * Cambia de módulo y vuelve al tablero de ese módulo.
  *
- * @param {string} modulo
+ * @param {string} módulo
  * @param {object} usuario
  */
 export function cambiarModulo(modulo, usuario) {
   if (!modulosDe(usuario).includes(modulo)) return;
-  // `setModulo` deja el modulo en el `body`: el CSS lo usa para pintar con
-  // el color del modulo (azul Inventario, ambar Service Desk).
+  // `setModulo` deja el módulo en el `body`: el CSS lo usa para pintar con
+  // el color del módulo (azul Inventario, ambar Service Desk).
   setModulo(modulo);
-  // Las pestanas dependen del modulo: hay que repintarlas o la app queda
-  // mostrando las del modulo anterior.
+  // Las pestañas dependen del módulo: hay que repintarlas o la app queda
+  // mostrando las del módulo anterior.
   actualizarCabeceraUsuario();
   mostrarVista('inicio');
 }
@@ -154,8 +154,8 @@ export function cambiarModulo(modulo, usuario) {
 /**
  * La vista de la ficha de un equipo.
  *
- * Vive aca (y no en `VISTAS`) porque NO es una pestana: es el destino de
+ * Vive acá (y no en `VISTAS`) porque NO es una pestaña: es el destino de
  * "Ver la ficha" desde el inventario o desde un escaneo. Va aparte para que
- * el `hash` de la URL no la confunda con una seccion.
+ * el `hash` de la URL no la confunda con una sección.
  */
 export const VISTA_DISPOSITIVO = 'dispositivo';

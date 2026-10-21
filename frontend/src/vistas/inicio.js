@@ -5,11 +5,11 @@
  * -----------------------------
  * La app crecio y ahora resuelve DOS problemas distintos:
  *
- *   - INVENTARIO: donde esta cada equipo, cuanto vale, y que hay que reponer.
+ *   - INVENTARIO: donde está cada equipo, cuanto vale, y que hay que reponer.
  *   - HELPDESK:   los problemas reportados, el SLA y el taller.
  *
  * Meter las dos cosas en el mismo tablero no era un problema de espacio: era
- * un problema de RESPUESTA. Un responsable de deposito abre el tablero para
+ * un problema de RESPUESTA. Un responsable de depósito abre el tablero para
  * ver cuanto stock le falta, y encuentra el MTTR del taller en el mismo
  * lugar: las dos cosas se leen como una sola, y la que no le importa tapa la
  * que si.
@@ -17,11 +17,11 @@
  * LAS REGLAS DEL TABLERO
  * ----------------------
  * 1. UN TABLERO, UNA PREGUNTA. Se elige la solucion y se ve esa, entera.
- * 2. MAXIMO TRES NUMEROS GRANDES. El ojo no escanea ocho numeros: elige.
- *    Los demas van en una fila secundaria, mas chicos.
+ * 2. Máximo TRES Números GRANDES. El ojo no escanea ocho números: elige.
+ *    Los demas van en una fila secundaria, más chicos.
  * 3. CADA ALERTA LLEVA A SU LISTA, con el filtro puesto. Un "3 productos
- *    bajo minimo" sin destino es ruido; con destino, es una tarea.
- * 4. UN NUMERO CON CONTEXTO. Un cero es buena noticia solo si se sabe que
+ *    bajo mínimo" sin destino es ruido; con destino, es una tarea.
+ * 4. UN Número CON CONTEXTO. Un cero es buena noticia solo si se sabe que
  *    mide y contra que se compara (el tooltip lo dice).
  * 5. SIN SCROLL INFINITO. Tres bloques, cada uno con "ver todos". El tablero
  *    se lee en tres segundos o no se lee.
@@ -30,7 +30,7 @@
  * 7. EL INTERRUPTOR SE RECUERDA: es una preferencia de la persona, no un
  *    dato de la app.
  * 8. EL QUE NO TIENE PERMISO NO VE LA SOLUCION: un operador sin
- *    `incidents:read` no puede ver un Helpdesk vacio.
+ *    `incidents:read` no puede ver un Helpdesk vacío.
  */
 
 import { api } from '../api.js';
@@ -44,7 +44,7 @@ const SOLUCIONES = {
   inventario: {
     etiqueta: 'Inventario',
     titulo: 'Inventario',
-    subtitulo: 'Donde esta cada equipo, cuanto vale y que hay que reponer.',
+    subtitulo: 'Donde está cada equipo, cuanto vale y que hay que reponer.',
   },
   helpdesk: {
     etiqueta: 'Service Desk',
@@ -68,7 +68,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
   textosCabecera.append(titulo, subtitulo);
   encabezado.append(textosCabecera);
 
-  // La zona de numeros: tres destacados y una fila de secundarios.
+  // La zona de números: tres destacados y una fila de secundarios.
   const zonaDestacados = crear('div', { clase: 'rejilla-kpi' });
   const zonaSecundarios = crear('div', { clase: 'rejilla-kpi' });
   const zonaContenido = crear('div', { clase: 'apilado' });
@@ -79,11 +79,11 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
   // --- Estado ---------------------------------------------------------------
   //
-  // EL MODULO, NO UN SELECTOR PROPIO
+  // EL Módulo, NO UN SELECTOR PROPIO
   // --------------------------------
-  // El tablero NO decide que muestra: lo decide el modulo en el que se esta
-  // trabajando, que se eligio en la pantalla de entrada. Por eso aca no hay un
-  // selector: habria DOS lugares para cambiar de modulo (este y el de la
+  // El tablero NO decide que muestra: lo decide el módulo en el que se está
+  // trabajando, que se eligio en la pantalla de entrada. Por eso acá no hay un
+  // selector: habria DOS lugares para cambiar de módulo (este y el de la
   // cabecera) y se desincronizarian.
   let solucionActual = modulo;
   let datosInventario = null;
@@ -105,9 +105,9 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         puedeVerIncidencias
           ? api.incidencias({ solo_abiertas: true, limite: 6 }).catch(() => null)
           : Promise.resolve(null),
-        // EL BACKLOG: los casos que NADIE respondio. Van aparte de los que
-        // vencen: un caso puede no haber vencido y aun asi estar parado
-        // desde hace tres dias.
+        // EL BACKLOG: los casos que NADIE respondió. Van aparte de los que
+        // vencen: un caso puede no haber vencido y aún así estar parado
+        // desde hace tres días.
         puedeVerIncidencias
           ? api.incidencias({ sin_atender: true, limite: 6 }).catch(() => null)
           : Promise.resolve(null),
@@ -124,7 +124,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
   // --- Piezas reutilizables -------------------------------------------------
   /**
-   * Un numero del tablero.
+   * Un número del tablero.
    *
    * `destacado` lo hace grande: es el que se mira en los tres segundos. Los
    * secundarios van chicos, en una fila aparte.
@@ -142,10 +142,10 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
     );
     conTooltip(caja, ayuda);
 
-    // UN NUMERO QUE NO LLEVA A NINGUN LADO ES DECORACION
+    // UN Número QUE NO LLEVA A Ningún LADO ES DECORACION
     // -------------------------------------------------
-    // Si el operador hace clic en "En deposito", espera ver los equipos que
-    // estan en deposito. Con el filtro YA PUESTO: no tiene que reconstruir
+    // Si el operador hace clic en "En depósito", espera ver los equipos que
+    // están en depósito. Con el filtro YA PUESTO: no tiene que reconstruir
     // lo que el tablero le acaba de decir.
     if (destino) {
       caja.classList.add('kpi--accion');
@@ -161,7 +161,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
    * EL "VER TODOS" ES OBLIGATORIO
    * -----------------------------
    * Un bloque que muestra 5 de 20 elementos, sin forma de ver los otros 15, es
-   * un callejon sin salida. El boton lleva a la lista CON EL FILTER PUESTO:
+   * un callejon sin salida. El botón lleva a la lista CON EL FILTER PUESTO:
    * el operador no tiene que reconstruir lo que ya vio en el tablero.
    */
   function tarjetaLista({ titulo, subtitulo, elementos, verTodos, alVerTodos }) {
@@ -177,7 +177,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
     if (verTodos && elementos.length) {
       const btn = crear('button', {
-        clase: 'boton boton--suave boton--chico',
+        clase: 'botón botón--suave botón--chico',
         texto: verTodos,
         atributos: { type: 'button' },
       });
@@ -189,7 +189,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
     if (!elementos.length) {
       tarjeta.append(
-        crear('p', { clase: 'tenue', texto: 'Nada para mostrar aca. Todo en orden.' }),
+        crear('p', { clase: 'tenue', texto: 'Nada para mostrar acá. Todo en orden.' }),
       );
       return tarjeta;
     }
@@ -203,19 +203,50 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
   }
 
   /** Una fila de la lista: cuerpo a la izquierda, insignia a la derecha. */
-  function fila({ titulo, meta, descripcion, insignia, claseInsignia, ayudaInsignia }) {
+  /**
+   * Una fila del tablero.
+   *
+   * QUE AL HACER CLIC SE MUESTRE EL DETALLE
+   * ---------------------------------------
+   * Un tablero que muestra "En transito: 3" y no deja ver WHICHES tres son
+   * obliga al operador a ir a otra pantalla y filtrar a mano. La fila es un
+   * BOTON: se pulsa y se abre el detalle de lo que muestra.
+   *
+   * `alClick` es la accion: si no viene, la fila es texto (no todo se
+   * puede abrir: un dato que no tiene destino no es un enlace).
+   */
+  function fila({ titulo, meta, descripcion, insignia, claseInsignia, ayudaInsignia, alClick, ayudaClic }) {
     const item = crear('li', { clase: 'lista__item' });
     const cuerpo = crear('div', { clase: 'lista__cuerpo' });
     cuerpo.append(crear('div', { clase: 'lista__titulo', texto: titulo }));
     if (meta) cuerpo.append(crear('div', { clase: 'lista__meta mono', texto: meta }));
     if (descripcion) cuerpo.append(crear('div', { clase: 'lista__meta', texto: descripcion }));
-    item.appendChild(cuerpo);
 
     if (insignia) {
       const etiqueta = crear('span', { clase: `insignia ${claseInsignia ?? ''}`, texto: insignia });
       if (ayudaInsignia) conTooltip(etiqueta, ayudaInsignia);
       item.appendChild(etiqueta);
     }
+
+    if (alClick) {
+      // La fila entera es el boton: se pulsa en cualquier parte de la fila.
+      const boton = crear('button', {
+        clase: 'lista__item boton-lista',
+        atributos: {
+          type: 'button',
+          'aria-label': ayudaClic ? `${titulo}. ${ayudaClic}` : String(titulo),
+        },
+      });
+      boton.append(cuerpo);
+      const insigniaEnElBoton = boton.querySelector('.insignia');
+      if (insigniaEnElBoton) boton.appendChild(insigniaEnElBoton);
+      boton.addEventListener('click', alClick);
+      if (ayudaClic) conTooltip(boton, ayudaClic);
+      item.replaceChildren(boton);
+      return item;
+    }
+
+    item.appendChild(cuerpo);
     return item;
   }
 
@@ -246,7 +277,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       }),
       numero({
         destacado: true,
-        etiqueta: 'En deposito',
+        etiqueta: 'En depósito',
         valor: valor(kpis.en_deposito),
         ayuda: 'Disponibles para salir. Es el stock que se puede entregar hoy.',
         destino: { vista: 'inventario', filtros: { estado: 'IN_WAREHOUSE' } },
@@ -255,7 +286,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         destacado: true,
         etiqueta: 'Por reponer',
         valor: valor(criticos.length),
-        ayuda: 'Productos con el stock igual o por debajo del minimo. Click para verlos.',
+        ayuda: 'Productos con el stock igual o por debajo del mínimo. Click para verlos.',
         destino: { vista: 'stock' },
       }),
     );
@@ -269,44 +300,47 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         destino: { vista: 'inventario', filtros: { estado: 'INSTALLED' } },
       }),
       numero({
-        etiqueta: 'En transito',
-        // La clave del backend es `en_transito` (con 'o'): `en_transit` daba
-        // `undefined` y el numero salia como un guion.
+        etiqueta: 'En tránsito',
+        // La clave del backend es `en_tránsito` (con 'o'): `en_transit` daba
+        // `undefined` y el número salia como un guion.
         valor: valor(kpis.en_transito),
-        ayuda: 'Salieron del deposito, todavia no instalados.',
+        ayuda: 'Salieron del depósito, todavía no instalados.',
         destino: { vista: 'inventario', filtros: { estado: 'IN_TRANSIT' } },
       }),
       numero({
         etiqueta: 'Movimientos (30 d)',
         valor: valor(kpis.movimientos_30d),
-        ayuda: 'Escaneos y traslados registrados en el ultimo mes.',
+        ayuda: 'Escaneos y traslados registrados en el último mes.',
         destino: { vista: 'movimientos' },
       }),
     );
 
-    // BLOQUE 1: por reponer. Es la ACCION del responsable de deposito.
+    // BLOQUE 1: por reponer. Es la ACCION del responsable de depósito.
     const paraReponer = criticos.slice(0, 6).map((p) =>
       fila({
-        titulo: `${p.brand} ${p.model}`,
+        titulo: `${p.brand ?? ''} ${p.model_name ?? p.model ?? ''}`.trim(),
         meta: p.sku,
         descripcion: `Disponibles ${p.disponibles} · Minimo ${p.min_stock} · Lead time ${p.lead_time_days ?? '?'} d`,
         insignia: `Faltan ${p.faltante}`,
         claseInsignia: 'insignia--peligro',
         ayudaInsignia: `El minimo es ${p.min_stock} y hay ${p.disponibles} disponibles.`,
+        // EL DETALLE: el producto que se pulso, con su faltante.
+        alClick: () => abrirStockBajo(p.sku),
+        ayudaClic: 'Ver el detalle de este producto',
       }),
     );
 
     zonaContenido.appendChild(
       tarjetaLista({
         titulo: 'Por reponer',
-        subtitulo: 'Productos con el stock igual o por debajo del minimo.',
+        subtitulo: 'Productos con el stock igual o por debajo del mínimo.',
         elementos: paraReponer,
         verTodos: 'Ver el stock',
         alVerTodos: () => irA('stock'),
       }),
     );
 
-    // BLOQUE 2: donde esta el equipo.
+    // BLOQUE 2: donde está el equipo.
     const stock = d.stock_por_estado ?? [];
     const porEstado = stock.map((s) => {
       const info = ESTADOS[s.estado] ?? { texto: s.estado, clase: 'insignia--baja' };
@@ -316,6 +350,9 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         insignia: String(s.cantidad),
         claseInsignia: info.clase,
         ayudaInsignia: `${info.texto}: ${s.cantidad} equipos`,
+        // EL DETALLE: el inventario con el filtro de ese estado.
+        alClick: () => irA('inventario', { estado: s.estado }),
+        ayudaClic: `Ver los equipos ${info.texto.toLowerCase()}`,
       });
     });
 
@@ -328,7 +365,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       }),
     );
 
-    // BLOQUE 3: los ultimos movimientos.
+    // BLOQUE 3: los últimos movimientos.
     const movimientos = (d.movimientos_recientes ?? []).slice(0, 6).map((m) =>
       fila({
         // La clave del backend es `movimiento` (la etiqueta del tipo de
@@ -336,12 +373,15 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         titulo: m.movimiento ?? 'Movimiento',
         meta: m.serial_number ?? '',
         descripcion: `${m.brand ?? ''} ${m.model ?? ''}`.trim(),
+        // EL DETALLE: la ficha del equipo que se movio.
+        alClick: m.device_id ? () => irA('dispositivo', { deviceId: m.device_id }) : undefined,
+        ayudaClic: m.device_id ? 'Ver la ficha del equipo' : undefined,
       }),
     );
 
     zonaContenido.appendChild(
       tarjetaLista({
-        titulo: 'Ultimos movimientos',
+        titulo: 'Últimos movimientos',
         elementos: movimientos,
         verTodos: 'Ver los movimientos',
         alVerTodos: () => irA('movimientos'),
@@ -382,9 +422,9 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         destacado: true,
         etiqueta: 'MTTR',
         valor: m.mttr_horas !== null && m.mttr_horas !== undefined ? `${m.mttr_horas} h` : '—',
-        ayuda: 'Horas promedio entre el reporte y la resolucion. El numero que le importa al responsable del taller.',
-        // Un objeto vacio de filtros: la vista abre en "Todas" y no en la
-        // bandeja. Sin esto, el clic en un numero general caeria en la lista
+        ayuda: 'Horas promedio entre el reporte y la resolucion. El número que le importa al responsable del taller.',
+        // Un objeto vacío de filtros: la vista abre en "Todas" y no en la
+        // bandeja. Sin esto, el clic en un número general caeria en la lista
         // de trabajo pendiente, que es otra cosa.
         destino: { vista: 'incidencias', filtros: {} },
       }),
@@ -395,7 +435,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         etiqueta: 'Sin atender',
         valor: valor(m.sin_atender),
         ayuda:
-          'Casos abiertos que NADIE respondio todavia: el trabajo sin dueno. Es lo primero que hay que tomar.',
+          'Casos abiertos que NADIE respondió todavía: el trabajo sin dueño. Es lo primero que hay que tomar.',
         destino: { vista: 'incidencias', filtros: { sin_atender: true } },
       }),
       numero({
@@ -407,13 +447,13 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       numero({
         etiqueta: 'Sin asignar',
         valor: valor(m.sin_asignar),
-        ayuda: 'Nadie las todavia: son las que se van a perder.',
+        ayuda: 'Nadie las todavía: son las que se van a perder.',
         destino: { vista: 'incidencias', filtros: { solo_sin_asignar: true } },
       }),
       numero({
         etiqueta: 'Fuera de SLA',
         valor: valor(m.fuera_de_sla),
-        ayuda: 'Se resolvieron despues del plazo: el SLA incumplido.',
+        ayuda: 'Se resolvieron después del plazo: el SLA incumplido.',
         destino: { vista: 'incidencias', filtros: { fuera_de_sla: true } },
       }),
     );
@@ -439,7 +479,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
     // BLOQUE 0: EL BACKLOG. Lo que nadie took.
     //
-    // Va PRIMERO, antes que los casos que vencen: un caso sin dueno se pierde
+    // Va PRIMERO, antes que los casos que vencen: un caso sin dueño se pierde
     // igual, y no por falta de tiempo, sino porque nadie lo vio. Es el
     // bloque que se mira al empezar el turno.
     const sinAtender = casosSinAtender.map((c) => {
@@ -454,7 +494,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         descripcion: `Sin responder desde hace ${horas} h`,
         insignia: `${horas} h`,
         claseInsignia: horas > 24 ? 'insignia--peligro' : 'insignia--alerta',
-        ayudaInsignia: 'Nadie todavia respondio este caso.',
+        ayudaInsignia: 'Nadie todavía respondió este caso.',
       });
     });
 
@@ -478,7 +518,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       }),
     );
 
-    // BLOQUE 2: la distribucion por severidad.
+    // BLOQUE 2: la distribución por severidad.
     const severidades = (datosHelpdesk?.por_severidad ?? []).map((s) =>
       fila({
         titulo: `Severidad ${s.severity}`,
@@ -549,13 +589,13 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
    * Ir a otra vista.
    *
    * La navegacion se dispara con un evento de documento, no con una import
-   * de `navegacion.js`: importarla desde aca crearia un ciclo (navegacion
+   * de `navegacion.js`: importarla desde acá crearia un ciclo (navegacion
    * importa las vistas, y las vistas importan navegacion).
    */
   function irA(vista, filtros) {
     // "stock" no es una vista: es un MODAL con los productos por reponer. El
     // stock bajo es de PRODUCTOS, y la vista de inventario lista EQUIPOS: no
-    // son la misma cosa, asi que abrir el inventario con otro filtro
+    // son la misma cosa, así que abrir el inventario con otro filtro
     // mentiria.
     if (vista === 'stock') {
       abrirStockBajo();
@@ -565,25 +605,32 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
   }
 
   /**
-   * El modal de "por reponer": los productos bajo su stock minimo.
+   * El modal de "por reponer": los productos bajo su stock mínimo.
    */
-  async function abrirStockBajo() {
+  /**
+   * El modal de "Por reponer".
+   *
+   * `skuFoco` abre el detalle de UN producto: la fila del tablero que se
+   * pulso. Sin eso, el modal muestra la lista completa y el operador tiene
+   * que buscar a mano el producto que acaba de pulsar.
+   */
+  async function abrirStockBajo(skuFoco = null) {
     // EL CONTENEDOR NO LLEVA LA CLASE "CARGANDO"
     //
     // La clase `cargando` pone un spinner con un `::before`. Si el
     // contenedor la tiene, el spinner se queda girando PARA SIEMPRE: la
     // lista llega abajo y el operador ve un circulo que no para, al lado de
-    // datos que ya estan cargados. Es la clase la que hay que quitar, no el
+    // datos que ya están cargados. Es la clase la que hay que quitar, no el
     // texto: por eso el estado de carga es un HIJO que se reemplaza, y el
     // contenedor queda limpio.
     const cuerpo = crear('div');
     cuerpo.append(crear('div', { clase: 'cargando', texto: 'Consultando el stock…' }));
 
-    // LA PAGINACION DEL MODAL
+    // LA Paginación DEL MODAL
     //
-    // El stock bajo son TODOS los productos por debajo del minimo: con 200
+    // El stock bajo son TODOS los productos por debajo del mínimo: con 200
     // tipos de producto, el modal traia 200 filas de golpe y la pantalla se
-    // congela. El modal pagina igual que las pantallas, con la misma barra.
+    // congela. El modal página igual que las pantallas, con la misma barra.
     let pagina = 0;
     const limite = 25;
 
@@ -599,18 +646,21 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
     });
 
     const btnCerrar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
 
+    let cerrarModal = () => {};
+
     abrirDialogo({
-      titulo: 'Por reponer',
-      nota: 'Productos con el stock igual o por debajo del minimo, con el faltante y el lead time del proveedor.',
+      titulo: skuFoco ? `Por reponer — ${skuFoco}` : 'Por reponer',
+      nota: 'Productos con el stock igual o por debajo del mínimo, con el faltante y el lead time del proveedor.',
       cuerpo: [cuerpo, paginacion.elemento],
       clase: 'modal--formulario',
       acciones: [btnCerrar],
       alAbrir: (_modal, cerrar) => {
+        cerrarModal = cerrar;
         btnCerrar.addEventListener('click', cerrar);
       },
     });
@@ -619,20 +669,24 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       cuerpo.replaceChildren(crear('div', { clase: 'cargando', texto: 'Consultando el stock…' }));
 
       try {
-        const datos = await api.pedir('/stock/low');
+        // La MISMA consulta que usa la tarjeta "Por reponer" del tablero: si
+        // son distintas, el detalle de un producto no coincide con la fila
+        // que se pulso.
+        const datos = await api.pedir('/stock/por-reponer');
         const todos = datos?.items ?? datos ?? [];
         const total = datos?.total ?? todos.length;
 
-        // La pagina se arma sobre la lista completa: el endpoint de stock
-        // bajo no pagina (es el detalle de una consulta puntual), asi que el
-        // corte se hace aca y la barra dice cuantos hay en total.
-        const items = todos.slice(pagina * limite, pagina * limite + limite);
+        // La página se arma sobre la lista completa: el endpoint de stock
+        // bajo no página (es el detalle de una consulta puntual), así que el
+        // corte se hace acá y la barra dice cuantos hay en total.
+        const soloEste = skuFoco ? todos.filter((i) => i.sku === skuFoco) : todos;
+        const items = soloEste.slice(pagina * limite, pagina * limite + limite);
 
         if (!items.length) {
           const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
           vacio.append(
             icono(ICONOS.ok, { tamano: 28 }),
-            crear('p', { texto: 'Todos los productos estan por encima de su minimo.' }),
+            crear('p', { texto: 'Todos los productos están por encima de su mínimo.' }),
           );
           cuerpo.replaceChildren(vacio);
           paginacion.actualizar({ total: 0, limite, pagina: 0 });
@@ -660,7 +714,21 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         }
 
         cuerpo.replaceChildren(lista);
-        paginacion.actualizar({ total, limite, pagina });
+        paginacion.actualizar({ total: soloEste.length, limite, pagina });
+
+        // El boton de "ver todos", cuando se abrio con un producto enfocado.
+        if (skuFoco) {
+          const btnTodos = crear('button', {
+            clase: 'boton boton--suave boton--chico',
+            texto: 'Ver todos los productos por reponer',
+            atributos: { type: 'button' },
+          });
+          btnTodos.addEventListener('click', () => {
+            cerrarModal(true);
+            abrirStockBajo();
+          });
+          cuerpo.append(btnTodos);
+        }
       } catch (error) {
         cuerpo.replaceChildren(
           crear('p', { clase: 'campo__error', texto: `No se pudo consultar el stock: ${error.message}` }),
@@ -672,9 +740,9 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
   }
 
   // --- Arranque -------------------------------------------------------------
-  // Si el modulo es Helpdesk y el usuario no puede ver incidencias (un rol
+  // Si el módulo es Helpdesk y el usuario no puede ver incidencias (un rol
   // nuevo, un permiso cambiado), se cae al de inventario: es mejor un tablero
-  // que no sea el suyo que una pantalla vacia.
+  // que no sea el suyo que una pantalla vacía.
   if (solucionActual === 'helpdesk' && !puedeVerIncidencias) {
     solucionActual = 'inventario';
   }

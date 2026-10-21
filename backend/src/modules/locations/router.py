@@ -3,9 +3,9 @@ Router de ubicaciones. Montado en /api/locations.
 
 POR QUE UN ROUTER PROPIO
 ------------------------
-`locations` era una tabla sin modulo: el unico endpoint que la tocaba era
+`locations` era una tabla sin módulo: el único endpoint que la tocaba era
 `GET /api/devices/locations`, que devolvia un select plano de nombres. Con la
-jerarquia (bodega > pasillo > estante) hacen falta mas cosas: el arbol, el
+jerarquia (bodega > pasillo > estante) hacen falta más cosas: el árbol, el
 alta, y la edicion del padre.
 
 Se mantiene `GET /api/devices/locations` por compatibilidad: el frontend viejo
@@ -63,7 +63,7 @@ def crear(
     """
     Body:
     {
-      "store_name": "Deposito Norte",
+      "store_name": "Depósito Norte",
       "address": "Av. siempre viva 742",
       "location_type": "WAREHOUSE",
       "parent_id": null,
@@ -88,7 +88,7 @@ def actualizar(
     """
     Body (todo opcional):
     {
-      "store_name": "Deposito Norte - A",
+      "store_name": "Depósito Norte - A",
       "parent_id": 3,
       "location_type": "AISLE",
       "is_active": true

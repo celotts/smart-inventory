@@ -4,19 +4,19 @@ Tests de escaneo contra una base REAL.
 POR QUE ESTOS TESTS NO SON COMO LOS OTROS
 -----------------------------------------
 Los tests de `guard.py` y de `geo.py` prueban funciones puras: se pueden
-escribir sin base. Un escaneo NO es una funcion pura: su garantia esta en que
+escribir sin base. Un escaneo NO es una función pura: su garantía está en que
 el `UNIQUE` de `scan_receipts` rechaza el reintento y en que el trigger de
-estado rechaza la transicion imposible.
+estado rechaza la transición imposible.
 
-Esas dos garantias son del MOTOR, no del codigo. Un test que simula la base con
-un mock pasa lo mismo con y sin indice unico, y por lo tanto no prueba nada de
+Esas dos garantias son del MOTOR, no del código. Un test que simula la base con
+un mock pasa lo mismo con y sin índice único, y por lo tanto no prueba nada de
 lo que importa.
 
 QUE HACE FALTA PARA CORRERLOS
 -----------------------------
 Una base Postgres con el esquema de `database/init.sql` aplicado. Si no hay
-conexion, los tests se omiten con un motivo claro en vez de fallar con un error
-de conexion que parece un bug.
+conexión, los tests se omiten con un motivo claro en vez de fallar con un error
+de conexión que parece un bug.
 
     export DATABASE_URL_TEST=postgresql://postgres:...@localhost:5432/si_test
     python3 -m pytest tests/test_scan_e2e.py -v
@@ -57,20 +57,20 @@ def base():
         with engine.connect() as conexion:
             conexion.execute(text("SELECT 1"))
             # Se verifica que exista la tabla del trigger y la del recibo. Si
-            # faltan, el esquema no esta migrado y los tests darian false.
+            # faltan, el esquema no está migrado y los tests darian false.
             conexion.execute(text("SELECT 1 FROM scan_receipts LIMIT 1"))
             conexion.execute(text("SELECT 1 FROM devices LIMIT 1"))
     except SQLAlchemyError as exc:
         pytest.skip(
             f"No hay base de test disponible ({DATABASE_TEST}).\n"
-            f"  Levanta una y corré: createdb si_test && psql -d si_test -f database/init.sql\n"
+            f"  Levanta una y corre: createdb si_test && psql -d si_test -f database/init.sql\n"
             f"  Motivo: {exc}"
         )
 
     import src.modules.ai.executor as executor
 
-    # Se reemplaza el engine de la app por el de test. Es la unica costura que
-    # hace falta: el service pide `get_ai_engine()`, no una conexion.
+    # Se reemplaza el engine de la app por el de test. Es la única costura que
+    # hace falta: el service pide `get_ai_engine()`, no una conexión.
     executor._engine = engine
     return engine
 
@@ -96,9 +96,9 @@ def escenario(base):
             )
         ).scalar_one()
 
-        # Si no hay admin, la base de test no esta sembrada.
+        # Si no hay admin, la base de test no está sembrada.
         if not ids["admin"]:
-            pytest.skip("La base de test no tiene un usuario ADMIN. Corré init.sql.")
+            pytest.skip("La base de test no tiene un usuario ADMIN. Corre init.sql.")
 
         ids["ubicacion"] = conexion.execute(
             text(
@@ -135,7 +135,7 @@ def escenario(base):
 
 
 def _crear_dispositivo(escenario, **kwargs) -> int:
-    """Da de alta un componente en deposito y devuelve su id."""
+    """Da de alta un componente en depósito y devuelve su id."""
     from src.modules.devices import service as devices
 
     datos = {
@@ -155,7 +155,7 @@ class TestIdempotencia:
         """
         EL caso que motiva la tabla `scan_receipts`.
 
-        El telefono reintenta el mismo envio dos veces. Sin el recibo, quedan
+        El teléfono reintenta el mismo envió dos veces. Sin el recibo, quedan
         dos movimientos y "cuantos componentes entraron hoy" da el doble.
         """
         from src.modules.devices import service as devices
@@ -187,7 +187,7 @@ class TestIdempotencia:
         """
         Un reintento no puede hacer el trabajo dos veces.
 
-        Si el reintento volviera a aplicar la transicion de estado, un
+        Si el reintento volviera a aplicar la transición de estado, un
         `IN_TRANSIT -> INSTALLED` repetido dejaria el componente instalado
         cuando el reintento era solo un reintento.
         """
@@ -222,7 +222,7 @@ class TestIdempotencia:
         equipo y el mismo tipo de movimiento.
 
         Dos escaneos REALES del mismo componente en el mismo segundo son
-        legitimos: uno entra al deposito y al segundo sale hacia un cliente. Por
+        legitimos: uno entra al depósito y al segundo sale hacia un cliente. Por
         eso la idempotencia va por `client_scan_id` y no por
         (device_id, fecha), que habria rechazado algo que ocurrio.
         """
@@ -282,15 +282,15 @@ class TestEstadoYTransiciones:
 
     def test_transicion_imposible_no_escribe_movimiento(self, base, escenario):
         """
-        ESTA es la garantia de que el historial y el estado no se separan.
+        Está es la garantía de que el historial y el estado no se separan.
 
-        El componente esta en deposito y se le pide una `INSTALLATION`. El
-        trigger de la maquina de estados lo rechaza porque de deposito no se pasa
+        El componente está en depósito y se le pide una `INSTALLATION`. El
+        trigger de la maquina de estados lo rechaza porque de depósito no se pasa
         directo a instalado. Y como el estado y el movimiento van en la misma
         transaccion, el movimiento tampoco se escribe.
 
         Sin la misma transaccion, quedaria un movimiento que dice "instalado"
-        sobre un componente que sigue en el deposito: el historial cuenta una
+        sobre un componente que sigue en el depósito: el historial cuenta una
         historia que no paso.
         """
         from src.modules.devices import service as devices
@@ -310,7 +310,7 @@ class TestEstadoYTransiciones:
 
         assert "Transicion de estado invalida" in str(exc.value)
 
-        # Y lo importante: NO quedo ningun movimiento huerfano.
+        # Y lo importante: NO quedó ningún movimiento huerfano.
         with devices.get_ai_engine().connect() as conexion:
             count = conexion.execute(
                 text("SELECT COUNT(*) FROM movement_history WHERE device_id = :id"),
@@ -320,7 +320,7 @@ class TestEstadoYTransiciones:
         assert count == 0
 
     def test_taller_requiere_reparacion_abierta(self, base, escenario):
-        """Mandar al taller sin reparacion registrada es rechazado por el trigger."""
+        """Mandar al taller sin reparación registrada es rechazado por el trigger."""
         from src.modules.devices import service as devices
 
         device_id = _crear_dispositivo(escenario)
@@ -339,21 +339,21 @@ class TestEstadoYTransiciones:
 
     def test_la_regla_llega_como_error_de_regla_y_no_de_fallo(self, base, escenario):
         """
-        ESTE TEST IMPORTA MAS DE LO QUE PARECE.
+        ESTE TEST IMPORTA Más DE LO QUE PARECE.
 
-        El trigger levanta una excepcion de Postgres. Sin traduzirla, el
+        El trigger levanta una excepción de Postgres. Sin traduzirla, el
         handler global la convierte en un 500 "Error interno", y el operador ve
-        un fallo del sistema donde en realidad le estan diciendo que esta
-        intentando algo imposible. Un 500 tambien hace que el orquestador lo
+        un fallo del sistema donde en realidad le están diciendo que está
+        intentando algo imposible. Un 500 también hace que el orquestador lo
         cuente como incidente.
 
-        Se verifica el TIPO de la excepcion (409 = conflicto de estado, no 500)
+        Se verifica el TIPO de la excepción (409 = conflicto de estado, no 500)
         y que el mensaje conserve el texto del trigger, que es el que explica
         que hacer.
         """
         from src.modules.devices import service as devices
 
-        # Se lleva el componente a INSTALLED primero, para despues intentar un
+        # Se lleva el componente a INSTALLED primero, para después intentar un
         # salto que la maquina de estados prohibe.
         device_id = _crear_dispositivo(escenario)
         serial = devices.obtener_dispositivo(device_id)["serial_number"]
@@ -373,7 +373,7 @@ class TestEstadoYTransiciones:
             ubicacion_id=escenario["ubicacion"],
         )
 
-        # De INSTALLED no se pasa directo a deposito: hay que pasar por transito.
+        # De INSTALLED no se pasa directo a depósito: hay que pasar por tránsito.
         with pytest.raises(movimientos.TransicionInvalida) as exc:
             movimientos.escanear(
                 codigo=serial,
@@ -390,7 +390,7 @@ class TestEstadoYTransiciones:
 
 
 # ---------------------------------------------------------------------------
-# Geo-validacion
+# Geo-validación
 # ---------------------------------------------------------------------------
 class TestGeoValidacion:
     def test_escaneo_en_la_sede_es_valido(self, base, escenario):
@@ -416,8 +416,8 @@ class TestGeoValidacion:
         """
         Un escaneo fuera de radio NO se rechaza: se registra marcado.
 
-        La razon es de operacion: si el GPS de un celular en el interior de un
-        deposito de chapa deriva 400 metros, rechazar el escaneo deja al
+        La razón es de operación: si el GPS de un celular en el interior de un
+        depósito de chapa deriva 400 metros, rechazar el escaneo deja al
         operador sin poder trabajar y el componente parece perdido. Se registra
         y queda para revisar. El dato falso se senala, no se oculta.
         """
@@ -444,9 +444,9 @@ class TestGeoValidacion:
         """
         Sin coordenadas, `is_valid_location` es None, NO False.
 
-        La diferencia es la que separa "no estabas ahi" de "no se puede saber".
+        La diferencia es la que separa "no estabas ahí" de "no se puede saber".
         Un False sin coordenadas convierte cada escaneo de un movil sin GPS en
-        una inspeccion, y el operador deja de mirar la columna.
+        una inspección, y el operador deja de mirar la columna.
         """
         from src.modules.devices import service as devices
         from sqlalchemy import text
@@ -476,8 +476,8 @@ class TestGeoValidacion:
         """
         Una coordenada rota se rechaza con un error entendible.
 
-        Sin la validacion, Postgres acepta la fila con una latitud de 400 y el
-        error aparece tres reportes mas adelante, cuando alguien pregunta la
+        Sin la validación, Postgres acepta la fila con una latitud de 400 y el
+        error aparece tres reportes más adelante, cuando alguien pregunta la
         distancia.
         """
         from src.core.geo import CoordenadaInvalida
@@ -495,7 +495,7 @@ class TestGeoValidacion:
 
 
 # ---------------------------------------------------------------------------
-# Resolucion de codigos
+# Resolucion de códigos
 # ---------------------------------------------------------------------------
 class TestResolucionDeCodigos:
     def test_resuelve_por_serial_y_por_qr(self, base, escenario):
@@ -533,9 +533,9 @@ class TestResolucionDeCodigos:
 
     def test_codigo_larguisimo_se_corta(self, base, escenario):
         """
-        El limite de longitud evita mandar 4 MB a una consulta de base.
+        El límite de longitud evita mandar 4 MB a una consulta de base.
 
-        Un "codigo" enorme es un string, y un string es un ataque de
+        Un "código" enorme es un string, y un string es un ataque de
         recursos si no se lo topa.
         """
         from src.modules.devices import service as devices

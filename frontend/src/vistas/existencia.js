@@ -4,7 +4,7 @@
  * QUE ES
  * ------
  * La respuesta a "cuanto hay de cada cosa y donde". Una fila por
- * (producto, ubicacion): el SKU, el nombre, la ubicacion, y CUANTAS
+ * (producto, ubicación): el SKU, el nombre, la ubicación, y CUANTAS
  * unidades hay de ese producto en ese lugar, separadas por estado.
  *
  * POR QUE ES UNA PANTALLA Y NO UNA COLUMNA EN "PRODUCTOS"
@@ -12,24 +12,24 @@
  * "Productos" es el MAESTRO: la ficha del SKU, sus costos, sus atributos.
  * La existencia es el ESTADO: cambia con cada movimiento. Meterlas juntas
  * mezcla dos preguntas ("como es este producto" y "cuanto hay"), y la
- * segunda necesitaMUCHAS mas filas: un producto en 8 ubicaciones son 8
+ * segunda necesitaMUCHAS más filas: un producto en 8 ubicaciones son 8
  * filas de existencia.
  *
  * Y el dato de "cuanto hay" no estaba en ninguna parte de la app: la API lo
  * tiene (`/api/stock/summary`, que mantiene el trigger de cada movimiento),
- * pero no habia ninguna pantalla que lo mostrara. El unico lugar donde se
- * veia un numero de stock era la tarjeta "Por reponer" del tablero, y solo
- * con los productos que YA estaban por debajo del minimo: los que estan
+ * pero no habia ninguna pantalla que lo mostrara. El único lugar donde se
+ * veia un número de stock era la tarjeta "Por reponer" del tablero, y solo
+ * con los productos que YA estaban por debajo del mínimo: los que están
  * bien de stock, invisibles.
  *
  * QUE SE VE
  * ---------
  * - Disponible: lo que se puede entregar hoy.
- * - En transito: salio del deposito y no llego.
- * - Instalado: esta en el cliente.
+ * - En tránsito: salió del depósito y no llego.
+ * - Instalado: está en el cliente.
  * - En taller: roto, en el taller.
- * - El minimo y el maximo del producto, y cuanto falta para el minimo.
- * - La antiguedad de la alerta, cuando esta por debajo del minimo: lo que
+ * - El mínimo y el máximo del producto, y cuanto falta para el mínimo.
+ * - La antiguedad de la alerta, cuando está por debajo del mínimo: lo que
  *   dice si hay que comprar hoy o el jueves.
  */
 
@@ -95,9 +95,9 @@ export function vistaExistencia() {
   );
 
   const etiquetaBajo = crear('label', { clase: 'campo' });
-  const textoBajo = crear('span', { clase: 'campo__etiqueta', texto: 'Solo por debajo del minimo' });
+  const textoBajo = crear('span', { clase: 'campo__etiqueta', texto: 'Solo por debajo del mínimo' });
   etiquetaBajo.append(textoBajo, chkSoloBajo);
-  conTooltip(textoBajo, 'Solo los productos con el stock igual o por debajo del minimo.');
+  conTooltip(textoBajo, 'Solo los productos con el stock igual o por debajo del mínimo.');
 
   const rejillaFiltros = crear('div', { clase: 'rejilla-filtros' });
   rejillaFiltros.append(etiquetaBusqueda, etiquetaUbicacion, etiquetaBajo);
@@ -106,9 +106,9 @@ export function vistaExistencia() {
 
   const zonaLista = crear('div');
 
-  // LA PAGINACION
+  // LA Paginación
   //
-  // La existencia es la lista que mas crece: un producto por ubicacion. Con
+  // La existencia es la lista que más crece: un producto por ubicación. Con
   // 800 productos en 6 ubicaciones son 4800 filas, y pintarlas todas deja la
   // app sin responder.
   let pagina = 0;
@@ -158,8 +158,8 @@ export function vistaExistencia() {
       const stock = respuesta.items ?? respuesta;
       total = respuesta.total ?? stock.length;
 
-      // El filtro de ubicaciones se arma con las que VIENEN en la pagina: si
-      // una ubicacion no tiene nada en esta pagina, no hay fila que filtrar.
+      // El filtro de ubicaciones se arma con las que VIENEN en la página: si
+      // una ubicación no tiene nada en está página, no hay fila que filtrar.
       const valorUbicacion = selectUbicacion.value;
       selectUbicacion.replaceChildren(
         crear('option', { texto: 'Todas las ubicaciones', atributos: { value: '' } }),
@@ -176,13 +176,13 @@ export function vistaExistencia() {
         alertas.map((a) => [`${a.model_id}:${a.location_id}`, a]),
       );
 
-      // El FILTRO ya lo hizo el servidor (por eso la pagina es correcta):
-      // aca solo queda el ORDEN, que es de presentacion.
+      // El FILTRO ya lo hizo el servidor (por eso la página es correcta):
+      // acá solo queda el ORDEN, que es de presentacion.
       const filas = stock
         .filter((f) => (chkSoloBajo.checked ? f.stock_status === 'LOW' : true))
         .sort((a, b) => {
-          // Primero lo que esta por debajo del minimo, y dentro de eso, lo
-          // que lleva mas tiempo por debajo: es lo que hay que resolver.
+          // Primero lo que está por debajo del mínimo, y dentro de eso, lo
+          // que lleva más tiempo por debajo: es lo que hay que resolver.
           if (a.stock_status === 'LOW' && b.stock_status !== 'LOW') return -1;
           if (b.stock_status === 'LOW' && a.stock_status !== 'LOW') return 1;
           return (a.brand ?? '').localeCompare(b.brand ?? '') || (a.model_name ?? '').localeCompare(b.model_name ?? '');
@@ -211,7 +211,7 @@ export function vistaExistencia() {
       { etiqueta: 'Disponible', valor: disponible, ayuda: 'Unidades listas para entregar hoy.' },
       { etiqueta: 'Instalados', valor: enSitio, ayuda: 'Equipos trabajando en el cliente.' },
       { etiqueta: 'En taller', valor: enTaller, ayuda: 'Equipos rotos, esperando el taller.' },
-      { etiqueta: 'Por reponer', valor: bajos, ayuda: 'Productos con el stock igual o por debajo del minimo.' },
+      { etiqueta: 'Por reponer', valor: bajos, ayuda: 'Productos con el stock igual o por debajo del mínimo.' },
     ];
 
     for (const t of tarjetas) {
@@ -250,20 +250,20 @@ export function vistaExistencia() {
 
       const meta = crear('div', { clase: 'lista__meta' });
       meta.append(
-        crear('span', { texto: `${f.location_name ?? 'Sin ubicacion'} · ${f.category_name ?? ''}` }),
+        crear('span', { texto: `${f.location_name ?? 'Sin ubicación'} · ${f.category_name ?? ''}` }),
       );
 
       // EL DESGLOSE: lo que hay de este rubro, separado por estado.
       //
-      // Un solo numero no sirve: "12" puede ser 12 para entregar o 12
-      // instalados en un cliente. Lo que el deposito necesita es el
-      // disponible, y lo que el taller necesita es lo que esta roto.
+      // Un solo número no sirve: "12" puede ser 12 para entregar o 12
+      // instalados en un cliente. Lo que el depósito necesita es el
+      // disponible, y lo que el taller necesita es lo que está roto.
       const desglose = crear('div', { clase: 'lista__meta mono' });
       desglose.append(
         crear('span', {
           texto:
             `Disp ${f.available_count ?? 0} · ` +
-            `Tránsito ${f.in_transit_count ?? 0} · ` +
+            `Transito ${f.in_transit_count ?? 0} · ` +
             `Instalado ${f.installed_count ?? 0} · ` +
             `Taller ${f.in_repair_count ?? 0}`,
         }),
@@ -272,7 +272,7 @@ export function vistaExistencia() {
       cuerpo.append(titulo, meta, desglose);
       item.append(cuerpo);
 
-      // La insignia: el estado del stock contra el minimo.
+      // La insignia: el estado del stock contra el mínimo.
       const bajo = f.stock_status === 'LOW';
       const insignia = crear('span', {
         clase: `insignia ${bajo ? 'insignia--peligro' : 'insignia--instalado'}`,

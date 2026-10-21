@@ -1,25 +1,25 @@
 """
 Permisos por rol.
 
-QUE HAY ACA Y QUE NO
+QUE HAY Acá Y QUE NO
 --------------------
 Un diccionario `rol -> set de permisos`. No una tabla `permissions`.
 
-La tabla/configuracion por permisos es mas flexible y es lo que se arma cuando
+La tabla/configuración por permisos es más flexible y es lo que se arma cuando
 los roles son DEFINIDOS POR EL PRODUCTO: "el administrador puede hacer todo",
-"el tecnico solo trabaja en el taller". Cambiar eso requiere un deploy, y eso
-esta bien: el control de acceso es codigo, no un dato que alguien pueda editar
+"el técnico solo trabaja en el taller". Cambiar eso requiere un deploy, y eso
+está bien: el control de acceso es código, no un dato que alguien pueda editar
 en pantalla y abrirse un hueco.
 
-Lo que NO esta resuelto: si algun dia un ADMIN necesita crear roles nuevos sin
-deploy, ahi si va tabla. Ese salto es un problema para cuando aparezca, y hoy
-seria una tabla dinamica de mas que mantener.
+Lo que NO está resuelto: si algun día un ADMIN necesita crear roles nuevos sin
+deploy, ahí si va tabla. Ese salto es un problema para cuando aparezca, y hoy
+seria una tabla dinamica de más que mantener.
 
 REGLA DE DISENO
 ---------------
 ADMIN tiene `TODOS`. Los permisos se evaluan con `tiene()`, nunca comparando
 el rol a mano en los endpoints. Si el chequeo lo hace cada router por su cuenta,
-la proxima funcionalidad se olvida del chequeo y queda abierta.
+la próxima funcionalidad se olvida del chequeo y queda abierta.
 """
 
 from enum import Enum
@@ -56,7 +56,7 @@ class Permiso(str, Enum):
     # --- Incidencias ---
     #
     # Reportar un problema es de cualquiera (el operador ve el equipo roto en
-    # el deposito); resolverlo es del taller. Por eso hay TRES permisos y no
+    # el depósito); resolverlo es del taller. Por eso hay TRES permisos y no
     # uno: con un solo permiso, el operador podria cerrar casos que ni miro.
     INCIDENCIAS_VER = "incidents:read"
     INCIDENCIAS_CREAR = "incidents:create"
@@ -67,7 +67,7 @@ class Permiso(str, Enum):
     IA_ANALIZAR = "ai:analyze"
     IA_REPORTE = "ai:report"
 
-    # --- Auditoria ---
+    # --- Auditoría ---
     AUDITORIA_VER = "audit:read"
 
 
@@ -77,7 +77,7 @@ class Permiso(str, Enum):
 PERMISOS_POR_ROL: dict[str, set[str]] = {
     "ADMIN": set(Permiso),  # todo
     "TECHNICIAN": {
-        # El tecnico trabaja en el taller: ve la flota para contexto y opera
+        # El técnico trabaja en el taller: ve la flota para contexto y opera
         # las reparaciones. NO ve la lista de usuarios ni el panel de auditoría:
         # no son datos que necesite para trabajar.
         Permiso.DISPOSITIVOS_VER,
@@ -108,7 +108,7 @@ PERMISOS_POR_ROL: dict[str, set[str]] = {
 
 # Usuario sin rol, o con un rol que no existe en el diccionario. Sin permisos:
 # falla cerrado. Es la decisión importante — si un rol desconocido devolviera
-# todos los permisos, bastaría con escribir mal un nombre en la base para
+# todos los permisos, bastaria con escribir mal un nombre en la base para
 # tener acceso total.
 PERMISOS_NINGUNO: set[str] = set()
 
@@ -121,7 +121,7 @@ def permisos_de(rol: str) -> set[str]:
 
 
 def tiene(rol: str, permiso: Permiso) -> bool:
-    """El unico chequeo de permisos del sistema."""
+    """El único chequeo de permisos del sistema."""
     return permiso.value in permisos_de(rol)
 
 

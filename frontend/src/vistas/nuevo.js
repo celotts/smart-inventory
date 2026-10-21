@@ -2,7 +2,7 @@
  * Vista "Nuevo componente" — Alta de dispositivo en inventario.
  *
  * Solo visible para ADMIN (permiso devices:edit).
- * Accesible desde la barra de navegación (pestaña "Nuevo").
+ * Accesible desde la barra de navegacion (pestaña "Nuevo").
  */
 
 import { api } from '../api.js';
@@ -34,19 +34,19 @@ export function vistaNuevo({ permisos = [] }) {
     clase: 'apilado',
     estilo: 'max-width: 520px; margin: 0 auto; gap: 1rem',
     atributos: {
-      // `novalidate` APAGA la validacion nativa del navegador.
+      // `novalidate` APAGA la validación nativa del navegador.
       //
       // POR QUE
       // -----
       // Sin esto, el navegador intercepta el submit cuando falta un campo
       // obligatorio y muestra SU burbuja ("Completa este campo"), en el
       // idioma del navegador y sin decir cual es el problema de la app. La
-      // validacion de esta vista —que esta escrita en castellano, explica
+      // validación de está vista —que está escrita en castellano, explica
       // que falta y lleva el foco al campo— nunca llega a correr: el submit
       // muere antes de `enviarFormulario()`.
       //
       // El sintoma para el operador es "no me deja crear componente": el
-      // boton no hace nada y no hay ningun mensaje de la app.
+      // botón no hace nada y no hay ningún mensaje de la app.
       novalidate: true,
       onsubmit: async (e) => {
         e.preventDefault();
@@ -60,30 +60,30 @@ export function vistaNuevo({ permisos = [] }) {
   // Con `campoTexto` y `campoSelect` el error va DEBAJO del campo, con el
   // control marcado y el foco movido al primer problema. Un aviso flotante
   // que se va solo a los 4 segundos deja al operador con la duda de que
-  // campo esta mal.
+  // campo está mal.
   const campoSerial = campoTexto({
     etiqueta: 'Serial',
     placeholder: 'Ej: SN-12345678',
-    ayuda: 'El serial del fabricante. Es unico en toda la base.',
+    ayuda: 'El serial del fabricante. Es único en toda la base.',
     requerido: true,
   });
 
   const campoQR = campoTexto({
     etiqueta: 'QR propio',
     placeholder: 'Ej: INV-a1b2c3 (se genera si vacío)',
-    ayuda: 'Opcional. Si lo dejas vacio, el sistema genera uno propio.',
+    ayuda: 'Opcional. Si lo dejas vacío, el sistema genera uno propio.',
   });
 
   // --- Producto, desde el maestro -------------------------------------------
   //
-  // ANTES este formulario tenia campos sueltos de marca/modelo/categoria y los
+  // ANTES este formulario tenia campos sueltos de marca/modelo/categoría y los
   // mandaba como texto. El backend los RECHAZA: `CrearDispositivoRequest` exige
-  // `model_id` (un id del catalogo) y tiene `extra="forbid"`, asi que el alta
+  // `model_id` (un id del catalogo) y tiene `extra="forbid"`, así que el alta
   // fallaba con 422 siempre. Un equipo no lleva marca y modelo escritos a mano:
-  // apunta a un producto del maestro, y de ahi hereda marca, modelo y categoria.
+  // apunta a un producto del maestro, y de ahí hereda marca, modelo y categoría.
   const campoProducto = campoSelect({
     etiqueta: 'Producto',
-    ayuda: 'El equipo hereda marca, modelo y categoria del producto del maestro.',
+    ayuda: 'El equipo hereda marca, modelo y categoría del producto del maestro.',
     requerido: true,
   });
   campoProducto.control.append(
@@ -92,7 +92,7 @@ export function vistaNuevo({ permisos = [] }) {
 
   const campoUbicacion = campoSelect({
     etiqueta: 'Ubicación inicial',
-    ayuda: 'Donde queda el equipo. Se puede cambiar despues.',
+    ayuda: 'Donde queda el equipo. Se puede cambiar después.',
     requerido: true,
   });
   campoUbicacion.control.append(
@@ -100,7 +100,7 @@ export function vistaNuevo({ permisos = [] }) {
   );
 
   const btnSubmit = crear('button', {
-    clase: 'boton boton--bloque',
+    clase: 'botón botón--bloque',
     texto: 'Crear componente',
     atributos: { type: 'submit' },
   });
@@ -164,7 +164,7 @@ export function vistaNuevo({ permisos = [] }) {
   cargarProductos();
 
   /**
-   * Un error que NO es de un campo concreto (el servidor cayo, la sesion
+   * Un error que NO es de un campo concreto (el servidor cayo, la sesión
    * expiro): va arriba del formulario, no flotando.
    */
   function avisoFormulario(mensaje) {
@@ -181,14 +181,14 @@ export function vistaNuevo({ permisos = [] }) {
 
     // Los errores van DEBAJO del campo, con el control marcado, y el foco
     // salta al primero. Un aviso flotante que se va solo a los 4 segundos
-    // deja al operador con la duda de QUE campo esta mal.
+    // deja al operador con la duda de QUE campo está mal.
     campoProducto.limpiar();
     campoSerial.limpiar();
     campoUbicacion.limpiar();
     zonaResumen.replaceChildren();
 
     if (!model_id) {
-      campoProducto.marcar('Selecciona un producto del catálogo.');
+      campoProducto.marcar('Selecciona un producto del catalogo.');
     }
     if (!serial) {
       campoSerial.marcar('El serial es obligatorio.');
@@ -228,7 +228,7 @@ export function vistaNuevo({ permisos = [] }) {
       cargarProductos();
     } catch (error) {
       // Un 409/422 del backend es un problema de un campo (el serial ya
-      // existe, el QR esta repetido). Va al campo, no a un cartel.
+      // existe, el QR está repetido). Va al campo, no a un cartel.
       if (error.status === 409 || error.status === 422) {
         const mensaje = error.message || 'Revisa los datos.';
         if (/serial/i.test(mensaje)) campoSerial.marcar(mensaje);

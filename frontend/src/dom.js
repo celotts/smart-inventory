@@ -9,25 +9,25 @@
  *     box.innerHTML += `<div>Tú: ${q}</div>`;             // venia del usuario
  *     box.innerHTML += `<div>IA: ${j.respuesta}</div>`;   // venia del modelo
  *
- * Cada uno de esos `${}` es una inyeccion. El primero es el mas grave de los
- * tres y el mas facil de explotar: `code` es lo que dice una etiqueta fisica, o
+ * Cada uno de esos `${}` es una inyeccion. El primero es el más grave de los
+ * tres y el más fácil de explotar: `code` es lo que dice una etiqueta fisica, o
  * sea que un atacante imprime un QR con `<img src=x onerror="...">`, lo pega en
  * cualquier equipo y espera. Cuando el operador lo escanea, el script corre en
- * la pagina con la sesion del operador.
+ * la página con la sesión del operador.
  *
  * El segundo y el tercero son XSS reflejado y almacenado respectivamente: la
  * respuesta de la IA suele devolver en prosa parte de lo que se le pregunto,
- * asi que un texto con `<script>` va y vuelve entre el usuario y el modelo.
+ * así que un texto con `<script>` va y vuelve entre el usuario y el modelo.
  *
  * LA REGLA
  * --------
  * `textContent` NUNCA interpreta HTML. Escribe el string como texto, con `<`,
- * `>` y `&` literales. Es la unica forma de poner en pantalla algo que no
- * escribio este codigo.
+ * `>` y `&` literales. Es la única forma de poner en pantalla algo que no
+ * escribio este código.
  *
  * Cuando hace falta HTML de verdad —un `<div>` con una clase, un `<svg>`— se
  * construye con `document.createElement` y se le engancha el texto con
- * `textContent`. No hay caso en el que haga falta `innerHTML` aca.
+ * `textContent`. No hay caso en el que haga falta `innerHTML` acá.
  */
 
 /**
@@ -38,7 +38,7 @@
  * @param {string} [opciones.clase]
  * @param {string} [opciones.id]
  * @param {string} [opciones.texto]     Va por textContent. Seguro con cualquier dato.
- * @param {string} [opciones.estilo]     Estilo en linea (cssText).
+ * @param {string} [opciones.estilo]     Estilo en línea (cssText).
  * @param {object} [opciones.atributos] atributos="valor"
  * @param {Array}  [opciones.hijos]     Elementos ya construidos.
  *
@@ -46,7 +46,7 @@
  * ------------------------------
  * Cualquier clave que no sea `clase`, `id`, `texto`, `atributos`, `hijos` o
  * `estilo` se ignora. No hay error, no hay aviso: el elemento sale sin eso y el
- * bug aparece mas tarde y en otro lado.
+ * bug aparece más tarde y en otro lado.
  *
  * Ya paso tres veces en este repo, todas con la misma forma:
  *
@@ -66,17 +66,17 @@ export function crear(etiqueta, opciones = {}) {
   if (clase) el.className = clase;
   if (id) el.id = id;
 
-  // EL ESTILO EN LINEA: ESTABA EN EL DOCSTRING Y NO EN EL CODIGO
+  // EL ESTILO EN Línea: ESTABA EN EL DOCSTRING Y NO EN EL Código
   // -----------------------------------------------------------
   // El helper documentaba cuatro opciones y aceptaba cuatro: `estilo` no
   // existia, y todas las vistas la usaban (treinta y seis lugares). El
   // resultado era que NINGUNO de esos estilos se aplicaba, y como el efecto
-  // es sutil (un `margin:0` de mas) nadie lo notaba: no habia ningun error,
+  // es sutil (un `margin:0` de más) nadie lo notaba: no habia ningún error,
   // solo un archivo con la forma correcta y el resultado equivocado.
   if (estilo) el.style.cssText = estilo;
 
-  // `textContent` y no `innerText`: `innerText` depende del layout y es mas
-  // lento, y ademas interpreta entidades. No es lo que se quiere.
+  // `textContent` y no `innerText`: `innerText` depende del layout y es más
+  // lento, y además interpreta entidades. No es lo que se quiere.
   if (texto !== undefined && texto !== null) el.textContent = String(texto);
 
   if (atributos) {
@@ -109,14 +109,14 @@ export function vaciar(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
 
-/** Reemplaza el contenido de un elemento por otros, en una sola operacion. */
+/** Reemplaza el contenido de un elemento por otros, en una sola operación. */
 export function reemplazar(el, ...nuevos) {
   vaciar(el);
   el.append(...nuevos.filter(Boolean));
 }
 
 /**
- * Un icono SVG desde una cadena de path.
+ * Un ícono SVG desde una cadena de path.
  *
  * Se construye con `createElementNS` porque SVG no es HTML: `createElement`
  * crea un elemento del namespace equivocado y el navegador no lo dibuja. Es la
@@ -151,13 +151,13 @@ export function icono(paths, { tamano = 20, className = '' } = {}) {
  *
  * POR QUE NO ES `${p.brand} ${p.model} (${p.sku})`
  * -----------------------------------------------
- * Porque el SKU es NULL en los productos a los que todavia no se les asigno
+ * Porque el SKU es NULL en los productos a los que todavía no se les asigno
  * uno, y la interpolacion de `null` en una template string no da una cadena
- * vacia: da la palabra "null". El operador ve "Dell Latitude 5520 (null)" en
+ * vacía: da la palabra "null". El operador ve "Dell Latitude 5520 (null)" en
  * el desplegable del alta de componentes y no sabe si es un dato roto o una
  * parte del nombre.
  *
- * El SKU va cuando esta, y no va cuando no: el nombre del producto ya
+ * El SKU va cuando está, y no va cuando no: el nombre del producto ya
  * alcanza para elegirlo.
  */
 export function etiquetaProducto(p) {
@@ -167,7 +167,7 @@ export function etiquetaProducto(p) {
   return p.sku ? `${base} (${p.sku})` : base;
 }
 
-/** Las rutas de los iconos que usa la app. */
+/** Las rutas de los íconos que usa la app. */
 export const ICONOS = {
   camara: 'M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M3 12h18',
   teclado: ['M3 6h18v12H3z', 'M7 10h.01M11 10h.01M15 10h.01M17 14H7'],
@@ -184,8 +184,8 @@ export const ICONOS = {
 
 /** Traduce el estado de la base a la insignia con su clase. */
 export const ESTADOS = {
-  IN_WAREHOUSE: { texto: 'En deposito', clase: 'insignia--deposito' },
-  IN_TRANSIT: { texto: 'En transito', clase: 'insignia--transito' },
+  IN_WAREHOUSE: { texto: 'En depósito', clase: 'insignia--deposito' },
+  IN_TRANSIT: { texto: 'En tránsito', clase: 'insignia--transito' },
   INSTALLED: { texto: 'Instalado', clase: 'insignia--instalado' },
   IN_REPAIR: { texto: 'En taller', clase: 'insignia--taller' },
   PERMANENTLY_DISPOSED: { texto: 'Dado de baja', clase: 'insignia--baja' },
@@ -193,9 +193,9 @@ export const ESTADOS = {
 
 /** Traduce el tipo de movimiento a algo legible. */
 export const MOVIMIENTOS = {
-  WAREHOUSE_ENTRY: 'Entro al deposito',
-  WAREHOUSE_REENTRY: 'Volvio al deposito',
-  OUT_TO_CLIENT: 'Salio hacia el cliente',
+  WAREHOUSE_ENTRY: 'Entró al depósito',
+  WAREHOUSE_REENTRY: 'Volvio al depósito',
+  OUT_TO_CLIENT: 'Salió hacia el cliente',
   INSTALLATION: 'Instalado',
   REPLACEMENT: 'Reemplazo',
   WITHDRAWAL_TO_WORKSHOP: 'Mando a taller',

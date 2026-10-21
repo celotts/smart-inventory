@@ -1,24 +1,24 @@
 """
-Primitivas de autenticacion: hashing de passwords y emision/verificacion de JWT.
+Primitivas de autenticación: hashing de passwords y emision/verificación de JWT.
 
 DONDE VIVE EL SECRETO
 ---------------------
 `SECRET_KEY` sale de la variable de entorno, NUNCA de un default utilizable.
-Y si corre en produccion con el valor de ejemplo, la API no arranca: se
-despierta en el deploy, no el primer dia que alguien filtre un token.
+Y si corre en producción con el valor de ejemplo, la API no arranca: se
+despierta en el deploy, no el primer día que alguien filtre un token.
 
 POR QUE HAY QUE PONERLE UN DEFAULT A `SECRET_KEY`
 -------------------------------------------------
 Porque sin default, `make up` falla en el primer arranque y alguien copia un
 valor de ejemplo al `.env` sin mirarlo — y ese valor viaja al repositorio y a
-produccion. El default va, pero `verificar_configuracion_de_secreto()` lo
-rechaza en produccion. El error es el mismo en los dos casos ("poné una key"),
+producción. El default va, pero `verificar_configuración_de_secreto()` lo
+rechaza en producción. El error es el mismo en los dos casos ("pone una key"),
 pero uno pasa a los 5 segundos de arrancar y el otro a los 6 meses.
 
 POR QUE BCRYPT Y NO PBKDF2/SHA
 -------------------------------
 Las passwords de la base ya son bcrypt: las genero `pgcrypto` con
-`crypt(..., gen_salt('bf', 10))`. Bcrypt verifica `$2a$` igual que `$2b$`, asi
+`crypt(..., gen_salt('bf', 10))`. Bcrypt verifica `$2a$` igual que `$2b$`, así
 que el admin que siembla `init.sql` sigue funcionando. Cambiar de algoritmo
 implicaria rehashear todo, y mientras tanto conviven dos esquemas.
 
@@ -26,7 +26,7 @@ LO DE LOS 72 BYTES
 ------------------
 Bcrypt trunca silenciosamente a 72 bytes. Una password de 100 caracteres se
 verifica contra los primeros 72: el resto es decoracion que el atacante puede
-cambiar sin que nadie lo note. Por eso hay un limite explicito y un error
+cambiar sin que nadie lo note. Por eso hay un límite explicito y un error
 claro, en vez de dejar que bcrypt haga su truncamiento en silencio.
 """
 
@@ -42,15 +42,15 @@ import jwt
 
 from src.core.config import get_settings
 
-# Costo 12. El default de la lib es 12 tambien, pero dejarlo explicito evita
+# Costo 12. El default de la lib es 12 también, pero dejarlo explicito evita
 # que un upgrade del paquete cambie el costo de las passwords nuevas y deje
 # las viejas con un costo distinto sin que nadie lo note.
 #
-# 12 son ~250 ms por hash en una maquina moderna. Es el balance habitual: mas
-# alto frena mas al atacante y molesta mas a los usuarios legitimos.
+# 12 son ~250 ms por hash en una maquina moderna. Es el balance habitual: más
+# alto frena más al atacante y molesta más a los usuarios legitimos.
 BCRYPT_COST = 12
 
-# Bcrypt no mira mas alla de 72 bytes. Si se pasa, trunca.
+# Bcrypt no mira más allá de 72 bytes. Si se pasa, trunca.
 BCRYPT_MAX_BYTES = 72
 
 
@@ -59,7 +59,7 @@ class _EncoderTolerante(json.JSONEncoder):
     Serializa a string lo que no sepa serializar.
 
     Existe para que un `uuid.UUID` o un `Decimal` que se colen en el payload no
-    revienten el login con un TypeError en el ULTIMO paso, después de haber
+    revienten el login con un TypeError en el Último paso, después de haber
     verificado la contraseña. Que el token se pueda firmar siempre importa más
     que no perder precisión en un campo que ya viene casteado.
     """
@@ -68,7 +68,7 @@ class _EncoderTolerante(json.JSONEncoder):
         return str(o)
 
 
-# Longitud minima. La NIST recomienda 8; 12 es mas prudente para un sistema
+# Longitud mínima. La NIST recomienda 8; 12 es más prudente para un sistema
 # donde las passwords dan acceso a inventario y datos de clientes.
 PASSWORD_MIN_LEN = 8
 
@@ -98,7 +98,7 @@ def hashear_password(password: str) -> str:
     validar_password(password)
 
     # bcrypt trunca a 72 bytes y en versiones recientes LANZA ValueError si se
-    # pasa de largo. La validacion de arriba lo evita antes de llegar.
+    # pasa de largo. La validación de arriba lo evita antes de llegar.
     crudo = password.encode("utf-8")
     if len(crudo) > BCRYPT_MAX_BYTES:
         raise ErrorDePassword(
@@ -110,10 +110,10 @@ def hashear_password(password: str) -> str:
 
 def verificar_password(password: str, hash_guardado: str) -> bool:
     """
-    Compara. Nunca lanza: una excepcion aca seria un 500 en un login con
+    Compara. Nunca lanza: una excepción acá seria un 500 en un login con
     password incorrecto.
 
-    Si el hash guardado no es un bcrypt valido (usuario creado a mano con un
+    Si el hash guardado no es un bcrypt válido (usuario creado a mano con un
     string cualquiera), se devuelve False en vez de propagar el error.
     """
     if not hash_guardado:
@@ -155,9 +155,9 @@ def validar_password(password: str) -> None:
         )
 
     if not any(c.isupper() for c in password):
-        raise ErrorDePassword("La contraseña debe tener al menos una mayúscula.")
+        raise ErrorDePassword("La contraseña debe tener al menos una mayuscula.")
     if not any(c.islower() for c in password):
-        raise ErrorDePassword("La contraseña debe tener al menos una minúscula.")
+        raise ErrorDePassword("La contraseña debe tener al menos una minuscula.")
     if not any(c.isdigit() for c in password):
         raise ErrorDePassword("La contraseña debe tener al menos un número.")
 
@@ -171,13 +171,13 @@ def hashear_token(token: str) -> str:
     """
     SHA-256 del refresh token, en hex.
 
-    NO es bcrypt a proposito, y la diferencia es importante: un refresh token
+    NO es bcrypt a propósito, y la diferencia es importante: un refresh token
     son ~200 caracteres de entropia criptografica (`secrets.token_urlsafe`).
     No se puede adivinar, no se puede probar por diccionario, y no hay tabla de rainbow que
     valga porque el espacio es de 2^256. SHA-256 alcanza y es instantaneo, que
     es lo que se necesita: esto corre en CADA refresh, en el camino caliente.
 
-    bcrypt aca seria slower sin ganar nada, porque protege contra fuerza bruta
+    bcrypt acá seria slower sin ganar nada, porque protege contra fuerza bruta
     de passwords humans, que no es el caso de un token aleatorio de 200
     caracteres.
     """
@@ -190,7 +190,7 @@ def comparar_tokens(token_recibido: str, hash_guardado: str) -> bool:
 
     `==` sobre strings corta en el primer caracter distinto: con eso, un
     atacante que mide tiempos puede reconstruir el hash byte a byte. Es un
-    ataque real y lento, pero es gratis para quien lo intenta, asi que
+    ataque real y lento, pero es gratis para quien lo intenta, así que
     `hmac.compare_digest` no es opcional.
     """
     return hmac.compare_digest(hashear_token(token_recibido), hash_guardado)
@@ -209,7 +209,7 @@ def crear_access_token(
     """
     Devuelve (token, expira_en).
 
-    El payload es MINIMO a proposito. Un JWT no está cifrado: cualquiera que lo
+    El payload es Mínimo a propósito. Un JWT no está cifrado: cualquiera que lo
     intercepte puede leerlo con un `echo | cut -d. -f2 | base64 -d`. Meter el
     email o el nombre ahí es publicarlos. Va el id, el rol (para no ir a la
     base en cada permiso) y el id de sesión (para poder revocar).
@@ -221,8 +221,8 @@ def crear_access_token(
     # `str(user_id)` NO es cosmetico: psycopg2 devuelve las columnas UUID como
     # objetos `uuid.UUID`, y `json.dumps` — que es lo que usa PyJWT para armar
     # el token — no los serializa. Sin el cast, el login revienta con
-    # "Object of type UUID is not JSON serializable" DESPUES de verificar la
-    # password: el error aparece en el ultimo paso, que es el mas confuso de
+    # "Object of type UUID is not JSON serializable" Después de verificar la
+    # password: el error aparece en el último paso, que es el más confuso de
     # depurar.
     payload: dict[str, Any] = {
         "sub": str(user_id),
@@ -242,15 +242,15 @@ def crear_access_token(
     # El encoder con `default=str` es la red de seguridad: cualquier valor no
     # JSON-serializable que se cuele en el payload se convierte a string en vez
     # de reventar el login. Los casts de arriba siguen siendo los que importan;
-    # esto evita que el PROXIMO campo uuid que se agregue reviente el ultimo
-    # paso de la autenticacion.
+    # esto evita que el Próximo campo uuid que se agregue reviente el último
+    # paso de la autenticación.
     token = jwt.encode(
         payload,
         config.secret_key,
         algorithm="HS256",
         json_encoder=_EncoderTolerante,
     )
-    # PyJWT 2.x devuelve str; en 1.x devolvia bytes. El cast deja el codigo
+    # PyJWT 2.x devuelve str; en 1.x devolvia bytes. El cast deja el código
     # funcionando en las dos sin cambiarlo en cada llamada.
     if isinstance(token, bytes):
         token = token.decode("utf-8")
@@ -288,7 +288,7 @@ def decodificar_token(token: str, tipo_esperado: str) -> dict[str, Any]:
 
     `algorithms=["HS256"]` explicito: sin ese argumento, PyJWT toma el
     algoritmo DEL TOKEN, y un atacante puede mandar `alg: none` y un token sin
-    firma que pasa la verificación. Es el bypass mas famoso de JWT y se cierra
+    firma que pasa la verificación. Es el bypass más famoso de JWT y se cierra
     passandolo como lista blanca.
     """
     config = get_settings()
@@ -308,14 +308,14 @@ def decodificar_token(token: str, tipo_esperado: str) -> dict[str, Any]:
             options={"require": ["exp", "sub", "type"]},
         )
     except jwt.ExpiredSignatureError as exc:
-        raise TokenInvalido("El token expiró.") from exc
+        raise TokenInvalido("El token expiro.") from exc
     except jwt.InvalidTokenError as exc:
-        raise TokenInvalido("Token inválido.") from exc
+        raise TokenInvalido("Token invalido.") from exc
 
     if payload.get("type") != tipo_esperado:
         # Un access token no se puede usar como refresh ni al reves. Sin este
         # chequeo, el refresh endpoint aceptaria el access token — que es de
-        # vida corta — y "renovaría" la sesión con algo que expira en minutos.
+        # vida corta — y "renovaria" la sesión con algo que expira en minutos.
         raise TokenInvalido(f"Se esperaba un token de tipo {tipo_esperado}.")
 
     return payload
@@ -331,7 +331,7 @@ def verificar_configuracion_de_secreto() -> None:
     Se llama en el arranque de la API. Falla si el secreto es inseguro.
 
     Que falle al arrancar y no al primer login: un deploy sin SECRET_KEY tiene
-    que caerse en el pipeline, no en produccion un martes a la tarde.
+    que caerse en el pipeline, no en producción un martes a la tarde.
     """
     config = get_settings()
 
@@ -340,14 +340,14 @@ def verificar_configuracion_de_secreto() -> None:
 
     if not config.secret_key:
         raise RuntimeError(
-            "SECRET_KEY no está definida. Sin ella nadie puede autenticarse."
+            "SECRET_KEY no esta definida. Sin ella nadie puede autenticarse."
         )
 
     if config.secret_key == config.SECRET_KEY_DE_EJEMPLO:
         raise RuntimeError(
-            "SECRET_KEY es el valor de ejemplo. En producción todos los que "
+            "SECRET_KEY es el valor de ejemplo. En produccion todos los que "
             "conozcan el repositorio pueden firmar tokens de ADMIN.\n"
-            "Generá una con:\n"
+            "Genera una con:\n"
             '    python3 -c "import secrets; print(secrets.token_urlsafe(48))"\n'
             "y ponela en el .env o en el secret manager."
         )
@@ -372,24 +372,24 @@ def verificar_configuracion_de_secreto() -> None:
 #     {
 #       entropia: 0..100,        # el ancho de la barra
 #       nivel: 'débil'|'media'|'fuerte',
-#       requisitos: [{ nombre, minimo, cumplido }],
-#       es_valida: bool,
+#       requisitos: [{ nombre, mínimo, cumplido }],
+#       es_válida: bool,
 #     }
 #
-# El router importa ESTA funcion. Antes no existia: el endpoint devolvia un
+# El router importa Está función. Antes no existia: el endpoint devolvia un
 # 500 en cada tecla del login, con el ImportError escondido adentro del
 # handler. El medidor se caia en silencio (el frontend lo atrapa) pero el
-# operador nunca via la fuerza de su contrasena.
+# operador nunca via la fuerza de su contraseña.
 #
 # POR QUE LOS REQUISITOS SON LOS DE `validar_password`
 # ---------------------------------------------------
-# Porque el medidor tiene que decir la verdad: si muestra "falta un numero" y
-# el backend acepta la contrasena igual, el medidor es decoracion. Los dos
-# leen la misma lista, asi que no pueden contradecirse.
+# Porque el medidor tiene que decir la verdad: si muestra "falta un número" y
+# el backend acepta la contraseña igual, el medidor es decoracion. Los dos
+# leen la misma lista, así que no pueden contradecirse.
 REQUISITOS_PASSWORD = (
     {"nombre": "Longitud mínima", "minimo": PASSWORD_MIN_LEN, "tipo": "largo"},
-    {"nombre": "Una mayúscula", "minimo": 1, "tipo": "mayuscula"},
-    {"nombre": "Una minúscula", "minimo": 1, "tipo": "minuscula"},
+    {"nombre": "Una mayuscula", "minimo": 1, "tipo": "mayuscula"},
+    {"nombre": "Una minuscula", "minimo": 1, "tipo": "minuscula"},
     {"nombre": "Un número", "minimo": 1, "tipo": "numero"},
 )
 
@@ -408,9 +408,9 @@ def _cumple_requisito(password: str, tipo: str) -> bool:
 
 def obtener_info_fortaleza_password(password: str) -> dict:
     """
-    Calcula la fortaleza de una contrasena sin guardarla.
+    Calcula la fortaleza de una contraseña sin guardarla.
 
-    No lanza: es una ayuda visual, y un error aca seria un 500 mientras el
+    No lanza: es una ayuda visual, y un error acá seria un 500 mientras el
     operador escribe. Devuelve siempre la misma forma.
     """
     password = password or ""
@@ -435,7 +435,7 @@ def obtener_info_fortaleza_password(password: str) -> dict:
     alfabeto = len(set(password))
     bits = len(password) * (alfabeto.bit_length() if alfabeto > 0 else 0)
 
-    # 72 bits ~ una contrasena decente; 100+ ~ fuerte. Se escala a 0..100.
+    # 72 bits ~ una contraseña decente; 100+ ~ fuerte. Se escala a 0..100.
     entropia = min(100, int(bits / 1.2))
 
     if cumplidos == total and entropia >= 60:

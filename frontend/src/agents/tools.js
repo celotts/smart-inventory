@@ -1,7 +1,7 @@
 /**
  * Tools disponibles para los agentes.
  * Cada tool mapea a una función de api.js o lógica local.
- * El agente decide QUÉ tool usar basándose en la query del usuario.
+ * El agente decide QUE tool usar basandose en la query del usuario.
  */
 
 import { Tool } from './base.js';
@@ -207,7 +207,7 @@ export const ToolListarOrdenesCompra = new Tool({
 
 export const ToolRecibirOrdenCompra = new Tool({
   nombre: 'recibir_orden_compra',
-  descripcion: 'Registra recepción (parcial o total) de una orden. Crea devices + WAREHOUSE_ENTRY.',
+  descripcion: 'Registra recepcion (parcial o total) de una orden. Crea devices + WAREHOUSE_ENTRY.',
   parametros: {
     type: 'object',
     properties: {
@@ -219,7 +219,7 @@ export const ToolRecibirOrdenCompra = new Tool({
           properties: {
             po_line_id: { type: 'integer', minimum: 1 },
             cantidad_recibida: { type: 'integer', minimum: 1 },
-            serial_numbers: { type: 'array', items: { type: 'string' } }, // Opcional: serials específicos
+            serial_numbers: { type: 'array', items: { type: 'string' } }, // Opcional: serials especificos
           },
           required: ['po_line_id', 'cantidad_recibida'],
         },
@@ -252,14 +252,14 @@ export const ToolReporteOperativo = new Tool({
 
 export const ToolEstadisticasInventario = new Tool({
   nombre: 'estadisticas_inventario',
-  descripcion: 'KPIs numéricos: total dispositivos, por estado, por ubicación, valor inventario, rotación.',
+  descripcion: 'KPIs numericos: total dispositivos, por estado, por ubicación, valor inventario, rotacion.',
   parametros: { type: 'object', properties: {} },
   ejecutar: async () => api.pedir('/reports/inventory-stats'),
 });
 
 export const ToolRotacionModelos = new Tool({
   nombre: 'rotacion_modelos',
-  descripcion: 'Modelos con más movimientos (entradas/salidas) en período. Para detectar fast-movers.',
+  descripcion: 'Modelos con más movimientos (entradas/salidas) en periodo. Para detectar fast-movers.',
   parametros: {
     type: 'object',
     properties: {

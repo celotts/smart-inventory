@@ -1,10 +1,10 @@
 """
-Fabrica de proveedores: el unico punto del codigo donde se decide que LLM se
+Fabrica de proveedores: el único punto del código donde se decide que LLM se
 usa.
 
-Si el resto de la aplicacion llamara a `OllamaProvider()` directamente,
+Si el resto de la aplicación llamara a `OllamaProvider()` directamente,
 cambiar a OpenAI seria una busqueda y reemplazos en todos los routers. Con
-esto, es `LLM_PROVIDER=openai` en el entorno y nada mas.
+esto, es `LLM_PROVIDER=openai` en el entorno y nada más.
 """
 
 from src.core.config import Settings, get_settings
@@ -23,11 +23,11 @@ _proveedor: LLMProvider | None = None
 
 def construir_proveedor(settings: Settings) -> LLMProvider:
     """
-    Crea el provider segun `settings.llm_provider`.
+    Crea el provider según `settings.llm_provider`.
 
-    La validacion del valor ya la hizo el field_validator de Settings, asi que
-    el `else` de abajo es practicamente inalcanzable. Esta a proposito: si
-    alguien agrega "anthropic" a la config y olvida esta funcion, que reviente
+    La validación del valor ya la hizo el field_validator de Settings, así que
+    el `else` de abajo es practicamente inalcanzable. Está a propósito: si
+    alguien agrega "anthropic" a la config y olvida está función, que reviente
     con un error claro en el arranque y no con un KeyError en el primer
     request.
     """

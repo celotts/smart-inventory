@@ -40,7 +40,7 @@ CREATE INDEX idx_movement_types_active ON movement_types(is_active);
 CREATE UNIQUE INDEX uq_movement_type_system_name ON movement_types(name) WHERE (is_system = TRUE);
 
 -- ===========================================================================
--- 2. Seed de tipos de movimiento DEL SISTEMA (is_system = TRUE, client_id = NULL)
+-- 2. Seed de tipos de movimiento DEL Sistema (is_system = TRUE, client_id = NULL)
 -- ===========================================================================
 INSERT INTO movement_types (name, label, target_status, icon, color, sort_order, is_system, is_active) VALUES
     ('WAREHOUSE_ENTRY', 'Entrada a depósito', 'IN_WAREHOUSE', 'package', '#2e7d32', 1, TRUE, TRUE),
@@ -76,16 +76,16 @@ ALTER TABLE movement_history DROP COLUMN movement_type;
 -- ===========================================================================
 -- POR QUE NO ES UN CHECK
 -- ----------------------
--- La version original era un CHECK con un SELECT adentro:
+-- La versión original era un CHECK con un SELECT adentro:
 --
 --     CHECK (CASE WHEN (SELECT name FROM movement_types WHERE id = movement_type_id)
 --                 = 'REPLACEMENT' THEN ... END)
 --
 -- Postgres RECHAZA eso con "cannot use subquery in check constraint": la regla
 -- es que un CHECK se evalua dentro de la misma fila y una subconsulta rompe esa
--- garantia. La migracion fallaba entera y `movement_history` quedaba sin migrar.
+-- garantía. La migración fallaba entera y `movement_history` quedaba sin migrar.
 --
--- La regla depende de OTRA tabla (el nombre del tipo vive en movement_types), asi
+-- La regla depende de OTRA tabla (el nombre del tipo vive en movement_types), así
 -- que no se puede expresar como CHECK ni con una FK. Se hace con un trigger, que
 -- si puede consultar.
 ALTER TABLE movement_history DROP CONSTRAINT IF EXISTS ck_movement_replacement;

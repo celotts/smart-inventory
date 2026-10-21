@@ -13,15 +13,15 @@ hay forma de distinguirlo del acierto.
 
 Aca el SQL se ejecuta primero y la segunda llamada recibe el RESULTADO. Si hay
 47 filas, el modelo solo puede decir 47. La alucinacion se reduce a lo que el
-modelo puede afirmar sobre un conjunto de numeros que ya tiene delante, que es
-mucho mas controllable.
+modelo puede afirmar sobre un conjunto de números que ya tiene delante, que es
+mucho más controllable.
 
 QUE SE LE MANDA EN LA SEGUNDA LLAMADA
 ------------------------------------
 Filas agregadas, con un tope. Si la consulta devolvio 500 filas de detalle, la
 segunda llamada recibe un resumen, no las 500. Mandar el detalle seria lo
 mismo que mandar filas crudas, con el riesgo de exfiltracion incluido, y sin
-ganancia: para explicar "donde hay mas equipos rotos" no hacen falta 500 filas.
+ganancia: para explicar "donde hay más equipos rotos" no hacen falta 500 filas.
 """
 
 from typing import Any
@@ -34,7 +34,7 @@ from src.modules.ai.table_format import formatear_tabla
 
 # Cuantas filas se le describen al modelo en la segunda llamada. 60 cabe en la
 # ventana de contexto con el esquema adelante y es de sobra para que pueda
-# decir "hay 4 mas de esto que aquello".
+# decir "hay 4 más de esto que aquello".
 MAX_FILAS_PARA_EXPLICAR = 60
 
 SYSTEM_SQL = """Eres un analista de datos de un sistema de inventario de dispositivos B2B.
@@ -42,13 +42,13 @@ SYSTEM_SQL = """Eres un analista de datos de un sistema de inventario de disposi
 Tu trabajo es escribir UNA consulta SQL de solo lectura (SELECT) que responda la pregunta.
 
 Reglas:
-- Responde SIEMPRE con un solo bloque ```sql ... ``` y nada mas. Sin explicaciones.
+- Responde SIEMPRE con un solo bloque ```sql ... ``` y nada más. Sin explicaciones.
 - Solo SELECT. Nunca INSERT, UPDATE, DELETE, DROP ni ninguna escritura.
 - Una sola sentencia. Sin punto y coma al final.
-- Usá SIEMPRE el nombre de tabla `models` para el catalogo, y `models.id` como su PK.
-- Poné un WHERE cuando la pregunta sea sobre un subconjunto.
-- Si la pregunta pide conteos o totales, usá COUNT, SUM o AVG. Si pide un
-  detalle, traé las filas.
+- Usa SIEMPRE el nombre de tabla `models` para el catalogo, y `models.id` como su PK.
+- Pone un WHERE cuando la pregunta sea sobre un subconjunto.
+- Si la pregunta pide conteos o totales, usa COUNT, SUM o AVG. Si pide un
+  detalle, trae las filas.
 - No uses subconsultas anidadas con LIMIT.
 
 COMO USAR EL HISTORIAL
@@ -57,15 +57,15 @@ Si te pasan turnos anteriores de la conversacion, la pregunta actual puede
 referirse a ellos con palabras como "ese", "esos", "el anterior", "los de
 arriba", "de esos". En ese caso:
 
-- USÁ el mismo conjunto de la pregunta anterior: si antes se contó lo que
+- USA el mismo conjunto de la pregunta anterior: si antes se conto lo que
   hay en deposito, ahora se pide el DETALLE de lo que hay en deposito.
 - NO cambies el tema por tu cuenta. Si la pregunta anterior era de
   EQUIPOS y esta pide "cual es ese equipo", segui con EQUIPOS. Cambiar de
   tema es lo que hace que la respuesta contradiga a la anterior.
-- Si la pregunta pide el detalle de algo que antes se CONTÓ: partí de la
-  consulta anterior del historial, sacá el COUNT(*) y poné en su lugar las
+- Si la pregunta pide el detalle de algo que antes se CONTO: parti de la
+  consulta anterior del historial, saca el COUNT(*) y pone en su lugar las
   columnas que identifican a cada fila (serial_number, qr_code, model, brand,
-  store_name). MANTENÉ EL WHERE EXACTO de la consulta anterior.
+  store_name). MANTENE EL WHERE EXACTO de la consulta anterior.
 - En ese caso NO agregues condiciones: en particular NO inventes ids. Si la
   consulta anterior contaba los equipos en deposito, la de detalle trae los
   equipos en deposito y dice CUALES. Un "WHERE d.id = 1" inventado hace que
@@ -77,35 +77,35 @@ SYSTEM_RESPUESTA = """Sos el asistente que explica resultados de inventario a un
 Tenes el esquema del sistema, la consulta que se ejecuto y las filas que devolvio.
 
 Reglas:
-- Usá SOLO los numeros que aparecen en las filas. No calcules nada que no este
-  ahi, no completes, no supongas.
-- Si las filas estan vacias, decilo claramente: la consulta no encontro datos.
-- Si la consulta fallo, explicá en una frase que se puede hacer y cual fue el
+- Usa Solo los números que aparecen en las filas. No calcules nada que no este
+  ahí, no completes, no supongas.
+- Si las filas están vacías, decilo claramente: la consulta no encontro datos.
+- Si la consulta fallo, explica en una frase que se puede hacer y cual fue el
   problema.
-- Respondé en español rioplatense, breve. Sin preámbulo tipo "¡Claro!" ni
+- Responde en español rioplatense, breve. Sin preambulo tipo "¡Claro!" ni
   "Aquí tienes". Directamente la respuesta.
-- Si hay varios numeros, decilos como una frase corta, no como una tabla
+- Si hay varios números, decilos como una frase corta, no como una tabla
   Markdown salvo que haya muchas filas.
 - NUNCA menciones un valor que no este en el resultado. Si el resultado tiene
-  un solo dato, no hay ningun otro: escribir "id: 1" o un numero de serie
+  un solo dato, no hay ningún otro: escribir "id: 1" o un número de serie
   que no vino en las filas es INVENTAR el detalle de un equipo, y el operador
   lo toma como dato real.
 
 COMO DESCRIBIR UN DETALLE
 -------------------------
 Si la consulta trae filas de DETALLE (un equipo, un producto, un cliente),
-la respuesta NO puede ser solo un numero: tiene que decir QUE es cada uno.
+la respuesta NO puede ser solo un número: tiene que decir QUE es cada uno.
 Por ejemplo, si la fila es el serial SN-001, la respuesta tiene que decir
-"SN-001" y algo que lo identifique (donde esta, de que modelo es).
+"SN-001" y algo que lo identifique (donde está, de que modelo es).
 
 El operador ve la tabla abajo de tu respuesta, pero la tabla es el
 RESPALDO: tu texto es lo que se lee primero. Un "Se encontro 1 equipo" con
 la tabla abajo deja al operador adivinando cual es; un "Se encontro SN-001,
-un Dell Latitude 5520 en el Deposito Central" no deja nada que adivinar.
+un Dell Latitude 5520 en el Depósito Central" no deja nada que adivinar.
 
 Si la consulta no encontro filas, decilo y SUGERI una pregunta relacionada que
-si se pueda responder ("no hay equipos en esa ubicacion; puedo buscar los que
-estan en transito").
+si se pueda responder ("no hay equipos en esa ubicación; puedo buscar los que
+están en tránsito").
 """
 
 
@@ -119,7 +119,7 @@ class _ErrorDeModelo(Exception):
 
 def _resumir_turno(turno: dict[str, Any]) -> str:
     """
-    El resumen de un turno anterior, en una linea.
+    El resumen de un turno anterior, en una línea.
 
     Es lo que el modelo necesita para DESAMBIGUAR ("ese equipo", "esos"): el
     tema de la pregunta y el de la consulta. El detalle de las filas no
@@ -144,8 +144,8 @@ def _limpiar_respuesta(texto: str, es_agregado: bool) -> str:
     1. Las tablas Markdown: la pantalla YA muestra los datos en una tabla, y
        el modelo repeating la tabla en el texto deja la respuesta a medias
        entre la prosa y los datos.
-    2. En un resultado agregado, todo lo que viene despues de la PRIMERA
-       FRASE. El modelo escribia "Se encontro 1 equipo en el Deposito." y
+    2. En un resultado agregado, todo lo que viene después de la PRIMERA
+       FRASE. El modelo escribia "Se encontro 1 equipo en el Depósito." y
        seguia con una lista inventada ("id: 1, serial: SN-001...") con datos
        que no estaban en el resultado. La primera frase es la que responde;
        lo demas es relleno y, en este caso, mentira.
@@ -158,7 +158,7 @@ def _limpiar_respuesta(texto: str, es_agregado: bool) -> str:
         # Una fila de tabla Markdown: empieza o termina con "|".
         if linea.strip().startswith("|") or linea.strip().endswith("|"):
             continue
-        # La linea de separacion de una tabla ("---" o "|---|---|").
+        # La línea de separacion de una tabla ("---" o "|---|---|").
         if set(linea.strip()) <= set("|-: "):
             continue
         lineas.append(linea)
@@ -167,7 +167,7 @@ def _limpiar_respuesta(texto: str, es_agregado: bool) -> str:
 
     if es_agregado:
         # La primera FRASE. El corte es en cualquier puntuacion seguida de
-        # espacio (o de salto de linea): el modelo separa las frases con un
+        # espacio (o de salto de línea): el modelo separa las frases con un
         # "\n" a veces, y con un corte solo de ". " se colaba la segunda.
         import re as _re
 
@@ -190,7 +190,7 @@ def resumen_de_resultado(
     cantidad_filas: int,
 ) -> str:
     """
-    Un resumen de UNA linea del resultado, para el historial.
+    Un resumen de UNA línea del resultado, para el historial.
 
     Es lo que viaja al siguiente turno: alcanza con el TEMA y los valores
     identificatorios (el serial, el SKU). El detalle completo de las filas no
@@ -200,15 +200,15 @@ def resumen_de_resultado(
     if not filas:
         return "sin filas"
 
-    # Un agregado se describe como lo que es: "un unico dato: count = 1".
+    # Un agregado se describe como lo que es: "un único dato: count = 1".
     # Si se describiera como "1 fila | count: 1", el modelo tomaba el "1" por
     # un id y lo metia como filtro en la consulta siguiente (la del detalle),
     # que devolvia cero filas y contradecia a la respuesta anterior.
     if len(columnas) == 1:
         # NO se escribe el valor: "count = 1" lo leia el modelo como un id y
         # lo metia de filtro en la consulta siguiente ("WHERE d.id = 1"), que
-        # no devolvia filas y contradecia a la respuesta anterior. El numero
-        # que hace falta para responder esta pregunta ya esta en la
+        # no devolvia filas y contradecia a la respuesta anterior. El número
+        # que hace falta para responder está pregunta ya está en la
         # CONSULTA anterior del historial.
         return "un total (la consulta cuenta, no trae filas de detalle)"
 
@@ -334,7 +334,7 @@ def responder_pregunta(
             "cantidad_filas": 0,
             "respuesta": (
                 f"No pude ejecutar la consulta generada. {exc} "
-                "Probá reformular la pregunta."
+                "Proba reformular la pregunta."
             ),
             "modelo": respuesta_sql.model_used,
         }
@@ -345,16 +345,16 @@ def responder_pregunta(
     ]
 
     # Formato POSICIONAL, no JSON de diccionarios: con JSON el modelo
-    # desalinea las columnas y mete un numero en la etiqueta de al lado.
+    # desalinea las columnas y mete un número en la etiqueta de al lado.
     #
     # EL CASO AGREGADO
     # ----------------
-    # Cuando la consulta devuelve UN SOLO DATO (un COUNT, un SUM, un AVG),
-    # el contexto se dice de otra manera: "unico dato: count = 1". Con el
+    # Cuando la consulta devuelve UN Solo DATO (un COUNT, un SUM, un AVG),
+    # el contexto se dice de otra manera: "único dato: count = 1". Con el
     # formato general (una lista de "- count: 1"), el modelo lo leia como el
     # principio de una fila y completaba el resto con lo que se imaginaba:
     # Contestaba "1 equipo: id 1, serial SN-001, Dell Latitude 5520" sin
-    # tener NINGUNO de esos datos. La respuesta daba el numero bien y el
+    # tener NINGUNO de esos datos. La respuesta daba el número bien y el
     # detalle inventado, que es peor: el operador creia que ese era el
     # equipo.
     es_agregado = len(resultado["columnas"]) == 1
@@ -393,7 +393,7 @@ def responder_pregunta(
         uso_fallback = uso_fallback or explicacion.used_fallback
     except LLMError:
         # Si el modelo va y viene, las filas siguen siendo la respuesta. Un
-        # reporte sin glosa es mil veces mas util que un 502.
+        # reporte sin glosa es mil veces más útil que un 502.
         respuesta_final = (
             f"La consulta devolvio {resultado['cantidad_filas']} filas, pero el "
             "modelo no pudo redactar el resumen. Los datos estan en `filas`."

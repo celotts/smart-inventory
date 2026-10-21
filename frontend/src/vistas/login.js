@@ -1,20 +1,20 @@
 /**
- * Vista de inicio de sesion.
+ * Vista de inicio de sesión.
  *
- * NADA DE ESTA VISTA USA `innerHTML`. El email y el password van por
+ * NADA DE Está VISTA USA `innerHTML`. El email y el password van por
  * `textContent` y `value`, y el mensaje de error se arma con `crear()`.
  *
- * POR QUE NO HAY MEDIDOR DE FORTALEZA ACA
+ * POR QUE NO HAY MEDIDOR DE FORTALEZA Acá
  * ---------------------------------------
  * El medidor de fortaleza de clave tiene sentido cuando se CREA una clave: el
  * operador elige una y hay que decirle si es debil. En el INGRESO la clave ya
- * existe, su fortaleza no es decision del operador, y mostrarla confunde:
+ * existe, su fortaleza no es decisión del operador, y mostrarla confunde:
  * "tu clave es debil" le dice al operador que tiene que cambiarla, cuando lo
- * unico que esta haciendo es entrar.
+ * único que está haciendo es entrar.
  *
  * El error de un ingreso fallido va en el formulario y no en un campo: el
- * problema no es el email o la clave, es la COMBINACION. Marcaria de mas un
- * campo que esta bien.
+ * problema no es el email o la clave, es la COMBINACION. Marcaria de más un
+ * campo que está bien.
  */
 
 import { api } from '../api.js';
@@ -70,7 +70,7 @@ export function vistaLogin({ alEntrar }) {
   error.hidden = true;
 
   const boton = crear('button', {
-    clase: 'boton boton--bloque',
+    clase: 'botón botón--bloque',
     texto: 'Entrar',
     atributos: { type: 'submit' },
   });
@@ -78,7 +78,7 @@ export function vistaLogin({ alEntrar }) {
   formulario.append(email.campo, clave.campo, error, boton);
 
   tarjeta.append(
-    crear('h2', { clase: 'tarjeta__titulo', texto: 'Iniciar sesion' }),
+    crear('h2', { clase: 'tarjeta__titulo', texto: 'Iniciar sesión' }),
     crear('p', { clase: 'tarjeta__subtitulo', texto: 'Accede con tu cuenta de la empresa.' }),
     formulario,
   );
@@ -115,7 +115,7 @@ export function vistaLogin({ alEntrar }) {
       const datos = await api.login(correo, palabra);
       alEntrar(datos);
     } catch (excepcion) {
-      error.textContent = excepcion.message || 'No se pudo iniciar sesion.';
+      error.textContent = excepcion.message || 'No se pudo iniciar sesión.';
       error.hidden = false;
       boton.disabled = false;
       boton.textContent = 'Entrar';

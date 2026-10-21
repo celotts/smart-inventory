@@ -1,5 +1,5 @@
 """
-Servicio de Compras - Órdenes de compra, recepción, sugerencias de reorden.
+Servicio de Compras - Órdenes de compra, recepcion, sugerencias de reorden.
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ def obtener_orden(po_id: int) -> dict[str, Any]:
 
     `pendiente` es la resta `cantidad - cantidad_recibida`. El frontend la usa
     para no ofrecer "recibir 5" cuando solo faltan 3: mostrar la cuenta que el
-    operador tendría que hacer a mano es pedirle que se equivoque.
+    operador tendria que hacer a mano es pedirle que se equivoque.
     """
     db = get_db_session()
     try:
@@ -187,17 +187,17 @@ def recibir_orden(
         devices_creados = 0
 
         # Ubicación de destino: el depósito. Se resuelve por la primera ubicación
-        # activa en vez de hardcodear `1`. El `1` original asumía que el depósito
-        # era siempre la primera fila, y en esta base las ubicaciones arrancan en
-        # id=4: la recepción fallaba con FK violation contra una ubicación que no
-        # existía.
+        # activa en vez de hardcodear `1`. El `1` original asumia que el depósito
+        # era siempre la primera fila, y en está base las ubicaciones arrancan en
+        # id=4: la recepcion fallaba con FK violation contra una ubicación que no
+        # existia.
         deposito = db.execute(
             text("SELECT id FROM locations WHERE is_active = TRUE ORDER BY id LIMIT 1")
         ).scalar()
         if deposito is None:
             raise ValueError(
-                "No hay ninguna ubicación activa para recibir la mercancía. "
-                "Creá una ubicación (depósito) antes de recibir una orden."
+                "No hay ninguna ubicacion activa para recibir la mercancia. "
+                "Crea una ubicacion (deposito) antes de recibir una orden."
             )
 
         for linea in lineas:
@@ -244,7 +244,7 @@ def recibir_orden(
                 #
                 # Las columnas son las REALES de movement_history: `user_id` (UUID),
                 # no `registered_by`, y `movement_type_id` (la FK a
-                # movement_types), no el ENUM `movement_type` —que la migracion
+                # movement_types), no el ENUM `movement_type` —que la migración
                 # 0010 dropeo—. El INSERT original nombraba columnas que no
                 # existen en la tabla.
                 q_mov = """

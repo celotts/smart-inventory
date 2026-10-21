@@ -44,7 +44,7 @@ def dashboard(
 
 @router.get(
     "/inventory-stats",
-    summary="KPIs de inventario: total, por estado, por ubicación, valor, rotación",
+    summary="KPIs de inventario: total, por estado, por ubicacion, valor, rotacion",
 )
 def estadisticas_inventario(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
@@ -54,7 +54,7 @@ def estadisticas_inventario(
 
 @router.get(
     "/rotation",
-    summary="Rotación de modelos: fast/slow movers en N días",
+    summary="Rotacion de modelos: fast/slow movers en N días",
 )
 def rotacion_modelos(
     dias: int = Query(30, ge=1, le=365),
@@ -79,7 +79,7 @@ def tiempo_instalacion(
 
 @router.get(
     "/valor-libro",
-    summary="Valor libro de los activos (depreciación lineal)",
+    summary="Valor libro de los activos (depreciacion lineal)",
 )
 def ver_valor_libro(
     client_id: int | None = Query(None, gt=0, description="Solo los equipos del cliente."),
@@ -88,10 +88,10 @@ def ver_valor_libro(
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> dict:
     """
-    Lo que el equipo vale HOY, no lo que costó.
+    Lo que el equipo vale HOY, no lo que costo.
 
     Es el reporte que pide el cliente y la contabilidad: el valor de la flota
-    instalada, con la depreciación acumulada y el valor libro por equipo.
+    instalada, con la depreciacion acumulada y el valor libro por equipo.
 
     Sin `purchase_date` o sin `purchase_value` el equipo no entra en el
     cálculo (y el resumen dice cuantos son): un valor libro estimado con una

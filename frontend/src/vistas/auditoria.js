@@ -1,20 +1,20 @@
 /**
- * Vista "Auditoría" — la traza de lo que pasó en el sistema.
+ * Vista "Auditoría" — la traza de lo que paso en el sistema.
  *
  * QUE MUESTRA, Y POR QUE EN UNA SOLA LISTA
  * -----------------------------------------
- * Una línea de tiempo cronológica que mezcla dos cosas que en el sistema viven
+ * Una línea de tiempo cronologica que mezcla dos cosas que en el sistema viven
  * en tablas distintas pero que quien audita lee juntas:
  *
- *   - los MOVIMIENTOS de inventario: quién sacó qué equipo, de qué sede a qué
- *     sede, cuándo (de `movement_history`);
+ *   - los MOVIMIENTOS de inventario: quien saco que equipo, de que sede a que
+ *     sede, cuando (de `movement_history`);
  *   - los EVENTOS del sistema: logins, altas y cambios de usuarios (de
  *     `audit_logs`).
  *
- * Separarlas en dos pantallas obligaría al auditor a saber en cuál buscar, y la
- * pregunta real ("qué pasó ayer entre las 3 y las 5") cruza las dos.
+ * Separarlas en dos pantallas obligaria al auditor a saber en cual buscar, y la
+ * pregunta real ("que paso ayer entre las 3 y las 5") cruza las dos.
  *
- * LA INSIGNIA DE CATEGORÍA NO ES DECORATIVA
+ * LA INSIGNIA DE Categoría NO ES DECORATIVA
  * -----------------------------------------
  * El borde izquierdo de cada fila dice si es inventario o sistema. Es lo que
  * permite escanear la lista en diagonal y ver de un golpe dónde están los
@@ -44,18 +44,18 @@ export function vistaAuditoria({ permisos = [] } = {}) {
   cabecera.append(
     crear('div', {
       hijos: [
-        crear('h2', { clase: 'tarjeta__titulo', texto: 'Auditoría' }),
+        crear('h2', { clase: 'tarjeta__titulo', texto: 'Auditoria' }),
         crear('p', {
           clase: 'tarjeta__subtitulo',
           estilo: 'margin:0',
-          texto: 'Quién hizo qué y cuándo. Movimientos de equipos y eventos del sistema.',
+          texto: 'Quien hizo que y cuando. Movimientos de equipos y eventos del sistema.',
         }),
       ],
     }),
   );
 
   const btnActualizar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => recargar() },
   });
@@ -69,7 +69,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
     clase: 'campo__control',
     atributos: {
       type: 'search',
-      placeholder: 'Buscar por serial, usuario, sede u observación',
+      placeholder: 'Buscar por serial, usuario, sede u observacion',
       autocomplete: 'off',
     },
   });
@@ -115,7 +115,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  // LA PAGINACION (el componente compartido)
+  // LA Paginación (el componente compartido)
   let pagina = 0;
   let POR_PAGINA = 50;
   let total = 0;
@@ -152,7 +152,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
     if (selectCategoria.value) params.categoria = selectCategoria.value;
     // Las fechas se mandan como fin/inicio del día en ISO. `new Date('2026-01-01')`
     // es medianoche UTC, que en una zona negativa cae el día anterior: se
-    // construye con la hora explícita para no correr un día el rango.
+    // construye con la hora explicita para no correr un día el rango.
     if (campoDesde.value) params.desde = `${campoDesde.value}T00:00:00`;
     if (campoHasta.value) params.hasta = `${campoHasta.value}T23:59:59`;
 
@@ -175,7 +175,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
       const r = await api.auditoriaResumen();
       zonaResumen.replaceChildren(
         tarjetaKpi(r.movimientos_hoy, 'Movimientos hoy'),
-        tarjetaKpi(r.movimientos_semana, 'Esta semana'),
+        tarjetaKpi(r.movimientos_semana, 'Está semana'),
         tarjetaKpi(r.logins_semana, 'Ingresos (7 días)'),
         tarjetaKpi(r.movimientos_totales, 'Movimientos totales'),
       );
@@ -228,7 +228,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
 
     const cuerpo = crear('div', { clase: 'lista__cuerpo' });
 
-    // Título: la acción. Debajo, qué objeto y quién.
+    // Título: la accion. Debajo, que objeto y quien.
     const titulo = crear('div', { clase: 'flex-entre' });
     titulo.append(
       crear('div', { clase: 'lista__titulo', texto: evento.accion }),
@@ -251,7 +251,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
       );
       if (equipo) cuerpo.append(crear('div', { clase: 'lista__meta', texto: equipo }));
 
-      // El recorrido: de dónde a dónde. Es el corazón de la trazabilidad.
+      // El recorrido: de dónde a dónde. Es el corazon de la trazabilidad.
       const recorrido = [evento.origen, evento.destino].filter(Boolean).join(' → ');
       if (recorrido) {
         cuerpo.append(crear('div', { clase: 'lista__meta', texto: recorrido }));
@@ -276,7 +276,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
       );
     }
 
-    // El actor y la fecha. Van juntos porque la pregunta "quién y cuándo" se
+    // El actor y la fecha. Van juntos porque la pregunta "quien y cuando" se
     // responde de una sola lectura.
     const pie = crear('div', { clase: 'lista__meta' });
     pie.append(
@@ -293,7 +293,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
     if (evento.categoria === 'inventario' && evento.device_id) {
       item.append(
         crear('button', {
-          clase: 'boton boton--suave',
+          clase: 'botón botón--suave',
           texto: 'Ver equipo',
           atributos: {
             type: 'button',
@@ -311,9 +311,9 @@ export function vistaAuditoria({ permisos = [] } = {}) {
   }
 
   /**
-   * La barra de paginacion: el COMPONENTE compartido, para que todas las
-   * tablas de la app se comporten igual (los botones, el "pagina 3 de 15" y
-   * la cantidad por pagina).
+   * La barra de paginación: el COMPONENTE compartido, para que todas las
+   * tablas de la app se comporten igual (los botones, el "página 3 de 15" y
+   * la cantidad por página).
    */
   function pintarPaginacion() {
     paginacion.actualizar({ total, limite: POR_PAGINA, pagina });

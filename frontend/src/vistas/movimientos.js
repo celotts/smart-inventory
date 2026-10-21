@@ -1,12 +1,12 @@
 /**
- * Vista "Movimientos" — mover mercancía del inventario por producto.
+ * Vista "Movimientos" — mover mercancia del inventario por producto.
  *
  * QUE PROBLEMA RESUELVE
  * ---------------------
- * El escáner mueve UN equipo por vez, leyendo su QR. Eso sirve para el campo,
+ * El escaner mueve UN equipo por vez, leyendo su QR. Eso sirve para el campo,
  * pero no para el depósito: cuando llega una caja con 5 laptops o cuando hay que
- * asignar 3 equipos a una sede, nadie tiene los seriales a mano. Aca el operador
- * elige un PRODUCTO, una CANTIDAD y una OPERACIÓN, y el backend elige los
+ * asignar 3 equipos a una sede, nadie tiene los seriales a mano. Acá el operador
+ * elige un PRODUCTO, una CANTIDAD y una Operación, y el backend elige los
  * equipos y los mueve.
  *
  * POR QUE LA PANTALLA ARRANCA MOSTRANDO STOCK Y NO UN FORMULARIO
@@ -16,12 +16,12 @@
  * sede, y el resultado es que pide mover 5 cuando hay 2. Con el stock a la
  * vista, la decisión se toma mirando el dato.
  *
- * LAS OPERACIONES SON LAS SIETE DEL NEGOCIO
+ * LAS Operaciones SON LAS SIETE DEL NEGOCIO
  * -----------------------------------------
- * Entrada, salida a cliente, instalación, transferencia, retiro a taller,
- * devolución y baja. Cada una tiene su dirección (de qué estado saca y a qué
+ * Entrada, salida a cliente, instalacion, transferencia, retiro a taller,
+ * devolucion y baja. Cada una tiene su direccion (de que estado saca y a que
  * estado lleva), que es la razón por la que el select de origen cambia según la
- * operación: una "instalación" saca de tránsito, una "salida" saca de depósito.
+ * operación: una "instalacion" saca de tránsito, una "salida" saca de depósito.
  */
 
 import { api } from '../api.js';
@@ -38,7 +38,7 @@ import { crearPaginacion } from '../paginacion.js';
  * `estados_origen` NO es decorativo: es lo que permite calcular si hay stock
  * para la operación ANTES de mandarla. Sin esto, el operador elige "instalar",
  * pide 3, y el backend responde "no hay unidades en tránsito" — un error que se
- * podía prever en pantalla.
+ * podia prever en pantalla.
  *
  * `pide_destino` separa la baja (que no va a ninguna sede) del resto.
  * `pide_origen` es para transferencias: solo ahí importa de dónde salen.
@@ -47,7 +47,7 @@ const OPERACIONES = [
   {
     valor: 'WAREHOUSE_ENTRY',
     texto: 'Entrada a depósito',
-    descripcion: 'Mercancía que ya está en el sistema ingresa al depósito.',
+    descripcion: 'Mercancia que ya está en el sistema ingresa al depósito.',
     clases_origen: ['IN_TRANSIT', 'IN_WAREHOUSE'],
     pide_destino: true,
     icono: 'ok',
@@ -63,7 +63,7 @@ const OPERACIONES = [
   },
   {
     valor: 'INSTALLATION',
-    texto: 'Instalación en cliente',
+    texto: 'Instalacion en cliente',
     descripcion: 'Los equipos se instalan en el sitio del cliente.',
     clases_origen: ['IN_TRANSIT'],
     pide_destino: true,
@@ -71,7 +71,7 @@ const OPERACIONES = [
   },
   {
     valor: 'WAREHOUSE_REENTRY',
-    texto: 'Devolución a depósito',
+    texto: 'Devolucion a depósito',
     descripcion: 'El cliente devuelve los equipos y vuelven al depósito.',
     clases_origen: ['INSTALLED', 'IN_TRANSIT', 'IN_REPAIR'],
     pide_destino: true,
@@ -97,7 +97,7 @@ const OPERACIONES = [
 
 /** El nombre legible de cada estado, para las insignias y los selects. */
 const ESTADOS = {
-  IN_WAREHOUSE: 'Depósito',
+  IN_WAREHOUSE: 'Deposito',
   IN_TRANSIT: 'En tránsito',
   INSTALLED: 'Instalado',
   IN_REPAIR: 'En taller',
@@ -119,21 +119,21 @@ export function vistaMovimientos({ permisos = [] } = {}) {
         crear('p', {
           clase: 'tarjeta__subtitulo',
           estilo: 'margin:0',
-          texto: 'Entrada, salida, transferencia, devolución y baja de mercancía por producto.',
+          texto: 'Entrada, salida, transferencia, devolucion y baja de mercancia por producto.',
         }),
       ],
     }),
   );
 
   const btnActualizar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => cargar() },
   });
   conTooltip(btnActualizar, 'Vuelve a pedir el stock por producto al servidor.');
 
   const btnExportar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Exportar CSV',
     atributos: {
       type: 'button',
@@ -146,10 +146,10 @@ export function vistaMovimientos({ permisos = [] } = {}) {
 
   tarjetaCabecera.append(encabezado);
 
-  // LA PAGINACION DEL STOCK
+  // LA Paginación DEL STOCK
   //
-  // El stock es un producto por ubicacion: con 800 productos en 6 sedes son
-  // 4800 filas. La pantalla las pide de a paginas.
+  // El stock es un producto por ubicación: con 800 productos en 6 sedes son
+  // 4800 filas. La pantalla las pide de a páginas.
   let paginaStock = 0;
   let limiteStock = 50;
   let totalStock = 0;
@@ -174,13 +174,13 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   //
   // LA PANTALLA QUE FALTA
   // ---------------------
-  // Esta pantalla mostraba el STOCK POR PRODUCTO (para mover mercaderia), y
+  // Está pantalla mostraba el STOCK POR PRODUCTO (para mover mercaderia), y
   // no el HISTORIAL: quien movio que, cuando y de donde a donde. Con 5000
-  // movimientos, el historial sin buscador ni paginacion es lo unico que no
-  // se puede usar: se ven los ultimos 50 y no hay como llegar a los de ayer.
+  // movimientos, el historial sin buscador ni paginación es lo único que no
+  // se puede usar: se ven los últimos 50 y no hay como llegar a los de ayer.
   //
-  // El buscador va al SERVIDOR (el backend filtra y pagina): filtrar en el
-  // navegador solo miraria las 50 filas de la pagina.
+  // El buscador va al SERVIDOR (el backend filtra y página): filtrar en el
+  // navegador solo miraria las 50 filas de la página.
   const tarjetaHistorial = crear('div', { clase: 'tarjeta' });
 
   const cabeceraHistorial = crear('div', { clase: 'flex-entre' });
@@ -201,7 +201,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     clase: 'campo__control',
     atributos: {
       type: 'search',
-      placeholder: 'Buscar por serial, SKU, modelo o ubicacion',
+      placeholder: 'Buscar por serial, SKU, modelo o ubicación',
       autocomplete: 'off',
       spellcheck: 'false',
     },
@@ -210,7 +210,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   const etiquetaHistorial = crear('label', { clase: 'campo' });
   const textoHistorial = crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' });
   etiquetaHistorial.append(textoHistorial, inputHistorial);
-  conTooltip(textoHistorial, 'Busca en el historial por serial, QR, SKU, marca, modelo o ubicacion.');
+  conTooltip(textoHistorial, 'Busca en el historial por serial, QR, SKU, marca, modelo o ubicación.');
 
   const filtrosHistorial = crear('div', { clase: 'rejilla-filtros' });
   filtrosHistorial.append(etiquetaHistorial);
@@ -280,7 +280,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   }
 
   /**
-   * Carga el historial de movimientos (con buscador y paginacion).
+   * Carga el historial de movimientos (con buscador y paginación).
    */
   async function cargarHistorial() {
     zonaHistorial.replaceChildren(
@@ -363,7 +363,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
    * El endpoint devuelve una fila por producto Y sede. Para mover, al operador le
    * importa el total por producto ("tengo 12 Dell"), y de ahí hacia abajo el
    * desglose por sede. Se agrupa acá y no en el backend porque el backend ya
-   * tiene el desglose como dato primario, y colapsarlo allá obligaría a una
+   * tiene el desglose como dato primario, y colapsarlo allá obligaria a una
    * segunda consulta para ver las sedes.
    */
   function agrupar(filas) {
@@ -439,8 +439,8 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       const cifras = crear('div', { clase: 'lista__meta tabular' });
       const t = producto.total_por_estado;
       cifras.append(
-        crear('span', { texto: `${t.IN_WAREHOUSE} en depósito` }),
-        crear('span', { texto: ` · ${t.IN_TRANSIT} en tránsito` }),
+        crear('span', { texto: `${t.IN_WAREHOUSE} en deposito` }),
+        crear('span', { texto: ` · ${t.IN_TRANSIT} en transito` }),
         crear('span', { texto: ` · ${t.INSTALLED} instalados` }),
         crear('span', { texto: ` · ${t.IN_REPAIR} en taller` }),
       );
@@ -545,7 +545,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     form.append(
       crear('label', {
         clase: 'campo',
-        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Operación' }), selectOperacion],
+        hijos: [crear('span', { clase: 'campo__etiqueta', texto: 'Operacion' }), selectOperacion],
       }),
       campoCantidadEnvuelto,
       etiquetaOrigen,
@@ -558,15 +558,15 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     );
 
     const btnMover = crear('button', {
-      clase: 'boton boton--bloque',
-      texto: 'Mover mercancía',
+      clase: 'botón botón--bloque',
+      texto: 'Mover mercancia',
       atributos: { type: 'submit' },
     });
     form.append(btnMover);
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -574,18 +574,18 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     const operacionActual = () => OPERACIONES.find((o) => o.valor === selectOperacion.value);
 
     /**
-     * Redibuja según la operación: qué campos se ven y cuánto hay disponible.
+     * Redibuja según la operación: que campos se ven y cuanto hay disponible.
      *
-     * Se hace en cada cambio y no una sola vez porque las operaciones son
+     * Se hace en cada cambió y no una sola vez porque las operaciones son
      * distintas de verdad: una transferencia necesita origen Y destino, una baja
      * no necesita destino, y una entrada saca de tránsito. Mostrar siempre todos
-     * los campos obliga al operador a adivinar cuáles importan.
+     * los campos obliga al operador a adivinar cuales importan.
      */
     function refrescar() {
       const op = operacionActual();
-      const estado = op.clases_origen[0]; // el estado "natural" de la operación
+      const estado = op.clases_origen[0]; // el estado "natural" de la operacion
 
-      // Cuánto hay en ese estado, sumando las sedes que el backend permite.
+      // Cuanto hay en ese estado, sumando las sedes que el backend permite.
       let disponible = 0;
       for (const sede of producto.sedes) {
         if (op.clases_origen.includes('IN_WAREHOUSE')) disponible += sede.disponible;
@@ -619,7 +619,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       const cantidad = parseInt(campoCantidad.value || '0', 10);
 
       if (!cantidad || cantidad < 1) {
-        return avisar('Elegí cuántas unidades mover', 'alerta');
+        return avisar('Elegí cuantas unidades mover', 'alerta');
       }
 
       const cuerpo = {
@@ -641,7 +641,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
         mensaje: esBaja
           ? `¿Dar de baja ${cantidad} unidad(es) de ${producto.nombre}? Los equipos dejan de estar disponibles en el inventario.`
           : `¿Mover ${cantidad} unidad(es) de ${producto.nombre}?`,
-        textoConfirmar: esBaja ? 'Dar de baja' : 'Mover mercancía',
+        textoConfirmar: esBaja ? 'Dar de baja' : 'Mover mercancia',
         peligro: esBaja,
       });
       if (!ok) return;
@@ -651,7 +651,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       try {
         const resultado = await api.moverPorProducto(cuerpo);
         // El resultado puede ser PARCIAL: 3 de 5. Se dice tal cual, con el
-        // detalle de lo que falló, porque "listo" cuando fallaron 2 es la clase
+        // detalle de lo que fallo, porque "listo" cuando fallaron 2 es la clase
         // de mensaje que hace que alguien cierre la app creyendo que terminó.
         if (resultado.fallidas > 0) {
           const detalles = resultado.resultados
@@ -667,7 +667,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       } catch (error) {
         avisar(error.message, 'error');
         btnMover.disabled = false;
-        btnMover.textContent = 'Mover mercancía';
+        btnMover.textContent = 'Mover mercancia';
       }
     }
 
@@ -684,7 +684,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     });
   }
 
-  // El buscador del historial: al escribir, se vuelve a la primera pagina.
+  // El buscador del historial: al escribir, se vuelve a la primera página.
   inputHistorial.addEventListener('input', () => {
     paginaHistorial = 0;
     cargarHistorial();

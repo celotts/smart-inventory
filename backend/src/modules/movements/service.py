@@ -3,22 +3,22 @@ Registro de movimientos por escaneo.
 
 QUE ES UN ESCANEO, EN LA VIDA REAL
 ----------------------------------
-Un operador escanea una etiqueta con el telefono, sin mirar la pantalla, y sigue
+Un operador escanea una etiqueta con el teléfono, sin mirar la pantalla, y sigue
 caminando. En ese momento ocurren tres cosas que el sistema tiene que resolver:
 
-  1. IDEMPOTENCIA. La peticion sale dos veces: una vez porque la senal del
-     deposito es mala y el cliente reintenta, otra porque el operador aprieta el
-     boton de nuevo sin ver la respuesta. Sin proteccion quedan dos movimientos
-     y el conteo del dia da el doble.
+  1. IDEMPOTENCIA. La petición sale dos veces: una vez porque la senal del
+     depósito es mala y el cliente reintenta, otra porque el operador aprieta el
+     botón de nuevo sin ver la respuesta. Sin proteccion quedan dos movimientos
+     y el conteo del día da el doble.
 
-  2. GEO-VALIDACION. Dice donde esta el componente ahora. El GPS del telefono
+  2. GEO-Validación. Dice donde está el componente ahora. El GPS del teléfono
      lo dice el cliente, o sea que es un dato que puede estar equivocado por un
      tunel, por la deriva de un sensor viejo o porque alguien lo manipulo a
-     proposito. Por eso se RECALCULA en el servidor contra las coordenadas de la
-     sede: no se confía en el numero que manda el telefono.
+     propósito. Por eso se RECALCULA en el servidor contra las coordenadas de la
+     sede: no se confia en el número que manda el teléfono.
 
-  3. ESTADO. El escaneo mueve el componente de deposito a instalado, o de
-     instalado a deposito, o lo manda al taller. El estado del componente y el
+  3. ESTADO. El escaneo mueve el componente de depósito a instalado, o de
+     instalado a depósito, o lo manda al taller. El estado del componente y el
      registro del movimiento tienen que cambiar JUNTOS o ninguno de los dos: si
      el movimiento se escribe y el estado no, el historial dice una cosa y la
      pantalla dice otra.
@@ -27,8 +27,8 @@ LAS TRES EN UNA TRANSACCION
 --------------------------
 Por eso todo va en `engine.begin()`: si el estado no se puede mover (el trigger
 de la maquina de estados lo rechaza), el movimiento tampoco se escribe. Un
-movimiento que existe sin cambio de estado es un componente que "esta en el
-taller" con la ultima visita registrada en el deposito.
+movimiento que existe sin cambió de estado es un componente que "está en el
+taller" con la última visita registrada en el depósito.
 """
 
 from __future__ import annotations
@@ -51,11 +51,11 @@ logger = logging.getLogger(__name__)
 # Que tipo de escaneo produce que estado. Es la MAQUINA DE ESTADOS, escrita
 # del lado del negocio.
 #
-# Por que esta tabla y no derivarla: el trigger de Postgres valida que la
-# transicion sea legal, pero no sabe que tipo de movimiento la origina. Si
+# Por que está tabla y no derivarla: el trigger de Postgres válida que la
+# transición sea legal, pero no sabe que tipo de movimiento la origina. Si
 # "instalar" y "mandar al taller" dieran el mismo estado, la base no podria
 # distinguirlos. Acá queda escrito cual es cual, y el trigger es la segunda
-# linea de defensa.
+# línea de defensa.
 ESTADO_POR_MOVIMIENTO: dict[str, str] = {
     "WAREHOUSE_ENTRY": "IN_WAREHOUSE",
     "WAREHOUSE_REENTRY": "IN_WAREHOUSE",
@@ -67,56 +67,56 @@ ESTADO_POR_MOVIMIENTO: dict[str, str] = {
 }
 
 # Los movimientos que exigen saber que equipo se reemplazo y por que. Es el
-# CHECK `ck_movement_replacement` del esquema, declarado aca para poder dar el
+# CHECK `ck_movement_replacement` del esquema, declarado acá para poder dar el
 # error antes de que lo de Postgres.
 REQUIERE_REEMPLAZO = {"REPLACEMENT"}
 
 
 class ErrorDeEscaneo(ValueError):
-    """La peticion de escaneo no es valida. 400."""
+    """La petición de escaneo no es válida. 400."""
 
 
 class TransicionInvalida(ValueError):
     """
-    El escaneo pide un cambio de estado que el inventario no permite. 409.
+    El escaneo pide un cambió de estado que el inventario no permite. 409.
 
-    POR QUE ES UNA EXCEPCION PROPIA Y NO UN 500
+    POR QUE ES UNA Excepción PROPIA Y NO UN 500
     ------------------------------------------
     La maquina de estados vive en un trigger de Postgres, y cuando rechaza un
-    escaneo levanta una excepcion de la base. Sin capturarla, esa excepcion
+    escaneo levanta una excepción de la base. Sin capturarla, esa excepción
     llegaba al handler global y salia un 500 con "Error interno": el operador ve
-    un fallo del sistema donde en realidad le estan diciendo que esta intentando
+    un fallo del sistema donde en realidad le están diciendo que está intentando
     algo imposible.
 
-    El mensaje del trigger ya esta escrito para un humano ("no se puede pasar de
-    instalado a deposito sin pasar por transito"), asi que se conserva tal cual:
-    traducirlo de nuevo seria una segunda version que puede quedar vieja.
+    El mensaje del trigger ya está escrito para un humano ("no se puede pasar de
+    instalado a depósito sin pasar por tránsito"), así que se conserva tal cual:
+    traducirlo de nuevo seria una segunda versión que puede quedar vieja.
     """
 
 
 class DispositivoNoEncontrado(LookupError):
-    """El codigo no resuelve a ningun componente. 404."""
+    """El código no resuelve a ningún componente. 404."""
 
 
 class CodigoDeProducto(LookupError):
     """
-    El codigo es la etiqueta de un PRODUCTO del maestro, no la de un equipo. 409.
+    El código es la etiqueta de un PRODUCTO del maestro, no la de un equipo. 409.
 
     POR QUE NO ES UN 404
     --------------------
-    El codigo EXISTE: es la etiqueta de la caja, y el operador leyo bien. Un
-    404 le diria "este codigo no esta en el inventario", que es falso, y lo
+    El código EXISTE: es la etiqueta de la caja, y el operador leyo bien. Un
+    404 le diria "este código no está en el inventario", que es falso, y lo
     mandaria a buscar un error donde no hay. Lo que hay es un pedido que no
-    se puede resolver como esta: un movimiento de inventario se registra
+    se puede resolver como está: un movimiento de inventario se registra
     sobre un EQUIPO, y la etiqueta de la caja no dice cual.
 
     POR QUE 409 Y NO 400
     --------------------
-    El pedido esta bien formado: el codigo es legitimo, el tipo de movimiento
-    es valido. Lo que no se puede es aplicarlo sin elegir una unidad. Es un
-    conflicto entre lo que pidio el operador y lo que el dato permite.
+    El pedido está bien formado: el código es legitimo, el tipo de movimiento
+    es válido. Lo que no se puede es aplicarlo sin elegir una unidad. Es un
+    conflicto entre lo que pidió el operador y lo que el dato permite.
 
-    El producto y sus unidades viajan en la excepcion: el frontend los
+    El producto y sus unidades viajan en la excepción: el frontend los
     muestra para que el operador elija la unidad y no tenga que buscar el
     serial a mano.
     """
@@ -131,7 +131,7 @@ class CodigoDeProducto(LookupError):
 
 
 def _validar_uuid(valor: str, nombre: str) -> str:
-    """Valida un UUID de cliente antes de mandarlo a Postgres."""
+    """Válida un UUID de cliente antes de mandarlo a Postgres."""
     try:
         return str(uuid.UUID(str(valor)))
     except (ValueError, AttributeError, TypeError) as exc:
@@ -149,26 +149,26 @@ def mover_por_producto(
     observations: str | None = None,
 ) -> dict[str, Any]:
     """
-    Mueve N unidades de un producto, eligiendo los equipos automaticamente.
+    Mueve N unidades de un producto, eligiendo los equipos automáticamente.
 
     QUE EQUIPOS SE ELIGEN, Y POR QUE EN ESE ORDEN
     ---------------------------------------------
     Se toma la lista de equipos del modelo en el estado de ORIGEN que el
     movimiento necesita, y se mueven los `cantidad` primeros. El orden no es
-    arbitrario: se ordena por el movimiento mas viejo primero (`COALESCE` del
-    ultimo `movement_date`, y `id` como desempate), o sea FIFO. Un deposito que
+    arbitrario: se ordena por el movimiento más viejo primero (`COALESCE` del
+    último `movement_date`, y `id` como desempate), o sea FIFO. Un depósito que
     rota por FIFO no deja equipos envejeciendo al fondo; si se eligiera al azar,
-    los ultimos en entrar serian los primeros en salir y habria equipos de tres
+    los últimos en entrar serian los primeros en salir y habria equipos de tres
     anos nunca tocados.
 
     POR QUE REUSA `escanear` Y NO ESCRIBE SQL PROPIO
     ------------------------------------------------
-    Porque la maquina de estados, la geo-validacion, la idempotencia y el
-    registro del historial ya viven ahi, y reescribirlas aca es la forma segura
+    Porque la maquina de estados, la geo-validación, la idempotencia y el
+    registro del historial ya viven ahí, y reescribirlas acá es la forma segura
     de que las dos versiones se desincronicen. Este endpoint es una CAPA DE
-    SELECCION: elige los equipos y le pasa cada uno a la funcion que ya sabe
-    moverlos. Si el trigger rechaza un equipo (esta en taller, no puede saltar de
-    deposito a instalado), ese equipo falla y los demas siguen.
+    Selección: elige los equipos y le pasa cada uno a la función que ya sabe
+    moverlos. Si el trigger rechaza un equipo (está en taller, no puede saltar de
+    depósito a instalado), ese equipo falla y los demas siguen.
     """
     if tipo_movimiento not in ESTADO_POR_MOVIMIENTO:
         raise ErrorDeEscaneo(
@@ -179,8 +179,8 @@ def mover_por_producto(
     user_id = _validar_uuid(user_id, "user_id")
 
     # El estado del que hay que sacar los equipos lo define el movimiento. Un
-    # "salida a cliente" saca de deposito; una "instalacion" saca de transito;
-    # una "devolucion" (reingreso) saca de instalado o transito.
+    # "salida a cliente" saca de depósito; una "instalacion" saca de tránsito;
+    # una "devolucion" (reingreso) saca de instalado o tránsito.
     #
     # `ORIGEN_POR_MOVIMIENTO` es la inversa de `ESTADO_POR_MOVIMIENTO`: dice
     # desde donde tiene sentido sacar cada movimiento. Sin esto, se elegirian
@@ -207,7 +207,7 @@ def mover_por_producto(
     with engine.connect() as conexion:
         # Se arman los placeholders del IN a mano: SQLAlchemy no expande una
         # tupla en un `IN` sin `bindparam(expanding=True)`, y con `text()` el
-        # camino mas simple y explicito es generar los nombres.
+        # camino más simple y explicito es generar los nombres.
         nombres_estado = [f":e{i}" for i in range(len(estados_origen))]
         parametros: dict[str, Any] = {
             "model_id": model_id,
@@ -224,7 +224,7 @@ def mover_por_producto(
 
         # Si el operador dijo DE DONDE sacar, se respeta. Sin esto, una
         # transferencia de Norte a Sur podria tomar equipos de Centro, que no es
-        # lo que se pidio.
+        # lo que se pidió.
         if ubicacion_origen_id:
             condiciones.append("d.current_location_id = :ubicacion_origen")
             parametros["ubicacion_origen"] = ubicacion_origen_id
@@ -235,12 +235,12 @@ def mover_por_producto(
                 SELECT d.id, d.serial_number
                 FROM devices d
                 LEFT JOIN LATERAL (
-                    SELECT MAX(mh.movement_date) AS ultimo
+                    SELECT MAX(mh.movement_date) AS último
                     FROM movement_history mh
                     WHERE mh.device_id = d.id
                 ) h ON TRUE
                 WHERE {' AND '.join(condiciones)}
-                ORDER BY COALESCE(h.ultimo, d.created_at) ASC, d.id ASC
+                ORDER BY COALESCE(h.último, d.created_at) ASC, d.id ASC
                 LIMIT :limite
                 """
             ),
@@ -256,7 +256,7 @@ def mover_por_producto(
         )
 
     # Cada equipo se mueve por separado, con su propio `client_scan_id`
-    # deterministico. Asi, si el operador reintenta el MISMO lote, cada equipo
+    # deterministico. Así, si el operador reintenta el MISMO lote, cada equipo
     # devuelve replay en vez de duplicar el movimiento.
     lote_id = uuid.uuid4()
     resultados: list[dict[str, Any]] = []
@@ -356,13 +356,13 @@ def escanear(
 
     # --- 0. Las coordenadas se validan ANTES de ir a la base -------------
     #
-    # Solo la parte SINTACTICA (que sean numeros, que esten en rango). La
-    # comparacion contra la sede necesita leer `locations`, y esa va mas abajo.
+    # Solo la parte SINTACTICA (que sean números, que esten en rango). La
+    # comparacion contra la sede necesita leer `locations`, y esa va más abajo.
     #
-    # Va primero por una razon concreta: una latitud de 400 tiene que
-    # rechazarse antes de gastar una consulta en resolver el codigo. Si el
+    # Va primero por una razón concreta: una latitud de 400 tiene que
+    # rechazarse antes de gastar una consulta en resolver el código. Si el
     # chequeo va al final, el cliente recibe "no existe el componente" —o un
-    # 404 de una etiqueta que si existe— cuando lo que esta mal es el GPS. Es
+    # 404 de una etiqueta que si existe— cuando lo que está mal es el GPS. Es
     # el error que manda al operador a revisar la etiqueta en vez del celular.
     if latitude is not None or longitude is not None:
         if latitude is None or longitude is None:
@@ -373,11 +373,11 @@ def escanear(
         # `normalizar_coordenada` es la que rechaza NaN, infinito y los rangos.
         normalizar_coordenada(latitude, longitude)
 
-    # --- 1. Resolucion del codigo ---------------------------------------
+    # --- 1. Resolucion del código ---------------------------------------
     resolucion = devices_service.resolver_codigo(codigo)
 
     # La etiqueta de la CAJA (el producto del maestro) no identifica a un
-    # equipo. El codigo existe, asi que no es un 404: es un 409 con el
+    # equipo. El código existe, así que no es un 404: es un 409 con el
     # producto y sus unidades, para que el operador elija con cual registrar
     # el movimiento.
     producto = resolucion.get("producto")
@@ -392,7 +392,7 @@ def escanear(
     device_id = dispositivo["id"]
 
     # --- 2. Idempotencia: si ya se proceso, se devuelve lo anterior --------
-    # Va ANTES de toda validacion geografica a proposito. Un reintento tiene que
+    # Va ANTES de toda validación geografica a propósito. Un reintento tiene que
     # devolver SIEMPRE el mismo resultado, incluso si en el medio la senal
     # empeoro: si el reintento calculara una distancia distinta y rejectara, el
     # cliente veria un error en algo que ya se guardo.
@@ -422,7 +422,7 @@ def escanear(
             "mensaje": "Este escaneo ya se habia registrado.",
         }
 
-    # --- 3. Geo-validacion ------------------------------------------------
+    # --- 3. Geo-validación ------------------------------------------------
     geo = _validar_geo(ubicacion_id, latitude, longitude)
 
     # --- 4. Escritura: movimiento + estado, en UNA transaccion ------------
@@ -473,8 +473,8 @@ def escanear(
             # INSERT de arriba tambien se deshace.
             #
             # `current_location_id` solo se toca si el movimiento dice adonde va.
-            # Un escaneo sin destino (una correccion, una revision) no debe
-            # borrar la ubicacion conocida del componente.
+            # Un escaneo sin destino (una correccion, una revisión) no debe
+            # borrar la ubicación conocida del componente.
             conexion.execute(
                 text(
                     """
@@ -493,7 +493,7 @@ def escanear(
                 },
             )
 
-            # El recibo de idempotencia va ultimo: es lo que hace que el
+            # El recibo de idempotencia va último: es lo que hace que el
             # reintento funcione, y va en la misma transaccion para que no
             # exista el caso "movimiento escrito, recibo no" — que deja el
             # cliente sin forma de reconocer el reintento.
@@ -514,11 +514,11 @@ def escanear(
 
     except IntegrityError as exc:
         # Dos reintentos que llegan SIMULTANEOS: los dos pasan el SELECT de
-        # idempotencia (ninguno lo escribio todavia) y los dos intentan
+        # idempotencia (ninguno lo escribio todavía) y los dos intentan
         # insertar. El UNIQUE de `client_scan_id` resuelve: uno gana, el otro
         # recibe el error. Se traduce a un replay en vez de un 500.
         #
-        # Sin este manejo, un doble toque en el boton de escanear produce un
+        # Sin este manejo, un doble toque en el botón de escanear produce un
         # 500 y el operador, que no sabe que ya se guardo, aprieta otra vez.
         if "scan_receipts" in str(getattr(exc, "orig", exc)):
             logger.info("Escaneo concurrente con el mismo client_scan_id: replay")
@@ -532,16 +532,16 @@ def escanear(
                 "mensaje": "Este escaneo ya se estaba registrando.",
             }
 
-        # `IntegrityError` es subclase de `DBAPIError`, asi que el chequeo del
-        # trigger tiene que estar ACA y no solo en el `except DBAPIError` de
-        # abajo: si no, esta rama hace `raise` y el mensaje del trigger —que
+        # `IntegrityError` es subclase de `DBAPIError`, así que el chequeo del
+        # trigger tiene que estar Acá y no solo en el `except DBAPIError` de
+        # abajo: si no, está rama hace `raise` y el mensaje del trigger —que
         # explica que hacer— se pierde en un 500.
         original = getattr(exc, "orig", exc)
         if getattr(original, "pgcode", None) == "23514" or "23514" in str(original):
             raise TransicionInvalida(_mensaje_de_regla(original)) from exc
         raise
     except DBAPIError as exc:
-        # El trigger de la maquina de estados rechaza el cambio. Es una REGLA
+        # El trigger de la maquina de estados rechaza el cambió. Es una REGLA
         # de negocio, no un fallo: sale 409 con el motivo, nunca un 500.
         #
         # 23514 es `check_violation`, que es el SQLSTATE que usan los CHECK y
@@ -553,14 +553,14 @@ def escanear(
 
     # --- 5. Bitacora formal ----------------------------------------------
     #
-    # El movimiento YA esta confirmado en `movement_history`, que es la fuente
-    # de la trazabilidad del inventario. Esta linea agrega el evento a
-    # `audit_logs` para que la pantalla de auditoria pueda mostrar los
+    # El movimiento YA está confirmado en `movement_history`, que es la fuente
+    # de la trazabilidad del inventario. Está línea agrega el evento a
+    # `audit_logs` para que la pantalla de auditoría pueda mostrar los
     # movimientos y los eventos de cuentas en la MISMA lista.
     #
-    # Va aca y no dentro de la transaccion de escritura por dos razones:
-    # `registrar` abre su propia conexion (no se puede anidar), y su contrato es
-    # no propagar la excepcion — si la bitacora falla, el movimiento ya
+    # Va acá y no dentro de la transaccion de escritura por dos razones:
+    # `registrar` abre su propia conexión (no se puede anidar), y su contrato es
+    # no propagar la excepción — si la bitacora falla, el movimiento ya
     # registrado no se cae.
     audit.registrar(
         user_id=user_id,
@@ -611,7 +611,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
     """
     Obtiene el historial completo y enriquecido de un dispositivo:
     - Timeline de movimientos (últimos 20)
-    - Periodos de instalación por sede (con días acumulados)
+    - Periodos de instalacion por sede (con días acumulados)
     - Historial de reparaciones
     - Resumen de estado actual
     """
@@ -643,7 +643,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
             {"device_id": device_id},
         ).mappings().all()
 
-        # 2. Periodos de instalación (días por sede)
+        # 2. Periodos de instalacion (días por sede)
         periodos = conexion.execute(
             text(
                 """
@@ -675,7 +675,7 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
                     r.initial_diagnosis,
                     r.work_performed,
                     r.estimated_cost,
-                    u.full_name AS tecnico_nombre
+                    u.full_name AS técnico_nombre
                 FROM repairs r
                 LEFT JOIN users u ON u.id = r.technician_id
                 WHERE r.device_id = :device_id
@@ -736,11 +736,11 @@ def _obtener_historial_rico(device_id: int) -> dict[str, Any]:
 
 def _mensaje_de_regla(original: Exception) -> str:
     """
-    Saca el mensaje del trigger de la excepcion de Postgres.
+    Saca el mensaje del trigger de la excepción de Postgres.
 
     `psycopg2` pone el texto de `RAISE EXCEPTION` en `diag.message_primary`, que
     es donde queda el mensaje que escribio el trigger, ya en castellano y ya
-    explicado. Si no esta (una excepcion de otro tipo), se cae al `str`, que
+    explicado. Si no está (una excepción de otro tipo), se cae al `str`, que
     trae el SQLSTATEsquema completo y el mensaje concatenado.
     """
     mensaje = getattr(getattr(original, "diag", None), "message_primary", None)
@@ -755,7 +755,7 @@ def _validar_geo(
 
     POR QUE SE RECALCULA Y NO SE CONFIA EN EL CLIENTE
     ------------------------------------------------
-    Las coordenadas llegan del GPS del telefono, que es un dato del cliente: un
+    Las coordenadas llegan del GPS del teléfono, que es un dato del cliente: un
     tunel, un sensor con deriva o alguien que quiere registrar un escaneo desde
     la casa. La distancia se recalcula contra `locations.latitude/longitude`, y
     lo que se guarda (`is_valid_location`) es el veredicto del servidor.
@@ -763,9 +763,9 @@ def _validar_geo(
     LO QUE SE HACE CUANDO NO HAY COORDENADAS
     -----------------------------------------
     `dentro_del_radio=None` y NO `False`. La diferencia es la que separa "no
-    estabas ahi" de "no se puede saber": un `False` sin coordenadas convierte
+    estabas ahí" de "no se puede saber": un `False` sin coordenadas convierte
     cada escaneo de un movil sin GPS (o con permiso denegado) en una
-    inspeccion, y el operador deja de mirar esa columna porque siempre dice lo
+    inspección, y el operador deja de mirar esa columna porque siempre dice lo
     mismo.
     """
     if latitude is None and longitude is None:
@@ -777,8 +777,8 @@ def _validar_geo(
             "escaneo, tiene que ir latitud Y longitud."
         )
 
-    # Se normaliza aca para que un NaN o una latitud de 400 salten con el error
-    # de geo, no con uno de Postgres tres capas mas abajo.
+    # Se normaliza acá para que un NaN o una latitud de 400 salten con el error
+    # de geo, no con uno de Postgres tres capas más abajo.
     lat, lng = normalizar_coordenada(latitude, longitude)
 
     if ubicacion_id is None:
@@ -825,7 +825,7 @@ def _validar_geo(
 
 
 def _mensaje_geo(geo: dict[str, Any]) -> str:
-    """El texto que ve el operador, distinto segun que se haya podido saber."""
+    """El texto que ve el operador, distinto según que se haya podido saber."""
     if geo.get("dentro_del_radio") is None:
         if geo.get("sede_sin_coordenadas"):
             return (
@@ -845,7 +845,7 @@ def _mensaje_geo(geo: dict[str, Any]) -> str:
 
 def historial_dispositivo(device_id: int, limite: int = 50) -> list[dict[str, Any]]:
     """
-    Movimientos de un componente, del mas nuevo al mas viejo.
+    Movimientos de un componente, del más nuevo al más viejo.
 
     ES EL "DONDE ESTUVE". Es la respuesta a la pregunta que el inventario no
     puede dejar de dar: si un equipo desaparece, hay que poder decir por donde
@@ -902,11 +902,11 @@ def listar_movimientos(
     EL BUSCADOR
     -----------
     Sin busqueda, el historial es una lista infinita: con 5000 movimientos,
-    el operador ve los ultimos 50 y no llega a los de ayer. Con el buscador
-    (serial, SKU, modelo o ubicacion) encuentra el movimiento que necesita,
+    el operador ve los últimos 50 y no llega a los de ayer. Con el buscador
+    (serial, SKU, modelo o ubicación) encuentra el movimiento que necesita,
     y con el rango de fechas acota el periodo.
 
-    La busqueda es por texto con `ILIKE` y no con el indice de texto completo
+    La busqueda es por texto con `ILIKE` y no con el índice de texto completo
     de `devices`: el historial se busca por un fragmento de serial ("SN-01")
     que no es una palabra del diccionario, y el `ILIKE` con el prefijo
     encuentra.

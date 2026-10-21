@@ -16,7 +16,7 @@ operador ("la IA no sirve"):
 
 3. LA RESPUESTA. El modelo repetia la tabla de datos en la prosa y, en un
    agregado, completaba el detalle inventado ("id: 1, serial: SN-001") de
-   un resultado que era un solo numero.
+   un resultado que era un solo número.
 
 POR QUE NO HAY UN MODELO DE VERDAD
 ----------------------------------
@@ -44,7 +44,7 @@ class TestIntencionDeEscritura:
         "pregunta",
         [
             "Agrega un producto al inventario que tenga relacion al desarrollo",
-            "agregá un producto nuevo",
+            "agrega un producto nuevo",
             "Crea una incidencia para el cliente Acme",
             "borra el producto DEMO-CATALYST-1",
             "Actualiza el precio del notebook",
@@ -79,13 +79,13 @@ class TestIntencionDeEscritura:
             "Agrega un producto al inventario"
         )
 
-        # Dice que es de SOLO LECTURA: si no, el operador cree que el modelo
+        # Dice que es de Solo LECTURA: si no, el operador cree que el modelo
         # va a hacerlo.
         assert "consultas" in guia["respuesta"]
         # Y dice donde hacerlo.
         assert "Productos" in guia["respuesta"]
-        # Y ofrece una alternativa util.
-        assert "buscá" in guia["respuesta"].lower()
+        # Y ofrece una alternativa útil.
+        assert "busca" in guia["respuesta"].lower()
 
     def test_la_sugerencia_apunta_a_la_pantalla_correcta(self):
         guia = intencion.respuesta_de_lectura("Crea una incidencia nueva")
@@ -99,9 +99,9 @@ class TestSugerenciaContraElFront:
     La vista que sugiere el backend TIENE que existir en el registro del
     front.
 
-    El boton de la sugerencia despacha el evento `app:ir-a` con la clave de
+    El botón de la sugerencia despacha el evento `app:ir-a` con la clave de
     la vista, y `navegacion.js` la busca en su registro `VISTAS`. Si la clave
-    no esta (o esta con otra mayuscula), el boton no lleva a ningun lado: el
+    no está (o está con otra mayúscula), el botón no lleva a ningún lado: el
     operador hace clic y no pasa nada, que es el peor sintoma posible.
     """
 
@@ -169,7 +169,7 @@ class TestLimpiezaDeRespuesta:
 class TestResumenDelHistorial:
     def test_un_agregado_no_muestra_el_numero_como_si_fuera_un_id(self):
         """
-        El numero de un total NO puede viajar al historial: el modelo lo
+        El número de un total NO puede viajar al historial: el modelo lo
         tomaba por un id y lo metia de filtro en la consulta siguiente
         ("WHERE d.id = 1"), que no devolvia nada.
         """
@@ -195,8 +195,8 @@ class TestResumenDelHistorial:
 class TestArmazonDelAgente:
     def test_la_pregunta_de_escritura_no_llega_al_modelo(self):
         """
-        La deteccion es ANTES de la llamada al modelo: ademas de ser mas
-        rapida, garantiza que la respuesta sea la misma siempre.
+        La deteccion es ANTES de la llamada al modelo: además de ser más
+        rápida, garantiza que la respuesta sea la misma siempre.
         """
         class LLMQueNoDeberiaHablar:
             name = "falso"

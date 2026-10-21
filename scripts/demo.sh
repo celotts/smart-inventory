@@ -9,7 +9,7 @@
 # dos veces no duplique.
 #
 # Las coordenadas son reales y verificables: una dentro de la sede y otra a
-# ~5 km, para poder probar los dos caminos de la geo-validacion (dentro / fuera)
+# ~5 km, para poder probar los dos caminos de la geo-validación (dentro / fuera)
 # con el mismo componente.
 # ===========================================================================
 set -euo pipefail
@@ -100,12 +100,12 @@ say "3/4  Vida util, precio de compra y stock minimo"
 
 # Sin esto, el valor libro y las alertas de stock bajo no tienen NADA que
 # mostrar: los equipos de demo no tienen precio de compra y los productos no
-# tienen minimo, asi que el "Por reponer" dice "Faltan 0" y no significa
+# tienen mínimo, así que el "Por reponer" dice "Faltan 0" y no significa
 # nada.
 #
-# Los valores son de ejemplo pero PLAUSIBLES (36 meses de vida util para un
-# notebook, compra hace 14 meses, minimo 3 unidades en el deposito): un
-# demo con numeros que no significan nada hace que el que lo mira no crea
+# Los valores son de ejemplo pero PLAUSIBLES (36 meses de vida útil para un
+# notebook, compra hace 14 meses, mínimo 3 unidades en el depósito): un
+# demo con números que no significan nada hace que el que lo mira no crea
 # que la pantalla anda mal.
 psql_db -t -A <<'SQL'
 UPDATE models

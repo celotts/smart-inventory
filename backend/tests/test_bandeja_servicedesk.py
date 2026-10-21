@@ -3,24 +3,24 @@ Tests del flujo del Service Desk: bandeja, toma y cierre con destino.
 
 QUE SE PRUEBA
 -------------
-El flujo COMPLETO de un caso, que es la parte que hace que este modulo sea
+El flujo COMPLETO de un caso, que es la parte que hace que este módulo sea
 el control del stock danado y no un ticket de software:
 
-  1. El caso reportado cae en la BANDEJA (nadie lo respondio).
-  2. El tecnico lo TOMA: queda asignado, arranca el reloj de respuesta y el
+  1. El caso reportado cae en la BANDEJA (nadie lo respondió).
+  2. El técnico lo TOMA: queda asignado, arranca el reloj de respuesta y el
      que lo reporto recibe el aviso.
   3. Al RESOLVER, el que lo reporto recibe el aviso del cierre.
   4. El destino del EQUIPO se aplica de verdad en el inventario:
      - TALLER: el equipo pasa a `IN_REPAIR` CON una orden de trabajo abierta
        (la base lo exige: un equipo en el taller sin orden no existe).
-     - DANO_TOTAL: el equipo sale del stock, con su certificado de baja y la
+     - Daño_TOTAL: el equipo sale del stock, con su certificado de baja y la
        orden marcada como no reparable.
   5. Un destino IMPOSIBLE no resuelve el caso: se rechaza antes, para no
      dejar el caso cerrado y el equipo donde estaba.
 
 POR QUE NECESITAN UNA BASE REAL
 -------------------------------
-Lo que se prueba aca son los TRIGGERS: la maquina de estados, la
+Lo que se prueba acá son los TRIGGERS: la maquina de estados, la
 inmutabilidad del historial, el trigger que exige la orden de trabajo para
 poner un equipo en `IN_REPAIR` y el que exige el certificado para dar de
 baja. Un test que los simule probaria un Postgres de mentira.
@@ -62,7 +62,7 @@ def base():
     except SQLAlchemyError as exc:
         pytest.skip(
             f"No hay base de test disponible ({DATABASE_TEST}).\n"
-            "  Levanta una y corré: createdb si_test && psql -d si_test -f database/init.sql\n"
+            "  Levanta una y corre: createdb si_test && psql -d si_test -f database/init.sql\n"
             f"  Motivo: {exc}"
         )
 
@@ -74,7 +74,7 @@ def base():
 
 @pytest.fixture
 def usuarios(base):
-    """Dos usuarios reales: uno reporta (operador) y otro resuelve (tecnico).
+    """Dos usuarios reales: uno reporta (operador) y otro resuelve (técnico).
 
     Si la base de test no los tiene, se crean: los tests no pueden depender
     de que alguien los haya sembrado a mano, y un test que se salta siempre
@@ -130,7 +130,7 @@ def usuarios(base):
 
 @pytest.fixture
 def equipo(base):
-    """Un equipo en el deposito, listo para romperse."""
+    """Un equipo en el depósito, listo para romperse."""
     from sqlalchemy import text
 
     with base.begin() as conexion:
@@ -267,7 +267,7 @@ class TestBandeja:
         )
         service.tomar_caso(caso["id"], user_id=usuarios["tecnico"])
 
-        # El admin lo toma otra vez: ya tiene dueno, y el error lo dice.
+        # El admin lo toma otra vez: ya tiene dueño, y el error lo dice.
         from sqlalchemy import text
 
         with base.connect() as conexion:
@@ -364,7 +364,7 @@ class TestCierre:
 
         assert estado == "IN_REPAIR"
         # La orden de trabajo abierta es la que exige la base para dejar el
-        # equipo en el taller, y esta LIGADA al caso.
+        # equipo en el taller, y está LIGADA al caso.
         assert orden is not None
         assert orden["status"] not in ("REPAIRED", "UNREPAIRABLE")
         assert str(orden["incident_id"]) == str(caso["id"])
@@ -421,7 +421,7 @@ class TestCierre:
                 {"d": equipo},
             ).mappings().first()
 
-        # El equipo salio del stock: esta dado de baja y no se lista mas.
+        # El equipo salió del stock: está dado de baja y no se lista más.
         assert fila["current_status"] == "PERMANENTLY_DISPOSED"
         assert fila["deleted_at"] is not None
         # Con su certificado, que apunta a la orden que demostro que no se
@@ -443,7 +443,7 @@ class TestCierre:
         )
         service.tomar_caso(caso["id"], user_id=usuarios["tecnico"])
 
-        # El equipo esta en el deposito: no puede "volver" al deposito.
+        # El equipo está en el depósito: no puede "volver" al depósito.
         with pytest.raises(service.IncidenciaInvalida):
             service.cerrar_caso(
                 caso["id"],

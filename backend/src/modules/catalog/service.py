@@ -1,17 +1,17 @@
 """
-Servicio de Catálogo (maestro de productos).
+Servicio de Catalogo (maestro de productos).
 
-AQUI VIVE EL "MAESTRO DE PRODUCTOS"
+Aquí VIVE EL "MAESTRO DE PRODUCTOS"
 -----------------------------------
 El maestro de productos de este sistema es la tabla `models`. No existe una tabla
-`products` separada: hubo una migracion que la creaba, pero ningun modulo del
-backend la usa (cero referencias a `products`/`product_id`), asi que quedo
+`products` separada: hubo una migración que la creaba, pero ningún módulo del
+backend la usa (cero referencias a `products`/`product_id`), así que quedó
 archivada. El diseño real —el que consultan stock, purchasing y reporting— tiene
-el SKU, el stock minimo/maximo y el costo en `models`.
+el SKU, el stock mínimo/máximo y el costo en `models`.
 
 Un "producto" del maestro es una combinacion marca + modelo + SKU, con su
-categoria, sus puntos de reposicion y su costo. Cada equipo fisico (`devices`)
-apunta a un producto (`model_id`), y de ahi sale el stock agregado.
+categoría, sus puntos de reposición y su costo. Cada equipo físico (`devices`)
+apunta a un producto (`model_id`), y de ahí sale el stock agregado.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from src.modules.locations.service import ids_descendientes_categoria
 
 
 class ProductoInvalido(ValueError):
-    """Regla de negocio del catalogo (SKU repetido, categoria inexistente)."""
+    """Regla de negocio del catalogo (SKU repetido, categoría inexistente)."""
 
 
 LARGO_QR = 150
@@ -37,29 +37,29 @@ LARGO_BARCODE = 64
 
 def _codigos_de_etiqueta(sku: str, datos: dict[str, Any]) -> tuple[str, str]:
     """
-    Resuelve el QR y el codigo de barras de un producto.
+    Resuelve el QR y el código de barras de un producto.
 
-    POR QUE HAY UN CODIGO POR PRODUCTO
+    POR QUE HAY UN Código POR PRODUCTO
     -----------------------------------
     Un producto del maestro es "una notebook tal modelo": hay cinco en el
-    deposito. La etiqueta con el QR y el codigo de barras es la del PRODUCTO
-    (la de la caja, la del rack, la del producto en la góndola del almacen),
+    depósito. La etiqueta con el QR y el código de barras es la del PRODUCTO
+    (la de la caja, la del rack, la del producto en la góndola del almacén),
     no la de cada equipo: la de cada equipo es la que ya existe, con el
     `qr_code` de `devices` y su serial.
 
     POR QUE EL QR NO ES EL SKU
     --------------------------
-    El QR lleva un prefijo `PRD-` para que se distinga de un codigo de
+    El QR lleva un prefijo `PRD-` para que se distinga de un código de
     etiqueta de EQUIPO (`INV-...`) de un vistazo. Los dos conviven en el mismo
-    deposito, y un operador que escanea con la app tiene que poder decir de
-    un vistazo si esta mirando una caja o un equipo.
+    depósito, y un operador que escanea con la app tiene que poder decir de
+    un vistazo si está mirando una caja o un equipo.
 
-    El codigo de barras, en cambio, es el SKU: es lo que ya esta escrito en la
+    El código de barras, en cambió, es el SKU: es lo que ya está escrito en la
     caja y en el sistema del proveedor, y repetirlo es mejor que inventar un
-    numero que el proveedor no conoce.
+    número que el proveedor no conoce.
 
-    Los dos son editables: si el proveedor ya tiene un codigo propio, se usa
-    ese. Lo que NO se puede es que dos productos compartan el mismo codigo:
+    Los dos son editables: si el proveedor ya tiene un código propio, se usa
+    ese. Lo que NO se puede es que dos productos compartan el mismo código:
     es lo que hace inutil una etiqueta.
     """
     qr_code = (datos.get("qr_code") or "").strip() or f"PRD-{sku}"
@@ -105,14 +105,14 @@ def obtener_codigos_producto(producto_id: int) -> dict[str, Any]:
 
 def listar_categorias(limite: int | None = None) -> list[dict[str, Any]]:
     """
-    Categorias activas, con su codigo corto para armar SKUs y su RUTA.
+    Categorías activas, con su código corto para armar SKUs y su RUTA.
 
     La ruta ("Portatiles > Notebooks") es lo que la interfaz muestra: un
-    operador que tiene 40 equipos y 7 categorias necesita ver de que rama
+    operador que tiene 40 equipos y 7 categorías necesita ver de que rama
     sale cada cosa, no un nombre suelto que se repite.
 
-    El `limite` es un TECHO de seguridad, no una paginacion: las categorias
-    son una taxonomia (decenas, no miles), pero un alta automatica que se
+    El `límite` es un TECHO de seguridad, no una paginación: las categorías
+    son una taxonomia (decenas, no miles), pero un alta automática que se
     descontrola no debe colgar la pantalla.
     """
     db = get_db_session()
@@ -142,7 +142,7 @@ def listar_categorias(limite: int | None = None) -> list[dict[str, Any]]:
 
 
 def arbol_categorias() -> list[dict[str, Any]]:
-    """Las categorias en arbol, con sus hijas."""
+    """Las categorías en árbol, con sus hijas."""
     db = get_db_session()
     try:
         filas = db.execute(
@@ -165,8 +165,8 @@ def _verificar_categoria_padre(parent_id: int, categoria_id: int | None = None) 
     """
     El padre tiene que existir, y no puede ser uno mismo ni un descendiente.
 
-    Un ciclo en `parent_id` cuelga la categoria de si misma: el filtro por
-    subcategorias se cuda solo y la pantalla de categorias deja de pintar.
+    Un ciclo en `parent_id` cuelga la categoría de si misma: el filtro por
+    subcategorias se cuda solo y la pantalla de categorías deja de pintar.
     """
     if categoria_id is not None and int(parent_id) == int(categoria_id):
         raise ProductoInvalido("Una categoria no puede ser su propia categoria padre.")
@@ -192,9 +192,9 @@ def _verificar_categoria_padre(parent_id: int, categoria_id: int | None = None) 
 
 def crear_categoria(datos: dict[str, Any]) -> dict[str, Any]:
     """
-    Alta de una categoria.
+    Alta de una categoría.
 
-    `parent_id` es lo que hace la jerarquia: una categoria sin padre es una
+    `parent_id` es lo que hace la jerarquía: una categoría sin padre es una
     rama, y con padre es una subcategoria.
     """
     nombre = (datos.get("name") or "").strip()
@@ -247,7 +247,7 @@ def crear_categoria(datos: dict[str, Any]) -> dict[str, Any]:
 
 
 def actualizar_categoria(categoria_id: int, datos: dict[str, Any]) -> dict[str, Any]:
-    """Edicion de una categoria."""
+    """Edicion de una categoría."""
     if "parent_id" in datos and datos["parent_id"]:
         _verificar_categoria_padre(datos["parent_id"], categoria_id)
 
@@ -300,10 +300,10 @@ def actualizar_categoria(categoria_id: int, datos: dict[str, Any]) -> dict[str, 
 
 def eliminar_categoria(categoria_id: int) -> None:
     """
-    Borrado logico de una categoria.
+    Borrado logico de una categoría.
 
-    No se puede borrar una categoria con productos: los equipos historicos
-    siguen apuntandole, y dejarlos sin categoria los saca de cualquier
+    No se puede borrar una categoría con productos: los equipos historicos
+    siguen apuntandole, y dejarlos sin categoría los saca de cualquier
     agrupacion. Hay que descontinuarla.
     """
     db = get_db_session()
@@ -340,7 +340,7 @@ def eliminar_categoria(categoria_id: int) -> None:
         db.close()
 
 
-# --- Atributos personalizados por categoria ---------------------------------
+# --- Atributos personalizados por categoría ---------------------------------
 
 
 class AtributoInvalido(ValueError):
@@ -348,7 +348,7 @@ class AtributoInvalido(ValueError):
 
 
 # Los tipos de dato que un atributo puede tener. El CHECK de Postgres es la
-# ultima linea de defensa; esta lista es la que valida la API y la que usa el
+# última línea de defensa; está lista es la que válida la API y la que usa el
 # formulario para elegir el control.
 TIPOS_ATRIBUTO = ("text", "number", "date", "boolean", "select")
 
@@ -357,15 +357,15 @@ def _normalizar_clave_atributo(clave: str) -> str:
     """
     La clave de un atributo, en la forma en que viaja.
 
-    Es la clave del JSONB de valores, asi que tiene que ser estable: sin
-    espacios, en minuscula y con guiones bajos. "Fecha de Caducidad" y
+    Es la clave del JSONB de valores, así que tiene que ser estable: sin
+    espacios, en minúscula y con guiones bajos. "Fecha de Caducidad" y
     "fecha_de_caducidad" tienen que ser EL MISMO atributo, no dos.
     """
     return (clave or "").strip().lower().replace(" ", "_")
 
 
 def listar_atributos(categoria_id: int) -> list[dict[str, Any]]:
-    """Los atributos definidos para una categoria."""
+    """Los atributos definidos para una categoría."""
     db = get_db_session()
     try:
         filas = db.execute(
@@ -386,7 +386,7 @@ def listar_atributos(categoria_id: int) -> list[dict[str, Any]]:
 
 
 def crear_atributo(categoria_id: int, datos: dict[str, Any]) -> dict[str, Any]:
-    """Define un atributo para una categoria."""
+    """Define un atributo para una categoría."""
     clave = _normalizar_clave_atributo(datos.get("key") or "")
     etiqueta = (datos.get("label") or "").strip()
     tipo = (datos.get("data_type") or "text").lower()
@@ -447,7 +447,7 @@ def crear_atributo(categoria_id: int, datos: dict[str, Any]) -> dict[str, Any]:
 
 
 def actualizar_atributo(atributo_id: int, datos: dict[str, Any]) -> dict[str, Any]:
-    """Edita la definicion de un atributo."""
+    """Edita la definición de un atributo."""
     db = get_db_session()
     try:
         fila = db.execute(
@@ -500,10 +500,10 @@ def actualizar_atributo(atributo_id: int, datos: dict[str, Any]) -> dict[str, An
 
 def eliminar_atributo(atributo_id: int) -> None:
     """
-    Borra la definicion de un atributo.
+    Borra la definición de un atributo.
 
     Los VALORES que se cargaron en los productos NO se borran: quedan en el
-    JSONB. Un valor huerfano es informacion que el operador escribio, y
+    JSONB. Un valor huerfano es información que el operador escribio, y
     borrarla sin que nadie lo pida es perder datos.
     """
     db = get_db_session()
@@ -519,17 +519,17 @@ def eliminar_atributo(atributo_id: int) -> None:
 
 def validar_atributos(categoria_id: int, valores: dict[str, Any]) -> dict[str, Any]:
     """
-    Valida los valores de los atributos contra la definicion de la categoria.
+    Válida los valores de los atributos contra la definición de la categoría.
 
     Devuelve el diccionario limpio, listo para guardar en
     `models.specifications`.
 
     QUE RECHAZA
     -----------
-    - Una clave que la categoria no define: seria un dato sin columna ni
-      definicion, invisible para todos los informes.
+    - Una clave que la categoría no define: seria un dato sin columna ni
+      definición, invisible para todos los informes.
     - Un valor que no se puede convertir al tipo declarado ("12" en un
-      `number` es un numero, "doce" no).
+      `number` es un número, "doce" no).
     - Un atributo obligatorio sin valor.
     """
     definiciones = {a["key"]: a for a in listar_atributos(categoria_id)}
@@ -598,9 +598,9 @@ def listar_productos(
     El `deleted_at IS NULL` es el borrado logico: un producto que se dejo de
     vender no se borra, porque los equipos historicos siguen apuntandole.
 
-    `limite=None` significa "todos": lo usan los SELECTS (el de "nuevo
+    `límite=None` significa "todos": lo usan los SELECTS (el de "nuevo
     equipo", el filtro del inventario), donde el operador busca en una lista
-    corta de productos. La PANTALLA del maestro pasa un limite y pagina.
+    corta de productos. La PANTALLA del maestro pasa un límite y página.
     """
     condiciones = ["m.deleted_at IS NULL"]
     parametros: dict[str, Any] = {}
@@ -613,8 +613,8 @@ def listar_productos(
     if busqueda:
         # La busqueda es de TEXTO COMPLETO: "portatil dell" tiene que encontrar
         # "Dell Latitude 5520", no solo las filas que tienen la palabra exacta
-        # en el SKU. El ILIKE queda como red de seguridad para los codigos con
-        # simbolos (un `INV-a1b2/3` no es una palabra del diccionario).
+        # en el SKU. El ILIKE queda como red de seguridad para los códigos con
+        # símbolos (un `INV-a1b2/3` no es una palabra del diccionario).
         condiciones.append(
             "(m.brand ILIKE :busqueda OR m.model ILIKE :busqueda OR m.sku ILIKE :busqueda "
             "OR m.qr_code ILIKE :busqueda OR m.barcode ILIKE :busqueda "
@@ -624,8 +624,8 @@ def listar_productos(
 
     where = " AND ".join(condiciones)
 
-    # `limite=None` = todos (lo que necesitan los SELECTS). Con limite, la
-    # pantalla del maestro pagina.
+    # `límite=None` = todos (lo que necesitan los SELECTS). Con límite, la
+    # pantalla del maestro página.
     if limite is None:
         limite_sql = ""
     else:
@@ -672,7 +672,7 @@ def listar_productos(
         ).mappings().all()
         datos = [dict(f) for f in filas]
 
-        # El TOTAL, para la paginacion: sin el, el operador no sabe si la
+        # El TOTAL, para la paginación: sin el, el operador no sabe si la
         # lista que ve es toda o la primera de muchas.
         total = db.execute(
             text(
@@ -688,8 +688,8 @@ def listar_productos(
     finally:
         db.close()
 
-    # La ruta de la categoria ("Portatiles > Notebooks") y los atributos del
-    # producto, en una sola pasada por la lista de categorias.
+    # La ruta de la categoría ("Portatiles > Notebooks") y los atributos del
+    # producto, en una sola pasada por la lista de categorías.
     rutas = {c["id"]: c["ruta"] for c in listar_categorias()}
     for d in datos:
         d["categoria_ruta"] = rutas.get(d["category_id"], d["categoria"])
@@ -701,7 +701,7 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
     """
     Alta de un producto del maestro.
 
-    `sku` es obligatorio y unico: es la clave con la que se compra, se cuenta y
+    `sku` es obligatorio y único: es la clave con la que se compra, se cuenta y
     se reporta. Sin SKU, dos altas del "mismo" producto se vuelven dos filas
     distintas y el stock deja de agregar.
     """
@@ -712,8 +712,8 @@ def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
     sku = (datos["sku"] or "").strip()
     qr_code, barcode = _codigos_de_etiqueta(sku, datos)
 
-    # Los atributos de la categoria (caducidad, lote, dimensiones...) se validan
-    # CONTRA la definicion antes de guardarse: un valor sin definir es un dato
+    # Los atributos de la categoría (caducidad, lote, dimensiones...) se validan
+    # CONTRA la definición antes de guardarse: un valor sin definir es un dato
     # invisible para todos los informes.
     atributos = validar_atributos(categoria_id, datos.get("atributos") or {})
     especificaciones = json.dumps(atributos) if atributos else None
@@ -814,23 +814,23 @@ def actualizar_producto(producto_id: int, datos: dict[str, Any]) -> dict[str, An
     """
     Actualizacion de un producto del maestro.
 
-    No se permite cambiar el SKU (es la clave historica con la que se compro
+    No se permite cambiar el SKU (es la clave histórica con la que se compro
     y se conto stock). Si se quiere otro SKU, se da de alta un producto nuevo.
     """
     categoria_id = datos.get("category_id")
     if not categoria_id:
         raise ProductoInvalido("La categoria es obligatoria.")
 
-    # Los codigos de etiqueta SOLO se tocan si vienen en el body: el COALESCE
+    # Los códigos de etiqueta Solo se tocan si vienen en el body: el COALESCE
     # de abajo deja el valor anterior cuando no vienen. Si no, una edicion
     # que no toca la etiqueta la borraria, y con ella la ability de reimprimirla.
     qr_code = (datos.get("qr_code") or "").strip() or None
     barcode = (datos.get("barcode") or "").strip() or None
 
     # Los atributos se FUSIONAN con los que ya tenia el producto, no se
-    # reemplazan: `specifications` tambien puede traer cosas que no son
-    # atributos de la categoria (es un JSONB libre), y pisarlo seria perder
-    # datos. Un atributo enviado VACIO borra su valor: es la unica forma de
+    # reemplazan: `specifications` también puede traer cosas que no son
+    # atributos de la categoría (es un JSONB libre), y pisarlo seria perder
+    # datos. Un atributo enviado Vacío borra su valor: es la única forma de
     # que el operador pueda limpiar un campo.
     especificaciones = None
     if "atributos" in datos:
@@ -952,7 +952,7 @@ def eliminar_producto(producto_id: int) -> None:
     """
     db = get_db_session()
     try:
-        # Verificar que el producto exista y no esté ya borrado
+        # Verificar que el producto exista y no este ya borrado
         fila = db.execute(
             text("SELECT id, brand, model, sku FROM models WHERE id = :id AND deleted_at IS NULL"),
             {"id": producto_id},
@@ -976,7 +976,7 @@ def eliminar_producto(producto_id: int) -> None:
         if movimientos > 0:
             raise ProductoInvalido(
                 f"El producto '{fila['brand']} {fila['model']}' tiene {movimientos} movimientos asociados. "
-                "No se puede eliminar. Descontinúelo (is_active = FALSE) para mantener el historial."
+                "No se puede eliminar. Descontinuelo (is_active = FALSE) para mantener el historial."
             )
 
         # Borrado logico
@@ -996,11 +996,11 @@ def listar_clientes(
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """
-    Clientes activos, con buscador y paginacion.
+    Clientes activos, con buscador y paginación.
 
     La lista de clientes crece con los clientes de la empresa: 200 clientes
-    son 200 filas en pantalla. Con `limite=None` se traen todos (lo que
-    necesitan los selectores), y con limite, la pantalla pagina.
+    son 200 filas en pantalla. Con `límite=None` se traen todos (lo que
+    necesitan los selectores), y con límite, la pantalla página.
     """
     condiciones = ["deleted_at IS NULL"]
     parametros: dict[str, Any] = {}
@@ -1159,7 +1159,7 @@ def listar_proveedores() -> list[dict[str, Any]]:
 
 
 def crear_proveedor(datos: dict[str, Any]) -> dict[str, Any]:
-    """Alta de proveedor. El nombre es lo unico obligatorio."""
+    """Alta de proveedor. El nombre es lo único obligatorio."""
     db = get_db_session()
     try:
         try:

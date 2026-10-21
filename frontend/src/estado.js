@@ -3,13 +3,13 @@
  *
  * QUE ESTE Y POR QUE ES UN ARCHIVO APARTE
  * ---------------------------------------
- * El usuario conectado y la vista actual los necesita el modulo de sesion
+ * El usuario conectado y la vista actual los necesita el módulo de sesión
  * (que los cambia), el de navegacion (que los lee) y el de la cabecera (que
  * los muestra). Con los tres importing de `main.js`, `main.js` los importaria
- * de vuelta: un CICLO de modulos, que en ESM no rompe pero deja el estado en
+ * de vuelta: un CICLO de módulos, que en ESM no rompe pero deja el estado en
  * `undefined` en el primer arranque, y no hay error que lo diga.
  *
- * ES UN SOLO OBJETO, NO VARIABLES SUELTAS
+ * ES UN Solo OBJETO, NO VARIABLES SUELTAS
  * ---------------------------------------
  * Con `export let usuario`, el que lo importa ve el valor actualizado (los
  * bindings son vivos), pero no puede cambiarlo. Con un objeto y funciones para
@@ -22,16 +22,16 @@ export const estado = {
   usuario: null,
   vistaActual: null,
   vistaActualNombre: null,
-  // El modulo en el que se esta trabajando: `inventario` o `helpdesk`.
-  // Decide que pestanas se ven y que tablero se pinta.
+  // El módulo en el que se está trabajando: `inventario` o `helpdesk`.
+  // Decide que pestañas se ven y que tablero se pinta.
   modulo: 'inventario',
 };
 
-/** Cambia el modulo de trabajo. */
+/** Cambia el módulo de trabajo. */
 export function setModulo(modulo) {
   estado.modulo = modulo;
-  // El `body` lleva el modulo: el CSS usa `body[data-modulo]` para pintar
-  // con el color del modulo (azul Inventario, ambar Service Desk). Sin esto,
+  // El `body` lleva el módulo: el CSS usa `body[data-módulo]` para pintar
+  // con el color del módulo (azul Inventario, ambar Service Desk). Sin esto,
   // el color vive solo en los botones de la cabecera.
   document.body.dataset.modulo = modulo;
 }
@@ -41,7 +41,7 @@ export function setUsuario(usuario) {
   estado.usuario = usuario ?? null;
 }
 
-/** Guarda la vista que esta en pantalla. */
+/** Guarda la vista que está en pantalla. */
 export function setVistaActual(vista, nombre) {
   estado.vistaActual = vista ?? null;
   if (nombre !== undefined) estado.vistaActualNombre = nombre;
@@ -50,8 +50,8 @@ export function setVistaActual(vista, nombre) {
 /**
  * Que permisos tiene este usuario.
  *
- * Viene del login y del endpoint `/auth/yo`. Si todavia no se sabe (la sesion
- * se esta restaurando), se cae al fallback por rol, que es una COPIA de
+ * Viene del login y del endpoint `/auth/yo`. Si todavía no se sabe (la sesión
+ * se está restaurando), se cae al fallback por rol, que es una COPIA de
  * `core/permissions.py` del backend: sirve unicamente para pintar la UI antes
  * de que llegue la respuesta real.
  */

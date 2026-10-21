@@ -3,28 +3,28 @@ Tests de integridad del front.
 
 POR QUE UN TEST EN EL BACKEND PARA EL FRONT
 --------------------------------------------
-El front no tiene runner de tests (ni bundler, por decision del proyecto: los
-modulos ES se cargan nativos). Pero hay una clase de bug DEL FRONT que es
+El front no tiene runner de tests (ni bundler, por decisión del proyecto: los
+módulos ES se cargan nativos). Pero hay una clase de bug DEL FRONT que es
 silenciosa y cara:
 
-    Un modulo usa un helper compartido sin importarlo.
+    Un módulo usa un helper compartido sin importarlo.
 
 `ReferenceError: errorDe is not defined` dentro de un manejador de click. El
-modulo CARGA bien (el error es en tiempo de ejecucion), la app arranca, la
-vista se ve... y el boton no hace nada. Sin errores en la consola de la
-pagina que el operador tiene abierta, y sin un mensaje util: el unico rastro
-esta en la consola del navegador, que el operador no abre.
+módulo CARGA bien (el error es en tiempo de ejecucion), la app arranca, la
+vista se ve... y el botón no hace nada. Sin errores en la consola de la
+página que el operador tiene abierta, y sin un mensaje útil: el único rastro
+está en la consola del navegador, que el operador no abre.
 
 COSTE REAL
 ----------
 Ese bug se colo DOS VECES en un mismo refactor, y las dos veces el sintoma
-fue "el boton no hace nada". Un test que verifique los imports lo detecta en un
+fue "el botón no hace nada". Un test que verifique los imports lo detecta en un
 segundo.
 
 QUE CHEQUEA
 ------------
-1. Que cada `import { x }` exista de verdad en el modulo destino (un export
-   que no existe rompe el grafo de modulos ENTERO: la app no arranca).
+1. Que cada `import { x }` exista de verdad en el módulo destino (un export
+   que no existe rompe el grafo de módulos ENTERO: la app no arranca).
 2. Que los helpers COMPARTIDOS que el archivo usa esten importados o definidos
    en el.
 """
@@ -41,8 +41,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Donde puede estar el front.
 #
-# En el HOST, el test esta en `backend/tests/`, asi que el front esta dos
-# directorios mas arriba. En el CONTENEDOR, el codigo esta en `/app` y el front
+# En el HOST, el test está en `backend/tests/`, así que el front está dos
+# directorios más arriba. En el CONTENEDOR, el código está en `/app` y el front
 # se monta en `/app/frontend-src` (ver `docker-compose.dev.yml`).
 RUTAS_FRONT = (
     Path(__file__).resolve().parents[2] / "frontend" / "src",
@@ -56,7 +56,7 @@ def _raiz_del_front() -> Path:
             return ruta
     return RUTAS_FRONT[0]
 
-# Los helpers compartidos del front. Un nombre de esta lista que se use sin
+# Los helpers compartidos del front. Un nombre de está lista que se use sin
 # estar importado es un bug garantizado.
 HELPERS_COMPARTIDOS = {
     # De `dom.js`
@@ -110,7 +110,7 @@ def _sin_comentarios(texto: str) -> str:
     El texto sin los comentarios.
 
     Un ejemplo de uso en un docstring (`import { x } from './y'`) NO es un
-    import: sin esto, el chequeo reporta como faltante algo que el modulo si
+    import: sin esto, el chequeo reporta como faltante algo que el módulo si
     exporta.
     """
     texto = re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
@@ -118,7 +118,7 @@ def _sin_comentarios(texto: str) -> str:
 
 
 def _exportados(ruta: Path) -> set[str]:
-    """Los nombres que el modulo exporta."""
+    """Los nombres que el módulo exporta."""
     texto = ruta.read_text(encoding="utf-8")
     nombres: set[str] = set()
 
@@ -165,7 +165,7 @@ def _claves_de_crear(texto: str) -> set[str]:
 
     Se parsea el objeto de opciones contando llaves, corchetes y parentesis:
     sin los tres, una llamada anidada dentro de `hijos: [...]` (por ejemplo
-    `icono(ICONOS.camara, { tamano: 20 })`) se cuenta como clave de la
+    `ícono(Íconos.camara, { tamaño: 20 })`) se cuenta como clave de la
     llamada de `crear`, y el test reporta un problema que no existe.
     """
     claves: set[str] = set()
@@ -173,7 +173,7 @@ def _claves_de_crear(texto: str) -> set[str]:
 
     while True:
         # `(?<![\w.])` para que no tome "crearPaginacion(" por una llamada a
-        # `crear()`: las opciones del componente de paginacion tienen claves
+        # `crear()`: las opciones del componente de paginación tienen claves
         # ("total", "alCambiarPagina") que `crear()` no acepta.
         encontrado = re.search(r"(?<![\w.])crear\(", texto[posicion:])
         if not encontrado:
@@ -260,23 +260,23 @@ class TestCabecera:
     """
     La cabecera no se puede mover.
 
-    QUE PASÓ
+    QUE PASO
     ---------
-    La cabecera era un `flex` con `margin-inline: auto` en el menu: el menu se
-    centraba repartiendo el espacio sobrante. Al cambiar de modulo cambian
-    las pestanas, cambia el ancho del menu, y con el se movia TODO lo que
-    estaba alrededor: el selector de modulo (que es la unica cosa que
+    La cabecera era un `flex` con `margin-inline: auto` en el menú: el menú se
+    centraba repartiendo el espacio sobrante. Al cambiar de módulo cambian
+    las pestañas, cambia el ancho del menú, y con el se movia TODO lo que
+    estaba alrededor: el selector de módulo (que es la única cosa que
     cambia de verdad) salia de un lado y volvia al otro.
 
-    El operador veia el menu y las pestanas cambiar, y el selector de modulo
-    moverse. Se lee como "la app se rompió".
+    El operador veia el menú y las pestañas cambiar, y el selector de módulo
+    moverse. Se lee como "la app se rompio".
 
     QUE CHEQUEA
     -----------
-    1. Que la cabecera sea una GRID con areas: es lo que fija las columnas.
-    2. Que el menu NO se centre con margenes automaticos: eso es lo que
-       hace que todo se mueva cuando el menu cambia de ancho.
-    3. Que el selector de modulo tenga area propia: asi puede bajar a su
+    1. Que la cabecera sea una GRID con áreas: es lo que fija las columnas.
+    2. Que el menú NO se centre con margenes automaticos: eso es lo que
+       hace que todo se mueva cuando el menú cambia de ancho.
+    3. Que el selector de módulo tenga área propia: así puede bajar a su
        propia fila en el celular sin depender de donde este en el HTML.
     """
 
@@ -315,9 +315,9 @@ class TestCabecera:
 
     def test_el_selector_de_modulo_esta_en_la_fila_de_arriba(self):
         """
-        El selector de modulo va en la FILA DE ARRIBA, al lado del menu.
+        El selector de módulo va en la FILA DE ARRIBA, al lado del menú.
 
-        Es una eleccion operativa del dia a dia ("hoy trabajo el deposito"),
+        Es una eleccion operativa del día a día ("hoy trabajo el depósito"),
         y tiene que estar a la vista sin bajar a otra fila.
         """
         css = self._css()
@@ -338,7 +338,7 @@ class TestCabecera:
         )
 
     def test_la_segunda_fila_de_la_cabecera_existe(self):
-        """El usuario y el selector de modulo comparten la segunda fila."""
+        """El usuario y el selector de módulo comparten la segunda fila."""
         html = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
         if not html.exists():  # pragma: no cover
             pytest.skip("No se encuentra el index.html.")
@@ -351,22 +351,22 @@ class TestCabecera:
 
 class TestModales:
     """
-    Un modal sin boton de cerrar es un modal TRABADO.
+    Un modal sin botón de cerrar es un modal TRABADO.
 
-    QUE PASÓ
+    QUE PASO
     ---------
-    Cinco formularios (reportar incidencia, nuevo usuario, contrasena, mi
-    cuenta, nueva categoria) se abrian con `acciones: []`: sin ningun boton
-    visible. La unica salida era la tecla Escape, y en un CELULAR no hay
+    Cinco formularios (reportar incidencia, nuevo usuario, contraseña, mi
+    cuenta, nueva categoría) se abrian con `acciones: []`: sin ningún botón
+    visible. La única salida era la tecla Escape, y en un CELULAR no hay
     tecla Escape: el operador abria el formulario y no podia volver.
 
-    No habia ningun error, ninguna peticion fallida, nada en la consola. Solo
-    un boton que no estaba.
+    No habia ningún error, ninguna petición fallida, nada en la consola. Solo
+    un botón que no estaba.
 
     QUE CHEQUEA
     -----------
     1. Que ninguna llamada a `abrirDialogo` se quede sin acciones.
-    2. Que todo modal con un formulario tenga, ademas, la opcion de cerrar
+    2. Que todo modal con un formulario tenga, además, la opción de cerrar
        tocando el fondo (eso lo garantiza `dialogo.js`).
     """
 
@@ -412,7 +412,7 @@ class TestCamposDeFormulario:
     """
     Los helpers de formulario aceptan dos formas de llamada.
 
-    `campoTexto` se llama de las dos formas en el codigo: con un objeto
+    `campoTexto` se llama de las dos formas en el código: con un objeto
     (`campoTexto({ etiqueta: 'Marca' })`) y posicional
     (`campoTexto('Ej: Dell', 'Marca')`).
 
@@ -448,14 +448,14 @@ class TestCamposDeFormulario:
     def test_las_etiquetas_de_los_campos_no_son_undefined(self):
         """
         Una etiqueta "undefined" es la firma de una llamada con la forma
-        equivocada: el helper recibio un string donde esperaba un objeto.
+        equivocada: el helper recibió un string donde esperaba un objeto.
         """
         problemas = []
 
         for ruta in _archivos_js():
             texto = ruta.read_text(encoding="utf-8")
-            # Busqueda literal: si el codigo tiene "undefined" pegado a una
-            # etiqueta de campo, esta mal.
+            # Busqueda literal: si el código tiene "undefined" pegado a una
+            # etiqueta de campo, está mal.
             for m in re.finditer(r"etiqueta:\s*['\"]undefined['\"]", texto):
                 linea = texto[: m.start()].count("\n") + 1
                 problemas.append(f"{ruta.name}:{linea}: una etiqueta de campo es 'undefined'")
@@ -465,19 +465,19 @@ class TestCamposDeFormulario:
 
 class TestCss:
     """
-    El CSS es codigo, y tiene una clase de bug que no da error: una regla
+    El CSS es código, y tiene una clase de bug que no da error: una regla
     MUERTA.
 
     QUE PASO
     ---------
-    Un comentario de cabecera quedo sin cerrar (al insertar un bloque antes
-    del comentario, se llevo su linea de cierre). Todo lo que venia
-    despues quedo DENTRO del comentario: la regla `.kpi` dejo de existir.
+    Un comentario de cabecera quedó sin cerrar (al insertar un bloque antes
+    del comentario, se llevo su línea de cierre). Todo lo que venia
+    después quedó DENTRO del comentario: la regla `.kpi` dejo de existir.
 
     El sintoma no fue un error: fue un diseno roto. Los cuadros de resumen
     del tablero dejaron de tener fondo y borde, y el navegador los pinto con
-    su aspecto NATIVO de boton (gris, con borde de 3D). La app no daba
-    ningun error, la consola no decia nada, y el unico sintoma era que la
+    su aspecto NATIVO de botón (gris, con borde de 3D). La app no daba
+    ningún error, la consola no decia nada, y el único sintoma era que la
     pantalla se veia fea.
 
     POR QUE UN TEST Y NO UN LINTER
@@ -489,7 +489,7 @@ class TestCss:
     """
 
     def _css(self) -> str:
-        # El CSS puede estar en la raiz del front o dentro de `src`: se
+        # El CSS puede estar en la raíz del front o dentro de `src`: se
         # buscan los dos y no se assume ninguna de las dos.
         raiz = _raiz_del_front()
         for ruta in (raiz / "styles.css", raiz.parent / "styles.css"):
@@ -499,7 +499,7 @@ class TestCss:
 
     def test_los_comentarios_estan_cerrados(self):
         """
-        Un `/*` sin su `*/` se traga todo lo que viene despues: las reglas
+        Un `/*` sin su `*/` se traga todo lo que viene después: las reglas
         que quedan dentro del comentario no existen, y el navegador no dice
         nada.
         """
@@ -515,7 +515,7 @@ class TestCss:
 
     def test_las_llaves_estan_balanceadas(self):
         """
-        Una llave de mas deja todo lo que sigue dentro de la regla anterior;
+        Una llave de más deja todo lo que sigue dentro de la regla anterior;
         una de menos rompe el archivo entero.
         """
         texto = self._css()
@@ -537,7 +537,7 @@ class TestCss:
         """
         Las reglas que dan el diseno de los cuadros de resumen tienen que
         estar en el archivo. Si una se traga un comentario, el tablero se
-        ve con el estilo NATIVO del boton: gris, con borde de 3D, y nadie
+        ve con el estilo NATIVO del botón: gris, con borde de 3D, y nadie
         sabe por que.
         """
         texto = self._css()
@@ -554,8 +554,8 @@ class TestCss:
 class TestGrafoDeModulos:
     def test_todo_import_existe(self):
         """
-        Un import de un nombre que el modulo destino no exporta ROMPE el grafo
-        de modulos entero: la app no arranca, y el error dice "Failed to load
+        Un import de un nombre que el módulo destino no exporta ROMPE el grafo
+        de módulos entero: la app no arranca, y el error dice "Failed to load
         module script" sin decir cual.
         """
         problemas = []
@@ -591,10 +591,10 @@ class TestGrafoDeModulos:
     def test_los_helpers_compartidos_estan_importados(self):
         """
         Un helper compartido usado sin importar es un `ReferenceError` en
-        tiempo de ejecucion: el boton no hace nada y no hay error en la
-        consola de la pagina.
+        tiempo de ejecucion: el botón no hace nada y no hay error en la
+        consola de la página.
 
-        El chequeo mira los nombres usados COMO LLAMADA (`nombre(`), asi que no
+        El chequeo mira los nombres usados COMO LLAMADA (`nombre(`), así que no
         marca los que aparecen en un comentario o en un texto.
         """
         problemas = []
@@ -619,12 +619,12 @@ class TestGrafoDeModulos:
 
         El helper acepta `clase`, `id`, `texto`, `atributos`, `hijos` y
         `estilo`, y cualquier otra cosa se pierde sin error ni aviso. Un `role: 'tab'`
-        puesto al lado de `atributos` desaparece, y el boton queda sin
-        anunciar: el lector de pantalla lo lee como un boton cualquiera.
+        puesto al lado de `atributos` desaparece, y el botón queda sin
+        anunciar: el lector de pantalla lo lee como un botón cualquiera.
 
         Pasa tres veces en este repo (un `onclick` que no se escuchaba, un
         `errorDe` sin importar y un `role` perdido). Cada vez el sintoma fue
-        "el boton no hace nada".
+        "el botón no hace nada".
         """
         PERMITIDAS = {"clase", "id", "texto", "atributos", "hijos", "estilo"}
         problemas = []
@@ -643,7 +643,7 @@ class TestGrafoDeModulos:
     def test_no_hay_imports_de_ruta_absoluta(self):
         """
         Un import con ruta absoluta (`/src/...`) no lo resuelve el navegador:
-        el modulo no se carga y el error dice "Failed to resolve module specifier".
+        el módulo no se carga y el error dice "Failed to resolve module specifier".
         """
         problemas = []
 

@@ -19,10 +19,10 @@ POR QUE /health NO CONSULTA A LA IA
 ------------------------------------
 Este endpoint decide si el CONTENEDOR esta sano. Si dependiera del proveedor de
 LLM, un Ollama lento o caido reiniciaria la API de inventario — que funciona
-perfectamente sin IA — y el orquestador lo volvería a reiniciar, en loop.
+perfectamente sin IA — y el orquestador lo volveria a reiniciar, en loop.
 
 El estado de la IA vive en `/api/ai/health`, que reporta sin propagar el fallo.
-La separación es deliberada: el inventario no depende del modelo.
+La separacion es deliberada: el inventario no depende del modelo.
 """
 
 import asyncio
@@ -44,9 +44,9 @@ DATABASE_URL = os.getenv(
 
 _ES_PRODUCCION = os.getenv("APP_ENV", "production").lower() in ("production", "prod")
 
-# El pool es chico a proposito: el contenedor corre una sola instancia de
-# uvicorn y el healthcheck abre una conexion cada 10s. Un pool grande solo
-# desperdicia conexiones de Postgres, que es el recurso escaso aqui.
+# El pool es chico a propósito: el contenedor corre una sola instancia de
+# uvicorn y el healthcheck abre una conexión cada 10s. Un pool grande solo
+# desperdicia conexiones de Postgres, que es el recurso escaso aquí.
 engine = create_engine(DATABASE_URL, pool_size=3, max_overflow=2, pool_pre_ping=True)
 
 # Cuanto espera la API a que la base este lista antes de rendirse.
@@ -93,7 +93,7 @@ def esperar_base() -> None:
                     flush=True,
                 )
                 # `sys.exit` y no `raise`: el mensaje es para el log del
-                # contenedor, y el proceso tiene que terminar con codigo != 0
+                # contenedor, y el proceso tiene que terminar con código != 0
                 # para que Docker lo reinicie.
                 sys.exit(1)
             time.sleep(2)
@@ -106,20 +106,20 @@ async def barrer_sla_en_segundo_plano(intervalo: int = 60) -> None:
     QUE HACE
     --------
     Avisa de los casos que vencen en breve y escala los que ya pasaron su
-    plazo de respuesta sin que nadie los haya tomado. El motor del SLA esta
+    plazo de respuesta sin que nadie los haya tomado. El motor del SLA está
     en el servicio de incidencias; esto es solo el reloj.
 
     POR QUE `asyncio.to_thread`
     --------------------------
     La consulta a la base es BLOQUEANTE. Corrida en el event loop, frena
     TODAS las peticiones de la API mientras el barrido habla con Postgres: en
-    un deposito, con el escaner abierto, eso se nota. En un hilo aparte, la
+    un depósito, con el escaner abierto, eso se nota. En un hilo aparte, la
     API sigue respondiendo.
 
     POR QUE UN HILO Y NO UN CRON
     ---------------------------
-    Un cron externo necesitaria una imagen mas, un despliegue mas y un lugar
-    mas donde se rompe. Ademas, con el cron, un contenedor reiniciado durante
+    Un cron externo necesitaria una imagen más, un despliegue más y un lugar
+    más donde se rompe. Además, con el cron, un contenedor reiniciado durante
     un deploy pierde el aviso del medio. Con esto, el barrido sigue vivo con
     el contenedor.
     """
@@ -143,15 +143,15 @@ async def barrer_alertas_en_segundo_plano(intervalo: int = 300) -> None:
     POR QUE CADA CINCO MINUTOS Y NO CADA UNO
     ---------------------------------------
     El barrido de SLA corre cada minuto porque un plazo de 15 minutos se
-    avisa con poco margen. Una alerta de stock bajo dura dias: el producto
+    avisa con poco margen. Una alerta de stock bajo dura días: el producto
     no se repone de un minuto a otro. Correrlo cada cinco minutos alcanza y
     no le pega a la base cada minuto.
 
     Y POR QUE UN BARRIDO Y NO UN EVENTO AL MOVER
     --------------------------------------------
-    El stock baja en un movimiento, pero tambien sube, y el estado depende
-    de MUCHO mas que de un movimiento (una compra que aun no llega, una
-    devolucion). Un barrido que mira el estado real no se olvida de ningun
+    El stock baja en un movimiento, pero también sube, y el estado depende
+    de MUCHO más que de un movimiento (una compra que aún no llega, una
+    devolucion). Un barrido que mira el estado real no se olvida de ningún
     caso, y se puede correr a mano cuando algo parece raro.
     """
     from src.modules.stock import alertas as stock_alertas
@@ -171,12 +171,12 @@ async def lifespan(_app: FastAPI):
     """
     El ciclo de vida de la API.
 
-    La espera de la base va ACA y no en un `@app.on_event("startup")`: el
+    La espera de la base va Acá y no en un `@app.on_event("startup")`: el
     evento de startup es la API vieja de FastAPI, y el `lifespan` es la que
-    todos los frameworks de ASGI usan. Ademas, desde el lifespan se puede
+    todos los frameworks de ASGI usan. Además, desde el lifespan se puede
     levantar un error y DILE al proceso que muera, que es lo que se quiere.
 
-    El barrido de SLA arranca aca y se corta al apagar: una tarea de fondo que
+    El barrido de SLA arranca acá y se corta al apagar: una tarea de fondo que
     sobrevive al cierre del contenedor es una tarea que sigue consultando una
     base que ya no existe.
     """
@@ -198,18 +198,18 @@ app = FastAPI(
     version="0.5.0",
     description="Gestion de activos, inventario e incidencias para empresas, con IA.",
     lifespan=lifespan,
-    # POR QUE /docs SE DESACTIVA EN PRODUCCION
+    # POR QUE /docs SE DESACTIVA EN Producción
     # --------------------------------------
-    # Swagger UI no es un endpoint de negocio: es una pagina que lista TODA la
+    # Swagger UI no es un endpoint de negocio: es una página que lista TODA la
     # superficie de la API con ejemplos ejecutables, y arrastra el CDN de
     # fastapi.tiangolo.com para el CSS y el JS.
     #
     # Lo que abre de verdad:
     #   - El mapa completo de endpoints a cualquiera que llegue a la API, que
     #     sirve para elegir a que atacar.
-    #   - Un tercero del que la pagina depende. Si ese dominio esta
+    #   - Un tercero del que la página depende. Si ese dominio está
     #     comprometido, inyecta JS en el navegador de quien abra /docs.
-    #   - El esquema OpenAPI, que ademas alimenta a Postman y a los generadores
+    #   - El esquema OpenAPI, que además alimenta a Postman y a los generadores
     #     de cliente.
     #
     # En desarrollo queda disponible, que es donde sirve.
@@ -219,9 +219,9 @@ app = FastAPI(
 )
 
 # --- Routers ---------------------------------------------------------------
-# Se importan despues de crear `app` porque los modulos de la API usan
+# Se importan después de crear `app` porque los módulos de la API usan
 # `from src.main import app`... no, no lo hacen: traen su propio APIRouter y se
-# incluyen aca. El import va arriba de todo por legibilidad, pero los
+# incluyen acá. El import va arriba de todo por legibilidad, pero los
 # `include_router` quedan juntos para que se vea la superficie de la API de un
 # vistazo.
 from src.core.exceptions import register_exception_handlers
@@ -243,7 +243,7 @@ from src.modules.incidents.router import router as incidents_router
 from src.modules.export.router import router as export_router
 
 # Falla en el ARRANQUE y no en el primer login. Un deploy sin SECRET_KEY tiene
-# que caerse en el pipeline, no un martes a la tarde en produccion.
+# que caerse en el pipeline, no un martes a la tarde en producción.
 verificar_configuracion_de_secreto()
 register_exception_handlers(app)
 
@@ -258,10 +258,10 @@ from src.core.middleware import (
 configurar_cors(app)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIdMiddleware)
-# El orden importa. `add_middleware` los mete al PRINCIPIO de la pila, asi que
-# el ultimo agregado es el mas externo: el rate limit ve la request antes que
-# el parser de cuerpo y antes de que se abra la sesion. Un limite que se
-# verifica despues de validar el JWT no frena un ataque de fuerza bruta, que es
+# El orden importa. `add_middleware` los mete al PRINCIPIO de la pila, así que
+# el último agregado es el más externo: el rate limit ve la request antes que
+# el parser de cuerpo y antes de que se abra la sesión. Un límite que se
+# verifica después de validar el JWT no frena un ataque de fuerza bruta, que es
 # justo el caso para el que existe.
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoginRateLimitMiddleware)
@@ -288,15 +288,15 @@ def health() -> Response:
     """
     Estado real del servicio: la API responde Y la base acepta queries.
 
-    SIN token, a proposito: lo consulta el healthcheck del contenedor, que no
+    SIN token, a propósito: lo consulta el healthcheck del contenedor, que no
     tiene credenciales. Y NO consulta a la IA: si dependiera del proveedor de
     LLM, un Ollama lento haria que el orquestador reiniciara la API de
     inventario —que funciona sin IA— en loop.
 
     EL 503 ES LA PARTE IMPORTANTE
     ------------------------------
-    Con la base caida, esta respuesta es 503 y NO 200. El healthcheck del
-    contenedor mira el codigo: un 503 deja el contenedor "unhealthy", y el
+    Con la base caida, está respuesta es 503 y NO 200. El healthcheck del
+    contenedor mira el código: un 503 deja el contenedor "unhealthy", y el
     frontend, que espera `service_healthy`, no se levanta contra una API que
     no puede guardar nada.
     """

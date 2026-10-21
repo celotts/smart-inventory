@@ -1,16 +1,16 @@
 """
-Router de auditoria. Montado en /api/audit.
+Router de auditoría. Montado en /api/audit.
 
 QUIEN PUEDE VER ESTO
 --------------------
-Solo quien tiene `audit:read`, que es ADMIN. La auditoria muestra quien hizo que,
-y eso es informacion de control: un OPERATOR que pueda ver los movimientos de
+Solo quien tiene `audit:read`, que es ADMIN. La auditoría muestra quien hizo que,
+y eso es información de control: un OPERATOR que pueda ver los movimientos de
 todos sus companeros con su nombre y su IP tiene un dato que no necesita para
 trabajar.
 
 NO HAY ENDPOINTS DE ESCRITURA
 ----------------------------
-La bitacora no se edita ni se borra desde la API. Un registro de auditoria que
+La bitacora no se edita ni se borra desde la API. Un registro de auditoría que
 se puede modificar no audita nada. Las filas las escriben los triggers de la
 base y `core.audit.registrar()` en el camino de las operaciones.
 """
@@ -54,11 +54,11 @@ def timeline(
     _usuario: UsuarioActual = Depends(exigir(Permiso.AUDITORIA_VER)),
 ) -> dict:
     """
-    Los eventos del sistema, del mas reciente al mas antiguo.
+    Los eventos del sistema, del más reciente al más antiguo.
 
     Une los movimientos de inventario con la bitacora de cuentas en una sola
-    lista. El detalle de por que esta union y no dos pantallas esta en el
-    docstring de `service.linea_de_tiempo`.
+    lista. El detalle de por que está union y no dos pantallas está en el
+    docstring de `service.línea_de_tiempo`.
     """
     return service.linea_de_tiempo(
         limite=limite,
@@ -78,7 +78,7 @@ def timeline(
 def resumen(
     _usuario: UsuarioActual = Depends(exigir(Permiso.AUDITORIA_VER)),
 ) -> dict:
-    """Movimientos de hoy, de la semana, y quienes mas operaron."""
+    """Movimientos de hoy, de la semana, y quienes más operaron."""
     return service.resumen()
 
 
@@ -96,7 +96,7 @@ def trazabilidad_completa(
 ) -> dict:
     """
     Trazabilidad completa con old/new values para INSERT/UPDATE/DELETE.
-    Permite ver exactamente qué cambió, quién lo hizo y desde dónde.
+    Permite ver exactamente que cambio, quien lo hizo y desde dónde.
     """
     from src.core.audit_enhanced import obtener_trazabilidad_completa
     items = obtener_trazabilidad_completa(

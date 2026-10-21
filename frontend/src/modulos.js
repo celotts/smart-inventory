@@ -1,31 +1,31 @@
 /**
- * Los dos modulos de la app: Inventario y Service Desk.
+ * Los dos módulos de la app: Inventario y Service Desk.
  *
- * QUE SON DOS MODULOS Y NO UN TABLERO CON DOS BLOQUES
+ * QUE SON DOS Módulos Y NO UN TABLERO CON DOS BLOQUES
  * ---------------------------------------------------
  * Inventario y Service Desk responden a preguntas distintas, las tienen
- * personas distintas y se usan en lugares distintos: el deposito y el taller.
+ * personas distintas y se usan en lugares distintos: el depósito y el taller.
  * Meterlos en la misma pantalla hace que cada usuario lea la mitad que no le
  * importa, y que la que le importa quede tapada.
  *
  * LA ENTRADA DEPENDE DEL ROL
  * --------------------------
- * - OPERATOR:  trabaja en el deposito. Ve SOLO Inventario.
- * - TECHNICIAN: trabaja en el taller. Ve SOLO Service Desk.
+ * - OPERATOR:  trabaja en el depósito. Ve Solo Inventario.
+ * - TECHNICIAN: trabaja en el taller. Ve Solo Service Desk.
  * - ADMIN:      ve los dos, y elige en la pantalla de entrada.
  *
- * QUE PASA CON LAS PESTANAS
+ * QUE PASA CON LAS Pestañas
  * --------------------------
- * El modulo decide QUE PESTANAS se ven. Un tecnico no ve "Productos" (el
+ * El módulo decide QUE Pestañas se ven. Un técnico no ve "Productos" (el
  * maestro de SKUs) ni "Compras": le son datos, no tareas. Y un operador no ve
- * "Auditoria": no tiene permiso, y una pestana que siempre da 403 es ruido.
+ * "Auditoría": no tiene permiso, y una pestaña que siempre da 403 es ruido.
  *
  * EL DASHBOARD
  * ------------
- * Cada modulo tiene su tablero. El de Inventario pregunta "donde esta cada
+ * Cada módulo tiene su tablero. El de Inventario pregunta "donde está cada
  * equipo y que repongo"; el de Service Desk, "que casos tengo abiertos y
  * cuales se me van a vencer". Son preguntas distintas: un solo tablero con
- * las dos respuestas es la version peor de las dos.
+ * las dos respuestas es la versión peor de las dos.
  */
 
 export const MODULOS = {
@@ -35,11 +35,11 @@ export const MODULOS = {
     titulo: 'Inventario',
     descripcion: 'Equipos, stock y movimientos',
     detalle:
-      'Donde esta cada equipo, cuanto vale, que hay que reponer y que se movio hoy.',
+      'Donde está cada equipo, cuanto vale, que hay que reponer y que se movio hoy.',
     icono: 'M20 7l-8-4-8 4-8 4zM5 7l-8-4-8 4-8 4z',
-    // `existencia`: el stock por rubro y por ubicacion. Va DESPUES de
+    // `existencia`: el stock por rubro y por ubicación. Va Después de
     // `inventario` (que es el equipo) y antes de `movimientos` (que es el
-    // historial): primero donde esta cada equipo, depois cuanto hay de cada
+    // historial): primero donde está cada equipo, depois cuanto hay de cada
     // rubro.
     vistas: ['inicio', 'escanear', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo'],
     dashboard: 'inventario',
@@ -52,30 +52,30 @@ export const MODULOS = {
     detalle:
       'Los problemas reportados, los que se vencen y el trabajo del taller: mantenimiento y compras atrasadas.',
     icono: 'M12 8v4M12 16h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
-    // La flota SI esta en el Service Desk: el tecnico tiene que ver el equipo
-    // que esta fallando para diagnosticarlo. Lo que no esta es el maestro de
-    // productos: eso es tarea del deposito.
+    // La flota SI está en el Service Desk: el técnico tiene que ver el equipo
+    // que está fallando para diagnosticarlo. Lo que no está es el maestro de
+    // productos: eso es tarea del depósito.
     vistas: ['inicio', 'incidencias', 'inventario', 'consultas', 'auditoria'],
     dashboard: 'helpdesk',
   },
 };
 
 /**
- * Los modulos que un rol puede usar.
+ * Los módulos que un rol puede usar.
  *
- * EL ROL Y NO LOS PERMISOS
+ * EL ROL Y NO LOS Permisos
  * ------------------------
- * El rol decide QUE MODULOS SE OFRECEN, porque el modulo es una decision
- * operativa ("yo trabajo el deposito" / "yo trabajo el taller"), no una
+ * El rol decide QUE Módulos SE OFRECEN, porque el módulo es una decisión
+ * operativa ("yo trabajo el depósito" / "yo trabajo el taller"), no una
  * capacidad puntual.
  *
  * Los permisos siguen siendo la fuente de verdad de lo que se PUEDE hacer
- * dentro de un modulo: un ADMIN que elige Service Desk no puede tocar los
- * precios de los productos, porque "Productos" no esta en las pestanas de ese
- * modulo y el backend lo rechaza igual.
+ * dentro de un módulo: un ADMIN que elige Service Desk no puede tocar los
+ * precios de los productos, porque "Productos" no está en las pestañas de ese
+ * módulo y el backend lo rechaza igual.
  *
  * El fallback por permisos cubre un rol desconocido: se ofrece lo que los
- * permisos permitan, en vez de una pantalla vacia.
+ * permisos permitan, en vez de una pantalla vacía.
  */
 const MODULOS_POR_ROL = {
   ADMIN: ['inventario', 'helpdesk'],
@@ -88,7 +88,7 @@ export function modulosDe(usuario) {
   const porRol = MODULOS_POR_ROL[rol];
   if (porRol) return porRol;
 
-  // Rol desconocido: se decide por los permisos que envio el servidor.
+  // Rol desconocido: se decide por los permisos que envió el servidor.
   const permisos = usuario?.permisos ?? [];
   const disponibles = [];
   if (permisos.includes('devices:read')) disponibles.push('inventario');
@@ -97,13 +97,13 @@ export function modulosDe(usuario) {
 }
 
 /**
- * Las pestanas de un modulo.
+ * Las pestañas de un módulo.
  *
- * Vive aca y no en `navegacion.js` para no hacer un ciclo: la cabecera
- * necesita saber que pestanas se ven, y `navegacion.js` necesita repintar la
- * cabecera. Con la funcion aca, ninguno de los dos importa al otro.
+ * Vive acá y no en `navegacion.js` para no hacer un ciclo: la cabecera
+ * necesita saber que pestañas se ven, y `navegacion.js` necesita repintar la
+ * cabecera. Con la función acá, ninguno de los dos importa al otro.
  *
- * @param {string} modulo
+ * @param {string} módulo
  * @returns {Set<string>}
  */
 export function pestanasDelModulo(modulo) {
@@ -112,9 +112,9 @@ export function pestanasDelModulo(modulo) {
 }
 
 /**
- * El modulo que se abre por defecto para un rol.
+ * El módulo que se abre por defecto para un rol.
  *
- * Con un solo modulo, no hay nada que elegir: se entra directo. Con dos, el
+ * Con un solo módulo, no hay nada que elegir: se entra directo. Con dos, el
  * admin elige en la pantalla de entrada.
  */
 export function moduloPorDefecto(usuario) {

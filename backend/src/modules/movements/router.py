@@ -7,10 +7,10 @@ Un escaneo cambia el ESTADO de un componente y escribe su HISTORIAL. Las dos
 cosas o pasan juntas o no pasan.
 
 No es una preferencia de diseño: es la diferencia entre un inventario del que se
-puede decir "el equipo 47 esta instalado en Acme desde marzo" y uno donde el
+puede decir "el equipo 47 está instalado en Acme desde marzo" y uno donde el
 historial dice una cosa, la pantalla dice otra y ninguno de los dos sabe cual
-miente. Toda la logica de transicion esta en `service.escanear()`, y el
-`IntegrityError` de la base es la ultima linea de defensa.
+miente. Toda la lógica de transición está en `service.escanear()`, y el
+`IntegrityError` de la base es la última línea de defensa.
 """
 
 from __future__ import annotations
@@ -41,31 +41,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/movements", tags=["movimientos"])
 
 
-# Metadatos de tipos de movimiento para UI (descripciones, iconos, etc.)
+# Metadatos de tipos de movimiento para UI (descripciones, íconos, etc.)
 METADATOS_MOVIMIENTO = {
     "WAREHOUSE_ENTRY": {
-        "texto": "Entrada a depósito",
-        "descripcion": "Nuevo equipo ingresa al depósito",
+        "texto": "Entrada a deposito",
+        "descripcion": "Nuevo equipo ingresa al deposito",
         "icono": "buscar",
         "estado_destino": "IN_WAREHOUSE",
         "requiere_reemplazo": False,
     },
     "WAREHOUSE_REENTRY": {
-        "texto": "Devolución a depósito",
-        "descripcion": "El equipo vuelve al depósito desde el cliente",
+        "texto": "Devolucion a deposito",
+        "descripcion": "El equipo vuelve al deposito desde el cliente",
         "icono": "refrescar",
         "estado_destino": "IN_WAREHOUSE",
         "requiere_reemplazo": False,
     },
     "OUT_TO_CLIENT": {
         "texto": "Salida a cliente",
-        "descripcion": "El equipo sale del depósito hacia el cliente",
+        "descripcion": "El equipo sale del deposito hacia el cliente",
         "icono": "buscar",
         "estado_destino": "IN_TRANSIT",
         "requiere_reemplazo": False,
     },
     "INSTALLATION": {
-        "texto": "Instalación",
+        "texto": "Instalacion",
         "descripcion": "El equipo se instala en sitio del cliente",
         "icono": "ubicacion",
         "estado_destino": "INSTALLED",
@@ -80,7 +80,7 @@ METADATOS_MOVIMIENTO = {
     },
     "WITHDRAWAL_TO_WORKSHOP": {
         "texto": "Retiro a taller",
-        "descripcion": "El equipo va a reparación",
+        "descripcion": "El equipo va a reparacion",
         "icono": "relojito",
         "estado_destino": "IN_REPAIR",
         "requiere_reemplazo": False,
@@ -134,7 +134,7 @@ def _errores_de_escaneo(exc: Exception) -> HTTPException:
     """
     Traduce las excepciones del service a HTTP.
 
-    Que sea una funcion y no un bloque `try/except` repetido en cada endpoint no
+    Que sea una función y no un bloque `try/except` repetido en cada endpoint no
     es estilo: es que el mapeo de "que tipo de HTTP" tiene que ser el mismo en
     todos. Un endpoint que responde 500 donde otro responde 400 hace que el
     frontend tenga que manejar dos caminos para el mismo error.
@@ -144,16 +144,16 @@ def _errores_de_escaneo(exc: Exception) -> HTTPException:
     if isinstance(exc, service.CodigoDeProducto):
         # 409 con el producto y sus unidades: el frontend los muestra para que
         # el operador elija la unidad. El `detalle` es un objeto y no un
-        # string, y es lo unico en este router que devuelve algo asi —por eso
+        # string, y es lo único en este router que devuelve algo así —por eso
         # el frontend lo busca por `detalle.producto` y no por el texto.
         return HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"mensaje": str(exc), "producto": exc.producto},
         )
     if isinstance(exc, service.TransicionInvalida):
-        # 409, no 400 ni 500: el pedido esta BIEN formado, el conflicto es con
+        # 409, no 400 ni 500: el pedido está BIEN formado, el conflicto es con
         # el estado actual del componente. 409 es exactamente eso, y lo que
-        # recibe el operador es el motivo del trigger, no un "algo salio mal".
+        # recibe el operador es el motivo del trigger, no un "algo salió mal".
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     if isinstance(exc, (service.ErrorDeEscaneo, CoordenadaInvalida)):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -173,7 +173,7 @@ def escanear(
     usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
 ) -> EscanearResponse:
     """
-    El endpoint del lector de codigos.
+    El endpoint del lector de códigos.
 
     IDEMPOTENTE: si se repite el `client_scan_id`, no inserta nada y devuelve el
     movimiento original con `replay: true`. El cliente genera ese UUID antes de
@@ -182,8 +182,8 @@ def escanear(
     QUE PERMISO PIDE Y POR QUE NO ES `IA_*`
     --------------------------------------
     `MOVIMIENTOS_CREAR`, que es el del Operador. Registrar un escaneo es la
-    operacion principal de un operador en un deposito; si pidiera un permiso
-    distinto, la app del celular no serviria para el rol que mas la usa.
+    operación principal de un operador en un depósito; si pidiera un permiso
+    distinto, la app del celular no serviria para el rol que más la usa.
     """
     try:
         pedido.check_reemplazo()
@@ -219,17 +219,17 @@ def escanear_lote(
     usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_CREAR)),
 ) -> dict:
     """
-    Conteo de deposito: N codigos, una request.
+    Conteo de depósito: N códigos, una request.
 
-    POR QUE UN `client_scan_id` POR CODIGO Y NO UNO PARA EL LOTE
+    POR QUE UN `client_scan_id` POR Código Y NO UNO PARA EL LOTE
     -----------------------------------------------------------
     Porque si el lote se manda dos veces, la idempotencia tiene que funcionar
-    igual. Con un unico id para todo el lote, el segundo envio se descarta
-    completo y los codigos queTodavia no estaban no se registran: el operador
+    igual. Con un único id para todo el lote, el segundo envió se descarta
+    completo y los códigos queTodavia no estaban no se registran: el operador
     pierde un conteo sin enterarse.
 
-    El `client_scan_id` de cada elemento se deriva del del lote con el indice:
-    `uuid5(lote_id, str(indice))`. Es deterministico, asi que el mismo lote con
+    El `client_scan_id` de cada elemento se deriva del del lote con el índice:
+    `uuid5(lote_id, str(índice))`. Es deterministico, así que el mismo lote con
     el mismo id genera los mismos ids y el reintento es un replay real.
 
     Un elemento que falla NO frena el lote: un conteo de 200 equipos en el que
@@ -242,7 +242,7 @@ def escanear_lote(
 
     for indice, codigo in enumerate(pedido.codigos):
         # `uuid5` con el namespace del lote: deterministico, y distinto para
-        # cada indice. Es la clave con la que un reintento se reconoce a si
+        # cada índice. Es la clave con la que un reintento se reconoce a si
         # mismo.
         client_scan_id = str(uuid.uuid5(lote_id, str(indice)))
 
@@ -294,12 +294,12 @@ def mover_por_producto(
     Mueve mercancia por producto y cantidad, sin escanear serial por serial.
 
     Es el endpoint que usa la vista "Movimientos": el operador elige un producto
-    del maestro, una cantidad y la operacion (entrada, salida a cliente,
+    del maestro, una cantidad y la operación (entrada, salida a cliente,
     instalacion, transferencia entre sedes, retiro a taller, devolucion o baja),
     y el backend elige los equipos y los mueve.
 
     Un equipo que no se pueda mover NO frena el lote: se registra su error y los
-    demas siguen. Un conteo de 20 en el que uno esta en taller tiene que mover
+    demas siguen. Un conteo de 20 en el que uno está en taller tiene que mover
     los otros 19.
     """
     try:
@@ -352,9 +352,9 @@ def listar(
     """
     La actividad, paginada y con buscador.
 
-    Sin buscador, con 5000 movimientos la pantalla muestra los ultimos 50 y
+    Sin buscador, con 5000 movimientos la pantalla muestra los últimos 50 y
     no hay forma de llegar a los de ayer: el historial deja de ser un
-    historial y pasa a ser las ultimas noticias.
+    historial y pasa a ser las últimas noticias.
     """
     fecha_desde = None
     if desde:
@@ -365,7 +365,7 @@ def listar(
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="La fecha no es valido. Usa ISO 8601: 2026-01-01T00:00:00Z",
+                detail="La fecha no es válido. Usa ISO 8601: 2026-01-01T00:00:00Z",
             ) from exc
 
     fecha_hasta = None
@@ -377,7 +377,7 @@ def listar(
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="La fecha no es valido. Usa ISO 8601: 2026-12-31T23:59:59Z",
+                detail="La fecha no es válido. Usa ISO 8601: 2026-12-31T23:59:59Z",
             ) from exc
 
     return service.listar_movimientos(
@@ -402,7 +402,7 @@ def historial(
     _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
 ) -> list[HistorialMovimiento]:
     """
-    El recorrido de un componente, del mas reciente al mas antiguo.
+    El recorrido de un componente, del más reciente al más antiguo.
 
     Es el endpoint que contesta "donde estuvo este equipo", que es la pregunta
     que se hace cuando algo no aparece. Por eso trae el nombre de la persona

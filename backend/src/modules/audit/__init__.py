@@ -1,1 +1,1 @@
-"""Modulo de auditoria: linea de tiempo unificada de lo que paso en el sistema."""
+"""Módulo de auditoría: línea de tiempo unificada de lo que paso en el sistema."""

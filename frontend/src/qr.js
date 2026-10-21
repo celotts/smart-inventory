@@ -3,17 +3,17 @@
  *
  * QUE HACE
  * --------
- * La ficha del componente y su formulario de edicion muestran el codigo de la
+ * La ficha del componente y su formulario de edicion muestran el código de la
  * etiqueta como TEXTO (`INV-a1b2c3d4`) y, al lado, la imagen escaneable. El
  * texto sirve para leerlo y copiarlo; la imagen sirve para lo que de verdad
- * importa en un deposito: reimprimir la etiqueta, verificar de un vistazo que
+ * importa en un depósito: reimprimir la etiqueta, verificar de un vistazo que
  * el equipo es este, o pasarselo a otro operador para que lo escanee.
  *
  * POR QUE EL SVG LO GENERA EL BACKEND
  * ----------------------------------
  * El frontend no tiene ni una dependencia: ni un CDN, ni un `package.json` con
  * librerias. Meter un generador de QR en JS seria agregar un algoritmo entero
- * que mantener (mas de 200 lineas) para dibujar cuadritos. En el backend,
+ * que mantener (más de 200 líneas) para dibujar cuadritos. En el backend,
  * `qrcode` es Python puro: no compila nada y pesa 46 KB.
  *
  * POR QUE VA INLINE Y NO EN EL `src` DE UN `<img>`
@@ -24,14 +24,14 @@
  *     puede mandarlo: pediria el recurso y recibiria un 401.
  *
  *  2. Un `data:` URL (la forma de meter el SVG en el `src` sin tocar la CSP)
- *     esta BLOQUEADO por la politica de seguridad de esta app: `default-src
+ *     está BLOQUEADO por la política de seguridad de está app: `default-src
  *     'self'` sin `img-src` explicito la prohibe, y la consola lo dice:
  *     "violates the following Content Security Policy directive". Relajar la
  *     CSP para que entre una imagen seria cambiar la regla que protege a la
  *     app entera por un detalle de la vista.
  *
  *     Un SVG INLINE no es una imagen externa: es parte del documento, y la
- *     CSP no lo alcanza. Ademas se ve nitido a cualquier tamaño y se puede
+ *     CSP no lo alcanza. Además se ve nitido a cualquier tamaño y se puede
  *     estilar con CSS.
  *
  * SEGURIDAD DEL PARSEO
@@ -52,8 +52,8 @@ import { api } from './api.js';
  * pide por red y no tiene sentido bloquear la ficha esperandola.
  *
  * @param {number} deviceId
- * @param {string} texto     El codigo de la etiqueta, para el texto alternativo.
- * @param {number} [tamano]  Lado en px.
+ * @param {string} texto     El código de la etiqueta, para el texto alternativo.
+ * @param {number} [tamaño]  Lado en px.
  */
 export function imagenQr(deviceId, texto, tamano = 180) {
   const contenedor = crear('div', { clase: 'qr-etiqueta' });
@@ -68,10 +68,10 @@ export function imagenQr(deviceId, texto, tamano = 180) {
       // parseo en la ficha.
       const raiz = doc.documentElement;
       if (!raiz || raiz.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) {
-        throw new Error('El backend no devolvio un SVG valido.');
+        throw new Error('El backend no devolvio un SVG válido.');
       }
 
-      // Nada de scripts. Es codigo de nuestro propio backend, pero un SVG no
+      // Nada de scripts. Es código de nuestro propio backend, pero un SVG no
       // tiene por que traerlos.
       for (const script of raiz.querySelectorAll('script')) script.remove();
 
@@ -84,7 +84,7 @@ export function imagenQr(deviceId, texto, tamano = 180) {
       contenedor.replaceChildren(nodo);
     })
     .catch(() => {
-      // El QR es una ayuda, no el dato: si falla, el codigo en texto sigue
+      // El QR es una ayuda, no el dato: si falla, el código en texto sigue
       // estando al lado y el equipo sigue siendo identificable. No se avisa
       // porque seria un error por cada equipo sin imagen, en cada ficha.
       contenedor.classList.add('qr-etiqueta--vacia');

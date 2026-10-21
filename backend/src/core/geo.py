@@ -1,10 +1,10 @@
 """
 Distancia geodesica: "¿este escaneo ocurrio en la sede?"
 
-POR QUE ESTO ESTA ACa Y NO EN EL ROUTER
+POR QUE ESTO Está Acá Y NO EN EL ROUTER
 ---------------------------------------
-Porque `is_valid_location` es una REGLA de negocio, no una validacion de
-entrada. Si viviera en el router, el proximo endpoint que registre un
+Porque `is_valid_location` es una REGLA de negocio, no una validación de
+entrada. Si viviera en el router, el próximo endpoint que registre un
 movimiento se olvida de llamarla, y el campo queda siempre en TRUE: que es
 exactamente el valor que hace que la columna parezca funcionar.
 
@@ -16,8 +16,8 @@ si lo es.
 
 Y la alternativa "plana" es peor de lo que parece: entre Buenos Aires y
 Rosario, un error de un grado de latitud te deja un margen de error de 111 km
-en el eje vertical. El radio de 50 m de la sede es de un orden de magnitud mas
-chico que ese error. O sea, la version "rapida" decide al azar, y decidir al
+en el eje vertical. El radio de 50 m de la sede es de un orden de magnitud más
+chico que ese error. O sea, la versión "rápida" decide al azar, y decidir al
 azar es lo que hace que un campo de geolocalizacion no sirva para nada.
 
 POR QUE EARTH_RADIUS Y NO 6371000
@@ -25,13 +25,13 @@ POR QUE EARTH_RADIUS Y NO 6371000
 Es el radio medio de la Tierra. El error entre el radio polar (6357 km) y el
 ecuatorial (6378 km) es de 0.3%, o sea 15 metros en un radio de 5 km. Para un
 radio de 50 m, el error es de 15 cm. Irrelevante para decidir si estabas en el
-deposito o en la calle.
+depósito o en la calle.
 
 POR QUE SE COMPARA CONTRA EL RADIO DE LA SEDE Y NO CONTRA UN 50 FIJO
 ---------------------------------------------------------------------
 `locations.tolerance_radius_meters` existe justamente para esto. Un galpon de
 300 metros y una oficina de dos pisos no pueden compartir el mismo radio, y en
-un caso el radio bien puesto es lo que hace util el dato: sin el, todo se
+un caso el radio bien puesto es lo que hace útil el dato: sin el, todo se
 registra como "fuera de radio" y la columna no informa nada.
 """
 
@@ -48,7 +48,7 @@ class CoordenadaInvalida(ValueError):
 
 def normalizar_coordenada(latitude: float, longitude: float) -> tuple[float, float]:
     """
-    Valida y normaliza un par de coordenadas.
+    Válida y normaliza un par de coordenadas.
 
     Devuelve un tuple en el ORDEN que espera la columna: (latitud, longitud).
     Se normaliza y no se pasa tal cual porque un cliente que mande `90.000001`
@@ -69,7 +69,7 @@ def normalizar_coordenada(latitude: float, longitude: float) -> tuple[float, flo
         ) from exc
 
     # NaN e infinito. `math.isfinite` es lo que los detecta: comparar NaN con
-    # cualquier cosa da False, asi que un `if lat < -90 or lat > 90` deja pasar
+    # cualquier cosa da False, así que un `if lat < -90 or lat > 90` deja pasar
     # NaN sin quejarse, y un NaN en la columna se propaga a todos los calculos
     # de distancia como si fuera cero.
     if not math.isfinite(lat) or not math.isfinite(lon):
@@ -96,9 +96,9 @@ def distancia_metros(
     """
     Distancia en metros entre dos puntos de la superficie terrestre.
 
-    Haversine. La razon de que sea esta y no el teorema del coseno: el coseno
-    pierde precision justamente en distancias cortas, que es el caso de uso
-    aqui (un radio de 50 m). Haversine usa el seno, que en angulos chicos es
+    Haversine. La razón de que sea está y no el teorema del coseno: el coseno
+    pierde precisión justamente en distancias cortas, que es el caso de uso
+    aquí (un radio de 50 m). Haversine usa el seno, que en angulos chicos es
     preciso, y por eso sirve para medir un galpon y no solo para medir un pais.
     """
     lat1, lon1 = normalizar_coordenada(lat1, lon1)
@@ -113,10 +113,10 @@ def distancia_metros(
         math.sin(d_phi / 2) ** 2
         + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     )
-    # `min(1.0, a)` por precision de punto flotante: `sin` puede devolver
+    # `min(1.0, a)` por precisión de punto flotante: `sin` puede devolver
     # 1.0000000000000002, y `sqrt(1.0000000000000002)` es NaN. A radios de
     # kilometers es irrelevante; a radios de decimetros no lo es, porque
-    # aparece justo en el caso borde que uno esta testeando.
+    # aparece justo en el caso borde que uno está testeando.
     c = 2 * math.atan2(math.sqrt(min(1.0, a)), math.sqrt(max(0.0, 1 - a)))
 
     return TIERRA_RADIO_METROS * c
@@ -134,11 +134,11 @@ def dentro_del_radio(
 
     Un tupla y no un bool porque el operador que escanea fuera de radio
     necesita saber CUANTO le falta, no solo que fallo: "a 340 m, probably otra
-    sede" es accionable, "escaneo invalido" no.
+    sede" es accionable, "escaneo inválido" no.
     """
     metros = distancia_metros(lat_escaneo, lon_escaneo, lat_sede, lon_sede)
     # `radio_metros` puede venir NULL de una sede created antes de que la
-    # columna existiera. NULL significaba "sin limite", y por eso se traduce a
+    # columna existiera. NULL significaba "sin límite", y por eso se traduce a
     # infinito en vez de a 0: con 0, ninguna sede antiga aceptaria un escaneo.
     limite = float(radio_metros) if radio_metros is not None else math.inf
     return metros <= limite, round(metros, 1)

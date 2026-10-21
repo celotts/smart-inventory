@@ -3,13 +3,13 @@
  *
  * LA FICHA ES DONDE SE VIVE LA TRAZABILIDAD
  * ------------------------------------------
- * Mostra el estado actual, los dias que lleva instalado y el historial completo
+ * Mostra el estado actual, los días que lleva instalado y el historial completo
  * de movimientos con su hora, su sede y quien lo registro. Esa combinacion es la
  * que responde "donde estuvo este equipo", que es la pregunta que se hace
  * cuando algo no aparece.
  *
  * Sin `innerHTML`: los nombres de sede y de usuario vienen de la base y los
- * digita gente, asi que son texto de usuario para efectos de seguridad.
+ * digita gente, así que son texto de usuario para efectos de seguridad.
  */
 
 import { api } from '../api.js';
@@ -23,8 +23,8 @@ import { conTooltip } from '../tooltip.js';
 
 const ESTADOS_FILTRO = [
   { valor: '', texto: 'Todos' },
-  { valor: 'IN_WAREHOUSE', texto: 'En deposito' },
-  { valor: 'IN_TRANSIT', texto: 'En transito' },
+  { valor: 'IN_WAREHOUSE', texto: 'En depósito' },
+  { valor: 'IN_TRANSIT', texto: 'En tránsito' },
   { valor: 'INSTALLED', texto: 'Instalados' },
   { valor: 'IN_REPAIR', texto: 'En taller' },
   { valor: 'PERMANENTLY_DISPOSED', texto: 'Dados de baja' },
@@ -37,16 +37,16 @@ const ESTADOS_FILTRO = [
  * ---------------------------------------
  * `(placeholder, etiqueta, { valor, mono, type })`.
  *
- * ESTA FUNCION NO EXISTIA EN ESTA VISTA
+ * Está Función NO EXISTIA EN Está VISTA
  * -------------------------------------
  * Se usaba en el formulario de edicion y en el de baja, pero no estaba
  * definida ni importada: la primera llamada tiraba `ReferenceError: campoTexto
- * is not defined`, que MATABA la funcion `abrirEdicion` entera. Como el
+ * is not defined`, que MATABA la función `abrirEdicion` entera. Como el
  * error era una promesa rechazada sin manejar, no se veia nada en pantalla:
- * el boton "Editar" no hacia nada y no aparecia ningun error.
+ * el botón "Editar" no hacia nada y no aparecia ningún error.
  *
  * Es el mismo bug de fondo que el de `crear('div', {clase}, [hijo])`: una
- * funcion que se usa y no existe, y el error se pierde en el camino.
+ * función que se usa y no existe, y el error se pierde en el camino.
  */
 function campoTexto(placeholder, etiqueta, { type = 'text', valor = '', mono = false } = {}) {
   const input = crear('input', {
@@ -89,11 +89,11 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
     );
   }
 
-  // Categoria y ubicacion: filtros COMBINABLES, que bajan a las subcategorias
-  // y a los pasillos. Filtrar por "Deposito Central" tiene que traer lo que
-  // esta en sus estantes: el operador pregunta por la bodega.
+  // Categoría y ubicación: filtros COMBINABLES, que bajan a las subcategorias
+  // y a los pasillos. Filtrar por "Depósito Central" tiene que traer lo que
+  // está en sus estantes: el operador pregunta por la bodega.
   const selectCategoria = crear('select', { clase: 'campo__control' });
-  selectCategoria.append(crear('option', { texto: 'Todas las categorias', atributos: { value: '' } }));
+  selectCategoria.append(crear('option', { texto: 'Todas las categorías', atributos: { value: '' } }));
 
   const selectUbicacion = crear('select', { clase: 'campo__control' });
   selectUbicacion.append(crear('option', { texto: 'Todas las ubicaciones', atributos: { value: '' } }));
@@ -103,8 +103,8 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   etiquetaBusqueda.append(textoBusqueda, inputBuscar);
   conTooltip(
     textoBusqueda,
-    'Busqueda de texto completo: serial, codigo de etiqueta, SKU, marca o modelo. ' +
-      'Tambien acepta un fragmento ("notebook dell" encuentra el "Dell Latitude").',
+    'Busqueda de texto completo: serial, código de etiqueta, SKU, marca o modelo. ' +
+      'También acepta un fragmento ("notebook dell" encuentra el "Dell Latitude").',
   );
 
   const etiquetaEstado = crear('label', { clase: 'campo' });
@@ -116,15 +116,15 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   const etiquetaCategoria = crear('label', { clase: 'campo' });
   const textoCategoria = crear('span', { clase: 'campo__etiqueta', texto: 'Categoria' });
   etiquetaCategoria.append(textoCategoria, selectCategoria);
-  conTooltip(textoCategoria, 'Filtra por la categoria del producto. Trae tambien las subcategorias.');
+  conTooltip(textoCategoria, 'Filtra por la categoría del producto. Trae también las subcategorias.');
 
   const etiquetaUbicacion = crear('label', { clase: 'campo' });
   const textoUbicacion = crear('span', { clase: 'campo__etiqueta', texto: 'Ubicacion' });
   etiquetaUbicacion.append(textoUbicacion, selectUbicacion);
-  conTooltip(textoUbicacion, 'Filtra por la ubicacion. Trae tambien sus pasillos y estantes.');
+  conTooltip(textoUbicacion, 'Filtra por la ubicación. Trae también sus pasillos y estantes.');
 
   const btnExportar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Exportar CSV',
     atributos: { type: 'button' },
   });
@@ -146,13 +146,13 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   //
   // `aria-live="polite"`: la lista cambia con cada tecla del buscador, y sin
   // esto un lector de pantalla no se entera de nada. Es `polite` y no
-  // `assertive` porque el cambio NO es urgente: no interrumpe lo que el
-  // operador esta haciendo.
+  // `assertive` porque el cambió NO es urgente: no interrumpe lo que el
+  // operador está haciendo.
   const zonaLista = crear('div', {
     atributos: { 'aria-live': 'polite', 'aria-label': 'Resultados de la busqueda' },
   });
   const contadorResultados = crear('p', { clase: 'tenue pequeno' });
-  // LA PAGINACION (el componente compartido)
+  // LA Paginación (el componente compartido)
   let pagina = 0;
   let POR_PAGINA = 25;
   let total = 0;
@@ -177,12 +177,12 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   raiz.append(tarjetaFiltros, contadorResultados, zonaLista, paginacion.elemento);
 
   /**
-   * Se pide por parametro y no por `debounce` con `setTimeout`.
+   * Se pide por parámetro y no por `debounce` con `setTimeout`.
    *
-   * Un debounce tiene una condicion de carrera clasica: si el usuario escribe
-   * "ABC" (request 1, lento) y despues "ABCD" (request 2, rapido), el request 2
-   * vuelve primero y el 1 despues sobreescribe con "ABC". Con un contador, cada
-   * respuesta se descarta si no es la ultima pedida.
+   * Un debounce tiene una condición de carrera clasica: si el usuario escribe
+   * "ABC" (request 1, lento) y después "ABCD" (request 2, rápido), el request 2
+   * vuelve primero y el 1 después sobreescribe con "ABC". Con un contador, cada
+   * respuesta se descarta si no es la última pedida.
    */
   async function cargar() {
     const numero = ++peticionEnCurso;
@@ -222,7 +222,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
       const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
       vacio.append(
         icono(ICONOS.buscar, { tamano: 28 }),
-        crear('p', { texto: 'Ningun componente coincide con la busqueda.' }),
+        crear('p', { texto: 'Ningún componente coincide con la busqueda.' }),
       );
       zonaLista.replaceChildren(vacio);
       return;
@@ -247,7 +247,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
       const cuerpo = crear('div', { clase: 'lista__cuerpo' });
       cuerpo.append(
         crear('div', {
-          clase: 'lista__titulo mono',
+          clase: 'lista__título mono',
           texto: item.serial_number,
         }),
         crear('div', {
@@ -269,18 +269,18 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   }
 
   /**
-   * La barra de paginacion.
+   * La barra de paginación.
    *
-   * Es el COMPONENTE compartido, no una copia: asi todas las tablas de la
-   * app tienen el mismo comportamiento (los botones, el "pagina 3 de 15" y la
-   * cantidad por pagina).
+   * Es el COMPONENTE compartido, no una copia: así todas las tablas de la
+   * app tienen el mismo comportamiento (los botones, el "página 3 de 15" y la
+   * cantidad por página).
    */
   function pintarPaginacion() {
     paginacion.actualizar({ total, limite: POR_PAGINA, pagina });
   }
 
-  // Cada `input` dispara una busqueda. Con `limite: 25` y una consulta que usa
-  // indice, no es caro; y una busqueda instantanea se siente mucho mas rapida
+  // Cada `input` dispara una busqueda. Con `límite: 25` y una consulta que usa
+  // índice, no es caro; y una busqueda instantanea se siente mucho más rápida
   // que una que espera medio segundo.
   // El filtro con el que se llega desde el tablero: el select queda puesto
   // ANTES de la primera carga, para que la lista abra filtrada.
@@ -311,7 +311,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   });
 
   /**
-   * Carga los filtros de categoria y ubicacion.
+   * Carga los filtros de categoría y ubicación.
    *
    * Las dos listas se piden juntas con `Promise.all`: son la misma pantalla y
    * una tras otra seria dos esperas.
@@ -345,7 +345,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
       }
     } catch (error) {
       // Los filtros son una ayuda: si no se pueden cargar, la lista igual
-      // tiene que andar. El error se deja pasar en silencio a proposito.
+      // tiene que andar. El error se deja pasar en silencio a propósito.
       console.warn('No se pudieron cargar los filtros:', error);
     }
   }
@@ -384,7 +384,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
   });
 
   const botonVolver = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Volver',
     atributos: {
       type: 'button',
@@ -395,7 +395,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
   cabecera.append(botonVolver);
 
   // Las acciones de escritura van en la ficha y no en la lista: editar o dar de
-  // baja un equipo es una decision que se toma DESPUES de ver su historial, no
+  // baja un equipo es una decisión que se toma Después de ver su historial, no
   // desde una fila con el serial a medias.
   const botonEditar = crear('button', {
     clase: 'boton',
@@ -404,7 +404,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
   });
 
   const botonBaja = crear('button', {
-    clase: 'boton boton--peligro',
+    clase: 'botón botón--peligro',
     texto: 'Dar de baja',
     atributos: { type: 'button', onclick: () => abrirBaja() },
   });
@@ -420,7 +420,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
   // La ficha vive en una variable porque los modales la necesitan para
   // prellenar el formulario sin volver a pedirla (y sin riesgo de mostrar un
-  // dato viejo si la peticion de prellenado vuelve despues de la de la ficha).
+  // dato viejo si la petición de prellenado vuelve después de la de la ficha).
   let fichaActual = null;
 
   cargar();
@@ -448,7 +448,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
    * Solo manda los campos que CAMBIARON. El backend acepta un PATCH parcial, y
    * mandar todo lo que muestra la pantalla es la via por la que se pisan datos:
    * la pantalla no conoce todos los campos del equipo (no ve, por ejemplo, el
-   * `is_warehouse` denormalizado), asi que un "guardar todo" borra lo que no ve.
+   * `is_warehouse` denormalizado), así que un "guardar todo" borra lo que no ve.
    */
   async function abrirEdicion() {
     console.log('[QA] abrirEdicion, ficha=', JSON.stringify(fichaActual));
@@ -471,7 +471,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       valor: ficha.serial_number,
       mono: true,
     });
-    const campoQR = campoTexto('Ej: INV-a1b2c3d4', 'Codigo QR', {
+    const campoQR = campoTexto('Ej: INV-a1b2c3d4', 'Código QR', {
       valor: ficha.qr_code,
       mono: true,
     });
@@ -487,7 +487,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     }
 
     const selectUbicacion = crear('select', { clase: 'campo__control' });
-    selectUbicacion.append(crear('option', { texto: 'Sin ubicacion', atributos: { value: '' } }));
+    selectUbicacion.append(crear('option', { texto: 'Sin ubicación', atributos: { value: '' } }));
     for (const u of ubicaciones.items ?? []) {
       const opcion = crear('option', { texto: u.nombre, atributos: { value: u.id } });
       if (u.id === ficha.ubicacion_id) opcion.selected = true;
@@ -533,9 +533,9 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       campoQR.campo,
       // El QR de la etiqueta, junto al campo que lo edita.
       //
-      // El operador que esta corrigiendo el codigo tiene que ver a que
+      // El operador que está corrigiendo el código tiene que ver a que
       // etiqueta se refiere: sin la imagen, "INV-a1b2c3d4" es un texto que
-      // puede estar mal. Con la, ve la imagen escaneable y sabe si esta
+      // puede estar mal. Con la, ve la imagen escaneable y sabe si está
       // Tocando el equipo correcto.
       crear('div', {
         clase: 'qr-formulario',
@@ -557,7 +557,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -565,7 +565,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -635,9 +635,9 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
    * Confirmacion de baja.
    *
    * El modal dice explicitamente que el historial SE CONSERVA, porque "borrar"
-   * en cualquier otra app significa que el dato desaparece, y aca no: el equipo
-   * sale del inventario activo pero el registro queda para la auditoria. Si no
-   * se dice, el operador asume lo peor y no usa la funcion.
+   * en cualquier otra app significa que el dato desaparece, y acá no: el equipo
+   * sale del inventario activo pero el registro queda para la auditoría. Si no
+   * se dice, el operador asume lo peor y no usa la función.
    */
   function abrirBaja() {
     const ficha = fichaActual;
@@ -657,7 +657,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     form.append(campoMotivo.campo);
 
     const btnConfirmar = crear('button', {
-      clase: 'boton boton--peligro boton--bloque',
+      clase: 'botón botón--peligro botón--bloque',
       texto: 'Confirmar baja',
       atributos: { type: 'submit' },
     });
@@ -665,7 +665,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -689,7 +689,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     cerrarModal = abrirDialogo({
       titulo: `Dar de baja ${ficha.serial_number}`,
-      mensaje: 'El equipo deja de aparecer en el inventario y no se puede volver a usar la etiqueta. El historial de movimientos SE CONSERVA para la auditoria.',
+      mensaje: 'El equipo deja de aparecer en el inventario y no se puede volver a usar la etiqueta. El historial de movimientos SE CONSERVA para la auditoría.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -718,13 +718,13 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     };
 
     fila('Serial', ficha.serial_number, { clase: 'mono' });
-    fila('Codigo QR', ficha.qr_code, { clase: 'mono' });
+    fila('Código QR', ficha.qr_code, { clase: 'mono' });
     fila('Equipo', [ficha.marca, ficha.modelo].filter(Boolean).join(' ') || null);
     fila('Categoria', ficha.categoria);
-    fila('Ubicacion actual', ficha.ubicacion_nombre);
+    fila('Ubicación actual', ficha.ubicacion_nombre);
     fila('Estado', estadoInfo.texto, { insignia: estadoInfo.clase });
 
-    // Los dias instalados son el dato que hace legible el desgaste: 900 dias
+    // Los días instalados son el dato que hace legible el desgaste: 900 días
     // en el mismo cliente es una senal que un humano tiene que ver.
     if (ficha.dias_instalado !== null && ficha.dias_instalado !== undefined) {
       fila('Instalado hace', `${ficha.dias_instalado} dias`);
@@ -739,7 +739,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     // El QR de la etiqueta.
     //
-    // El texto del codigo esta arriba, en el `def`. Esta es la parte que
+    // El texto del código está arriba, en el `def`. Está es la parte que
     // sirve de verdad: la imagen escaneable, que es lo que va pegado al
     // equipo y lo que el operador necesita para reimprimir la etiqueta o
     // para verificar de un vistazo que el equipo es este.
@@ -748,7 +748,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     const captionQr = crear('div', { clase: 'qr-caption' });
     captionQr.append(
       crear('span', { clase: 'mono', texto: ficha.qr_code }),
-      crear('span', { clase: 'pequeno tenue', texto: 'Codigo de la etiqueta' }),
+      crear('span', { clase: 'pequeno tenue', texto: 'Código de la etiqueta' }),
     );
     contenedorQr.append(qr, captionQr);
     tarjeta.append(contenedorQr);
@@ -758,7 +758,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
         crear('div', {
           clase: 'resultado resultado--alerta',
           estilo: 'margin-top:1rem',
-          texto: 'Tiene una reparacion abierta en el taller.',
+          texto: 'Tiene una reparación abierta en el taller.',
         }),
       );
     }
@@ -780,7 +780,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     if (!historial.length) {
       tarjeta.append(
-        crear('p', { clase: 'tenue', texto: 'Este componente todavia no fue movido.' }),
+        crear('p', { clase: 'tenue', texto: 'Este componente todavía no fue movido.' }),
       );
       return tarjeta;
     }
@@ -819,7 +819,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       cuerpo.append(meta, fecha, detalle);
 
       // Un escaneo fuera del radio de la sede se marca. No es un error: es el
-      // dato que sirve para revisar despues, y esconderlo seria mentir.
+      // dato que sirve para revisar después, y esconderlo seria mentir.
       if (movimiento.is_valid_location === false) {
         const marca = crear('span', {
           clase: 'insignia insignia--peligro',

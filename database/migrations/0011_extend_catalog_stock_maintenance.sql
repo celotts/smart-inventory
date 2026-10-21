@@ -19,20 +19,20 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS color VARCHAR(20);
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
--- Actualizar categorías existentes con códigos e iconos
+-- Actualizar categorías existentes con códigos e íconos
 --
 -- POR QUE EL CASE MIRA LOS DOS IDIOMAS
 -- ------------------------------------
--- La version original solo contemplaba nombres en INGLES ('Notebook',
+-- La versión original solo contemplaba nombres en INGLES ('Notebook',
 -- 'Networking', 'Server'...). La base real los tiene en ESPANOL ('Impresora',
--- 'Red', 'Servidor', 'Periferico'), asi que caian todas en el `ELSE 'OT'` y el
+-- 'Red', 'Servidor', 'Periferico'), así que caian todas en el `ELSE 'OT'` y el
 -- UPDATE moria con:
 --
 --     duplicate key value violates unique constraint "categories_code_key"
 --
--- porque cuatro categorias distintas recibian el mismo codigo. Se agregan los
--- alias en espanol y el `ELSE` deja de ser una constante: genera un codigo unico
--- a partir del nombre para cualquier categoria que no este en la lista.
+-- porque cuatro categorías distintas recibian el mismo código. Se agregan los
+-- alias en espanol y el `ELSE` deja de ser una constante: genera un código único
+-- a partir del nombre para cualquier categoría que no este en la lista.
 UPDATE categories SET 
     code = CASE
         WHEN name IN ('Notebook', 'Notebook / Laptop')  THEN 'NB'

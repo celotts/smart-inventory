@@ -1,21 +1,21 @@
 /**
- * Los campos de atributo de una categoria y los helpers de campo que los
+ * Los campos de atributo de una categoría y los helpers de campo que los
  * acompanian.
  *
  * POR QUE ESTE ARCHIVO APARTE
  * ---------------------------
- * Los atributos de una categoria (caducidad, lote, alto, ancho) los USA el
- * formulario de producto (para llenarlos) y el gestor de categorias (para
- * definirlos). Con el codigo en un solo archivo, uno de los dos lo arrastra
- * al otro: el gestor de categorias terminaba importando el formulario de
- * producto entero, y al revés.
+ * Los atributos de una categoría (caducidad, lote, alto, ancho) los USA el
+ * formulario de producto (para llenarlos) y el gestor de categorías (para
+ * definirlos). Con el código en un solo archivo, uno de los dos lo arrastra
+ * al otro: el gestor de categorías terminaba importando el formulario de
+ * producto entero, y al reves.
  *
  * QUE SON LOS ATRIBUTOS
  * ---------------------
- * Cada categoria puede definir sus propios campos: una de monitores tiene
+ * Cada categoría puede definir sus propios campos: una de monitores tiene
  * "alto" y "ancho", una de consumibles tiene "caducidad" y "lote". Los
  * VALORES de cada producto viven en `models.specifications` (un JSONB), y el
- * backend los valida contra esta definicion.
+ * backend los válida contra está definición.
  */
 
 import { crear } from '../dom.js';
@@ -30,24 +30,24 @@ function etiquetaConDescripcion(texto, control, descripcion) {
 }
 
 /**
- * Los controles de los atributos de la categoria.
+ * Los controles de los atributos de la categoría.
  *
- * Un Map de clave -> control. El Map es global al modulo porque el formulario
+ * Un Map de clave -> control. El Map es global al módulo porque el formulario
  * de alta y el de edicion existen a la vez en algunos momentos, y cada uno
  * pinta sus propios campos: con un Map por formulario habria que acordarse de
- * cual se esta leyendo al mandar.
+ * cual se está leyendo al mandar.
  */
 const controlesAtributos = new Map();
 
 /**
- * Pinta los campos de los atributos de una categoria.
+ * Pinta los campos de los atributos de una categoría.
  *
  * QUE SON
  * -------
- * Cada categoria define sus propios campos: una de monitores tiene "alto" y
- * "ancho", una de consumibles tiene "caducidad" y "lote". El backend valida
- * los valores contra esa definicion, asi que el frontend no decide nada: solo
- * pide la definicion y arma el control que corresponde.
+ * Cada categoría define sus propios campos: una de monitores tiene "alto" y
+ * "ancho", una de consumibles tiene "caducidad" y "lote". El backend válida
+ * los valores contra esa definición, así que el frontend no decide nada: solo
+ * pide la definición y arma el control que corresponde.
  *
  * @param {HTMLElement} zona      Donde se pintan los campos.
  * @param {string|number} categoriaId
@@ -71,7 +71,7 @@ async function pintarAtributos(zona, categoriaId, valores = {}) {
 
   if (!atributos.length) return;
 
-  const titulo = crear('p', { clase: 'campo__ayuda', texto: 'Atributos de la categoria' });
+  const titulo = crear('p', { clase: 'campo__ayuda', texto: 'Atributos de la categoría' });
   zona.append(titulo);
 
   for (const atributo of atributos) {
@@ -120,7 +120,7 @@ async function pintarAtributos(zona, categoriaId, valores = {}) {
 /**
  * Los valores de los atributos que el operador lleno.
  *
- * Un control vacio NO se manda: el backend lo tomaria como "borrar el valor"
+ * Un control vacío NO se manda: el backend lo tomaria como "borrar el valor"
  * en la edicion, y en el alta seria un atributo sin valor.
  */
 function leerAtributos() {

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class DomainError(Exception):
-    """Error de negocio genérico."""
+    """Error de negocio generico."""
 
     status_code = 400
     code = "domain_error"
@@ -53,25 +53,25 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(SQLAlchemyError)
     async def base_no_disponible(request: Request, exc: SQLAlchemyError):
         """
-        La base no esta: eso NO es un error interno.
+        La base no está: eso NO es un error interno.
 
         POR QUE
         ------
         Sin este handler, un `OperationalError` de psycopg2 (la base caida, el
-        contenedor que no arrancó) cae en el handler generico y el operador
-        ve "Error interno". Un "error interno" dice "el programa esta roto";
-        lo que pasa es que el contenedor de la base no esta arriba, y eso se
+        contenedor que no arranco) cae en el handler generico y el operador
+        ve "Error interno". Un "error interno" dice "el programa está roto";
+        lo que pasa es que el contenedor de la base no está arriba, y eso se
         arregla levantandolo.
 
-        El 503 dice ademas que el problema NO es de la app: un 500 le hace
+        El 503 dice además que el problema NO es de la app: un 500 le hace
         pensar al operador que hay que llamar al soporte de sistemas.
 
-        SOLO LOS ERRORES DE CONEXION
+        Solo LOS ERRORES DE Conexión
         -----------------------------
-        Un `ProgrammingError` (una consulta mal escrita) TAMBIEN es un
+        Un `ProgrammingError` (una consulta mal escrita) También es un
         `SQLAlchemyError`, y NO es que la base este caida. Si se reportara
-        como 503, un bug del codigo se disfrazaria de "la base no esta" y
-        nadie lo encontraria. Por eso se mira la clase: los de conexion son
+        como 503, un bug del código se disfrazaria de "la base no está" y
+        nadie lo encontraria. Por eso se mira la clase: los de conexión son
         503, y los demas siguen siendo 500.
         """
         es_de_conexion = isinstance(exc, (OperationalError, InterfaceError)) or (

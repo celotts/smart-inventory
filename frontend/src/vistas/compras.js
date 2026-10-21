@@ -1,14 +1,14 @@
 /**
- * Vista "Compras" — Órdenes de compra y recepción de mercancía.
+ * Vista "Compras" — Órdenes de compra y recepcion de mercancia.
  *
  * EL FLUJO DE "CARGAR MERCANCIA AL INVENTARIO"
  * -------------------------------------------
  *  1. Se crea una orden de compra (que se espera recibir).
- *  2. Cuando llega la mercancía, se "recibe" la orden: por cada unidad se crea un
+ *  2. Cuando llega la mercancia, se "recibe" la orden: por cada unidad se crea un
  *     equipo con su serial y se registra un movimiento WAREHOUSE_ENTRY. El stock
  *     agregado por producto/ubicación se actualiza solo, por trigger.
  *
- * POR QUE RECIBIR CREA EQUIPOS Y NO SOLO SUMAR UN NUMERO
+ * POR QUE RECIBIR CREA EQUIPOS Y NO Solo SUMAR UN Número
  * -----------------------------------------------------
  * El sistema es de inventario por serial: cada equipo existe como fila y tiene
  * trazabilidad (donde estuvo, quien lo movio). Sumar un contador suelto daria un
@@ -63,7 +63,7 @@ export function vistaCompras({ permisos = [] }) {
         crear('p', {
           clase: 'tarjeta__subtitulo',
           estilo: 'margin:0',
-          texto: 'Órdenes de compra y recepción de mercancía al inventario.',
+          texto: 'Órdenes de compra y recepcion de mercancia al inventario.',
         }),
       ],
     }),
@@ -79,7 +79,7 @@ export function vistaCompras({ permisos = [] }) {
   }
 
   const btnRecargar = crear('button', {
-    clase: 'boton boton--suave',
+    clase: 'botón botón--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => cargar() },
   });
@@ -87,10 +87,10 @@ export function vistaCompras({ permisos = [] }) {
   tarjetaCabecera.append(encabezado, crear('div', { clase: 'fila-botones', estilo: 'margin-top:0.75rem', hijos: [btnRecargar] }));
 
   const zonaLista = crear('div');
-  // LA PAGINACION
+  // LA Paginación
   //
   // Con miles de registros, traerlos todos y pintarlos todos deja la app
-  // sin responder. La pantalla pide de a paginas y el operador ve cuantos
+  // sin responder. La pantalla pide de a páginas y el operador ve cuantos
   // hay en total.
   let pagina = 0;
   let limite = 50;
@@ -142,7 +142,7 @@ export function vistaCompras({ permisos = [] }) {
         icono(ICONOS.buscar, { tamano: 28 }),
         crear('p', {
           texto: puedeCrear
-            ? 'No hay órdenes de compra. Crea una con "Nueva orden" para recibir mercancía.'
+            ? 'No hay órdenes de compra. Crea una con "Nueva orden" para recibir mercancia.'
             : 'No hay órdenes de compra.',
         }),
       );
@@ -187,7 +187,7 @@ export function vistaCompras({ permisos = [] }) {
     zonaLista.replaceChildren(lista);
   }
 
-  // --- Detalle + recepción --------------------------------------------------
+  // --- Detalle + recepcion --------------------------------------------------
   async function verOrden(id) {
     let orden;
     try {
@@ -247,8 +247,8 @@ export function vistaCompras({ permisos = [] }) {
 
     if (puedeCrear && pendientes.length) {
       const btnRecibir = crear('button', {
-        clase: 'boton boton--exito',
-        texto: 'Recibir mercancía',
+        clase: 'botón botón--exito',
+        texto: 'Recibir mercancia',
         atributos: { type: 'button' },
       });
       acciones.push(btnRecibir);
@@ -287,7 +287,7 @@ export function vistaCompras({ permisos = [] }) {
         } catch (error) {
           avisar(error.message, 'error');
           btnRecibir.disabled = false;
-          btnRecibir.textContent = 'Recibir mercancía';
+          btnRecibir.textContent = 'Recibir mercancia';
         }
       });
 
@@ -307,7 +307,7 @@ export function vistaCompras({ permisos = [] }) {
     // Orden ya completa (o usuario sin permiso): solo mostrar.
     acciones.push(
       crear('button', {
-        clase: 'boton boton--suave',
+        clase: 'botón botón--suave',
         texto: 'Cerrar',
         atributos: { type: 'button' },
       }),
@@ -329,7 +329,7 @@ export function vistaCompras({ permisos = [] }) {
     let proveedores = [];
     try {
       // `api.productos()` devuelve `{items, total}`: los selectores piden la
-      // lista entera (sin `limite`) y usan `items`.
+      // lista entera (sin `límite`) y usan `items`.
       const [catalogo, proveedores] = await Promise.all([api.productos(), api.proveedores()]);
       const productos = catalogo.items ?? catalogo;
     } catch (error) {
@@ -383,21 +383,21 @@ export function vistaCompras({ permisos = [] }) {
 
     form.append(
       etiquetaConAyuda('Proveedor *', selectProveedor, 'A quien se le pide la mercancia.'),
-      etiquetaConAyuda('Producto *', selectProducto, 'El producto del maestro que se esta pidiendo.'),
+      etiquetaConAyuda('Producto *', selectProducto, 'El producto del maestro que se está pidiendo.'),
       etiquetaConAyuda('Cantidad *', campoCantidad, 'Cuantas unidades se piden.'),
       etiquetaConAyuda('Costo unitario', campoCosto, 'Lo que costo una unidad. Con esto se calcula el valor de la orden.'),
       etiquetaConAyuda('Fecha esperada de entrega', campoFecha, 'Cuando se espera que llegue. Se usa para saber si una orden se atrasa.'),
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Crear orden',
       atributos: { type: 'submit' },
     });
     form.append(btnGuardar);
 
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -427,7 +427,7 @@ export function vistaCompras({ permisos = [] }) {
           }],
           expected_date: campoFecha.value || undefined,
         });
-        avisar('Orden creada. Cuando llegue la mercancía, recibila desde la lista.', 'exito', 3500);
+        avisar('Orden creada. Cuando llegue la mercancia, recibila desde la lista.', 'exito', 3500);
         cerrarModal(true);
         cargar();
       } catch (error) {

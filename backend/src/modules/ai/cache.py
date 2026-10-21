@@ -1,4 +1,4 @@
-"""Caché en memoria de respuestas de IA con TTL."""
+"""Cache en memoria de respuestas de IA con TTL."""
 
 from __future__ import annotations
 

@@ -1,26 +1,26 @@
 """
-Configuracion de la aplicacion. Toda la configuracion entra por variables de
-entorno y se lee UNA vez, aqui.
+Configuración de la aplicación. Toda la configuración entra por variables de
+entorno y se lee UNA vez, aquí.
 
-POR QUE ESTO ESTA AISLADO
+POR QUE ESTO Está AISLADO
 -------------------------
 El objetivo explicito es que cambiar de proveedor de IA —Ollama local hoy, algo
-gestionado manana— no toque una sola linea de codigo de negocio. Eso se
+gestionado mañana— no toque una sola línea de código de negocio. Eso se
 consigue con dos reglas:
 
   1. NADA lee `os.environ` fuera de este archivo. Un `os.getenv("OPENAI_API_KEY")`
-     escondido en un router es exactamente lo que obliga a tocar codigo cuando
+     escondido en un router es exactamente lo que obliga a tocar código cuando
      el proveedor cambia.
   2. El proveedor se elige con UNA variable, `LLM_PROVIDER`, y se resuelve en
-     `core/llm/factory.py`. El resto del codigo solo conoce la clase base.
+     `core/llm/factory.py`. El resto del código solo conoce la clase base.
 
 COMO SE USA EN CADA AMBIENTE
 -----------------------------
    local      LLM_PROVIDER=ollama, OLLAMA_BASE_URL=http://ollama:11434
-   produccion LLM_PROVIDER=openai, OPENAI_API_KEY=..., OLLAMA_BASE_URL=/dev/null
+   producción LLM_PROVIDER=openai, OPENAI_API_KEY=..., OLLAMA_BASE_URL=/dev/null
 
-En produccion las variables vienen del secret manager o del orquestador, no de
-un .env. El `.env.example` de la raiz documenta los nombres.
+En producción las variables vienen del secret manager o del orquestador, no de
+un .env. El `.env.example` de la raíz documenta los nombres.
 """
 
 from functools import lru_cache
@@ -30,7 +30,7 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Valores por defecto pensados para el compose local. Si se cambia el
-# proveedor hay que cambiar esto tambien; es el unico acoplamiento con Ollama.
+# proveedor hay que cambiar esto también; es el único acoplamiento con Ollama.
 DEFAULT_OLLAMA_URL = "http://ollama:11434"
 
 
@@ -54,21 +54,21 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
 
     # Prompts system que se usan como base. Se pueden sobreescribir por
-    # entorno sin tocar codigo, que es util para ajustar el tono del negocio
+    # entorno sin tocar código, que es útil para ajustar el tono del negocio
     # sin un deploy.
     llm_system_prompt_path: str = "prompts/system.txt"
 
     # --- Ollama ----------------------------------------------------------
     ollama_base_url: str = DEFAULT_OLLAMA_URL
     ollama_model: str = "llama3.1:8b"
-    # Si el modelo principal falla o contesta vacio, se reintenta con este.
+    # Si el modelo principal falla o contesta vacío, se reintenta con este.
     # En una laptop sin GPU es la diferencia entre "responde lento" y "no
     # responde": un 3b cabe en cualquier lado y un 8b no siempre.
     ollama_fallback_model: str = "llama3.2:3b"
     ollama_timeout_seconds: float = 120.0
     # Ventana de contexto. 8192 es el default de llama3.1 y alcanza para el
     # esquema completo del inventario; bajarlo ahorra RAM en la maquina que
-    # corre el modelo, que suele ser la mas Justa.
+    # corre el modelo, que suele ser la más Justa.
     ollama_num_ctx: int = 8192
     ollama_temperature: float = 0.1
 
@@ -78,10 +78,10 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = 60.0
 
-    # --- Autenticacion --------------------------------------------------
+    # --- Autenticación --------------------------------------------------
     # El secreto con el que se firman los JWT. Sin default utilizable: se
     # pone UN valor de ejemplo para que `make up` funcione en el primer
-    # arranque, y `core/security.py` RECHAZA ese valor si corre en produccion.
+    # arranque, y `core/security.py` RECHAZA ese valor si corre en producción.
     #
     # La alternativa —sin default— hace que el primer `make up` de alguien
     # falle y termine copiando una key de ejemplo al .env sin mirarla. Con
@@ -92,59 +92,59 @@ class Settings(BaseSettings):
 
     secret_key: str = SECRET_KEY_DE_EJEMPLO
 
-    # Un access token vive 15 minutos. Corto a proposito: como NO se guarda en
-    # la base, la unica forma de dejar de aceptarlo es que expire. La
+    # Un access token vive 15 minutos. Corto a propósito: como NO se guarda en
+    # la base, la única forma de dejar de aceptarlo es que expire. La
     # revocacion inmediata se hace con sessions.revoked_before, que obliga a
     # ir a la base — y eso tiene que valer la pena, no pasar en cada request.
     access_token_expire_minutes: int = 15
 
-    # Un refresh token vive 30 dias y SI se guarda (hasheado). Es la sesion:
-    # si al usuario le robaron la notebook, se le cierra la sesion desde el
-    # panel y no tiene que esperar 30 dias.
+    # Un refresh token vive 30 días y SI se guarda (hasheado). Es la sesión:
+    # si al usuario le robaron la notebook, se le cierra la sesión desde el
+    # panel y no tiene que esperar 30 días.
     refresh_token_expire_days: int = 30
 
     # Tope de sesiones activas por usuario. Sin este, un login loop deja 5000
-    # filas y cada refresh las recorre. Al superar el tope se corta la mas
+    # filas y cada refresh las recorre. Al superar el tope se corta la más
     # vieja.
     max_sessions_per_user: int = 5
 
-    # --- Params de generacion compartidos --------------------------------
+    # --- Params de generación compartidos --------------------------------
     llm_max_tokens: int = 1024
     # Un `.format()` con datos de la BD sobre un modelo debil puede terminar en
     # KeyError. Se formatea con `.format_map` sobre un dict con defaults en
-    # `_safe_format`, nunca con un dict vacio.
+    # `_safe_format`, nunca con un dict vacío.
     llm_timeout_seconds: float = 120.0
 
     # --- Tope de filas para consultas generadas por el modelo ------------
-    # El LLM escribe el SQL; este es el unico limite que no puede saltarse.
+    # El LLM escribe el SQL; este es el único límite que no puede saltarse.
     ai_max_rows: int = 500
     # Segundos maximos de una consulta generada. Un modelo que responde
     # "SELECT ... FROM movement_history" sin filtro no debe tumbar la API.
     ai_query_timeout_seconds: float = 10.0
 
     # --- CORS ------------------------------------------------------------
-    # Orígenes permitidos, separados por coma.
+    # Origenes permitidos, separados por coma.
     #
-    # ESTO ESTABA HARDCODEADO y era un agujero: en produccion el unico origen
+    # ESTO ESTABA HARDCODEADO y era un agujero: en producción el único origen
     # permitido era `https://smart-inventory.local`, un dominio que no existe.
     # Con esa lista, un frontend desplegado en el dominio real no podia llamar
     # a la API. Y el arreglo "mientras tanto, allow_origins=['*']" es
     # justamente el agujero que hace que cualquiera pueda leer la respuesta de
-    # una API autenticada desde cualquier pagina.
+    # una API autenticada desde cualquier página.
     #
-    # La lista correcta depende del despliegue, asi que no se adivina: se
-    # declara. Vacio significa "solo same-origin", que es lo correcto cuando el
+    # La lista correcta depende del despliegue, así que no se adivina: se
+    # declara. Vacío significa "solo same-origin", que es lo correcto cuando el
     # nginx sirve el front y la API desde el mismo dominio.
     cors_origins: str = ""
 
     # Redes de confianza para el rate limit y los logs.
     #
-    # `X-Forwarded-For` lo pone cualquiera. Si el rate limit lo leyera sin mas,
-    # un atacante cambia el header con un IP inventado por request y el limite
+    # `X-Forwarded-For` lo pone cualquiera. Si el rate limit lo leyera sin más,
+    # un atacante cambia el header con un IP inventado por request y el límite
     # por IP no limita nada: queda como si no existiera.
     #
-    # Solo se acepta el header si el peer es una IP de estas redes, que son las
-    # del reverse proxy propio. Vacio = no se acepta nunca, que es el default
+    # Solo se acepta el header si el peer es una IP de estás redes, que son las
+    # del reverse proxy propio. Vacío = no se acepta nunca, que es el default
     # seguro para una API expuesta directo.
     trusted_proxies: str = ""
 
@@ -153,11 +153,11 @@ class Settings(BaseSettings):
     rate_limit_rpm: int = 120
     rate_limit_burst: int = 30
 
-    # El login tiene su propio limite, mas bajo, y es por IP.
+    # El login tiene su propio límite, más bajo, y es por IP.
     #
-    # Por que aparte: el limite general es 120/min, y un ataque de fuerza bruta
+    # Por que aparte: el límite general es 120/min, y un ataque de fuerza bruta
     # hace 120 intentos por minuto contra CADA una de las 10.000 cuentas de una
-    # base real. El limite general no lo frena porque cada intento individual
+    # base real. El límite general no lo frena porque cada intento individual
     # es una request perfectamente normal.
     #
     # 10/min es el punto: un humano que se equivoca la clave tres veces no nota
@@ -166,16 +166,16 @@ class Settings(BaseSettings):
     login_attempts_per_minute: int = 10
 
     # --- Escaneo ---------------------------------------------------------
-    # Longitud maxima de un codigo leido por el lector.
+    # Longitud máxima de un código leído por el lector.
     #
-    # El limite existe porque el codigo va a una consulta de base. Sin tope, un
-    # "codigo" de 4 MB (que se puede mandar sin drama en un JSON) se convierte
-    # en 4 MB de comparacion por indice. 128 caracteres cubre de sobra un QR
-    # (alfanumericos, ~40 en la version de mayor densidad), un EAN-13 y un
+    # El límite existe porque el código va a una consulta de base. Sin tope, un
+    # "código" de 4 MB (que se puede mandar sin drama en un JSON) se convierte
+    # en 4 MB de comparacion por índice. 128 caracteres cubre de sobra un QR
+    # (alfanumericos, ~40 en la versión de mayor densidad), un EAN-13 y un
     # Code 39.
     scan_code_max_length: int = 128
 
-    # Cuantos codigos acepta un escaneo por lote (conteo ciclico de deposito).
+    # Cuantos códigos acepta un escaneo por lote (conteo ciclico de depósito).
     # Con 500 se cubre una rack completo sin que un cliente pueda pedir 100.000
     # filas en un POST.
     scan_batch_max: int = 500
@@ -183,9 +183,9 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         """
-        Origenes parseados, sin vacios.
+        Origenes parseados, sin vacíos.
 
-        La lista vacia es una decision, no un olvido: es lo que hace que
+        La lista vacía es una decisión, no un olvido: es lo que hace que
         CORSMiddleware no agregue el header `Access-Control-Allow-Origin`, y con
         el, que el navegador bloquee la respuesta. Es lo que corresponde a un
         front servido en el mismo origen que la API.
@@ -216,8 +216,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """
-    Instancia unica. `lru_cache` porque leer y validar el entorno en cada
-    request es trabajo tira-despues-tira, y porque mutar la configuracion a
+    Instancia única. `lru_cache` porque leer y validar el entorno en cada
+    request es trabajo tira-después-tira, y porque mutar la configuración a
     mitad de una request seria peor que tener una foto fija.
     """
     return Settings()

@@ -3,15 +3,15 @@ Tests del tope de sesiones.
 
 POR QUE ESTE CASO MERECE UN ARCHIVE PROPIO
 ------------------------------------------
-El sintoma que produce es "la app me cerro la sesion sola", y no se parece a
-ningun otro fallo: no hay error visible, no hay log util, y el usuario no hizo
+El sintoma que produce es "la app me cerró la sesión sola", y no se parece a
+ningún otro fallo: no hay error visible, no hay log útil, y el usuario no hizo
 nada mal. Es la clase de fallo que hace que un usuario deje de confiar en el
 sistema sin saber a que se debe.
 
-El escenario que lo dispara es real y no exotico: `/auth/refresh` rota la sesion
-en cada renovacion, asi que un mismo dispositivo deja filas a su paso. Con
-cinco sesiones abiertas —es el tope— y una pestana mas entrando, el corte cae
-sobre la sesion que alguien estaba usando en otra pantalla.
+El escenario que lo dispara es real y no exotico: `/auth/refresh` rota la sesión
+en cada renovacion, así que un mismo dispositivo deja filas a su paso. Con
+cinco sesiones abiertas —es el tope— y una pestaña más entrando, el corte cae
+sobre la sesión que alguien estaba usando en otra pantalla.
 """
 
 from __future__ import annotations
@@ -77,10 +77,10 @@ class TestTopeDeSesiones:
         """
         ESTE ES EL BUG.
 
-        Con el tope lleno, `_limitar_sesiones` revocaba la mas vieja entre las
-        candidatas —y la sesion recien creada entraba en esa lista. Con
+        Con el tope lleno, `_limitar_sesiones` revocaba la más vieja entre las
+        candidatas —y la sesión recien creada entraba en esa lista. Con
         desempate por `created_at` solamente, Postgres no garantiza el orden
-        entre dos filas del mismo microsegundo, asi que la sesion nueva podia
+        entre dos filas del mismo microsegundo, así que la sesión nueva podia
         quedar herself afuera del corte: el login devolvia 200 y el primer
         request ya era un 401.
         """
@@ -91,7 +91,7 @@ class TestTopeDeSesiones:
         for _ in range(maximo + 2):
             auth_service._abrir_sesion(usuario)
 
-        # Ahora se abre una sesion nueva y tiene que sobrevivir.
+        # Ahora se abre una sesión nueva y tiene que sobrevivir.
         tokens = auth_service._abrir_sesion(usuario)
         nueva = tokens["session_id"]
 
@@ -111,8 +111,8 @@ class TestTopeDeSesiones:
     def test_el_tope_se_respeta(self, base):
         """
         Corregir lo anterior NO puede romper el tope: si `conservar` saca la
-        sesion nueva de la cuenta y despues se cuenta todo, el limite real
-        seria `maximo + 1`.
+        sesión nueva de la cuenta y después se cuenta todo, el límite real
+        seria `máximo + 1`.
         """
         from sqlalchemy import text
 
@@ -152,7 +152,7 @@ class TestTopeDeSesiones:
         )
 
     def test_conservar_none_no_revoca_la_ultima(self, base):
-        """El camino sin `conservar` (limpieza manual, tests) sigue siendo valido."""
+        """El camino sin `conservar` (limpieza manual, tests) sigue siendo válido."""
         usuario = _admin(base)
         for _ in range(7):
             auth_service._limitar_sesiones(usuario["id"], conservar=None)

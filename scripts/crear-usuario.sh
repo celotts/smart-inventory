@@ -4,26 +4,26 @@
 #
 #   make usuario
 #
-# POR QUE EXISTE, Y POR QUE NO ES SOLO LA PANTALLA
+# POR QUE EXISTE, Y POR QUE NO ES Solo LA PANTALLA
 # ---------------------------------------------------
 # La pantalla de Usuarios (en la app) es el camino normal: un ADMIN da de
-# alta a los demas. Este script es para el caso en que NO hay admin todavia:
+# alta a los demas. Este script es para el caso en que NO hay admin todavía:
 # una base recien creada, o un admin que perdio su clave.
 #
 # En ese caso no se puede entrar a la app (que es justamente el problema), y
-# el unico camino es la base.
+# el único camino es la base.
 #
 # POR QUE PIDE LA CLAVE CON `read -s`
 # -----------------------------------
 # Un `read` normal muestra lo que se escribe: la clave queda en pantalla, en
 # el historial del shell si se pasa como argumento, y en el `ps` de los otros
-# procesos de la maquina. `read -s` no la muestra y no la guarda en ningun
+# procesos de la maquina. `read -s` no la muestra y no la guarda en ningún
 # lado.
 #
-# LA CLAVE NO SE ESCRIBE EN NINGUN ARCHIVO
+# LA CLAVE NO SE ESCRIBE EN Ningún ARCHIVO
 # ----------------------------------------
-# Se pasa por la entrada estandar a `psql`, que la recibe en una variable de
-# la sesion (`psql -v clave=...`), no en un archivo del repo ni en el
+# Se pasa por la entrada estándar a `psql`, que la recibe en una variable de
+# la sesión (`psql -v clave=...`), no en un archivo del repo ni en el
 # historial de la shell.
 # ===========================================================================
 set -euo pipefail
@@ -36,12 +36,12 @@ DB_PASSWORD="${DB_PASSWORD:-secretpassword}"
 
 ROJO="\033[0;31m"; VERDE="\033[0;32m"; SIN="\033[0m"; GRIS="\033[0;90m"
 
-# El `psql` del contenedor, o el del host si esta instalado.
+# El `psql` del contenedor, o el del host si está instalado.
 #
 # Se busca por SERVICIO de compose (`docker compose ps --services`) y no por
 # nombre de contenedor: el servicio se llama `db` y el contenedor
 # `smart_inventory_db`, y con el nombre de contenedor el chequeo falla y el
-# script cae al `psql` del host, que no esta.
+# script cae al `psql` del host, que no está.
 psql_en() {
   if docker compose ps --services 2>/dev/null | grep -qx "$DB_SERVICE"; then
     docker compose exec -T "$DB_SERVICE" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 "$@"
@@ -99,7 +99,7 @@ if [ "${#CLAVE}" -lt 8 ]; then
 fi
 
 # El hash es el MISMO que usa el backend (bcrypt, costo 10) a traves de
-# `crypt()` de pgcrypto: una contrasena creada por el script entra igual que
+# `crypt()` de pgcrypto: una contraseña creada por el script entra igual que
 # una creada por la app.
 # `-q` silencia los tags de comando ("INSERT 0 1"): lo que interesa es el
 # `RETURNING`, que es el email del usuario.

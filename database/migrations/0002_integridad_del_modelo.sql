@@ -2,10 +2,10 @@
 -- 0002 — Integridad del modelo relacional
 -- ===========================================================================
 --
--- Para que sirve esta migracion
+-- Para que sirve está migración
 -- -----------------------------
--- `init.sql` ya trae estos cambios. Esta migracion es para la base que se creo
--- con la version anterior del esquema: agrega indices, CHECKs, borrado logico y
+-- `init.sql` ya trae estos cambios. Está migración es para la base que se creo
+-- con la versión anterior del esquema: agrega índices, CHECKs, borrado logico y
 -- corrige el tipo de `disposal_certificates.authorized_by`.
 --
 --   Instalacion nueva  ->  `make up`.     Correr esto seria redundante.
@@ -20,7 +20,7 @@
 --  3. UNIQUE(brand, model). Sin el, "Samsung / Galaxy A10" se podia duplicar y
 --     los conteos por modelo no cerraban contra el total de devices.
 --  4. CHECK de consistencia entre is_warehouse y current_status. Son la misma
---     informacion en dos columnas; sin el CHECK pueden divergir en silencio.
+--     información en dos columnas; sin el CHECK pueden divergir en silencio.
 --  5. CHECK de REPLACEMENT en las dos direcciones.
 --  6. Borrado logico (deleted_at) en las tablas de negocio.
 --  7. TIMESTAMP -> TIMESTAMPTZ. users/roles ya usaban TIMESTAMPTZ y el resto
@@ -29,14 +29,14 @@
 --  8. ON DELETE CASCADE -> RESTRICT en las tablas de historial. Con CASCADE, un
 --     DELETE accidental de un dispositivo se lleva TODOS sus movimientos.
 --  9. Trigger de updated_at en devices/clients/locations. Tenian DEFAULT pero
---     ningun trigger: la columna nunca cambiaba despues del INSERT.
--- 10. Indices en todas las columnas foraneas. Postgres no los crea solo.
+--     ningún trigger: la columna nunca cambiaba después del INSERT.
+-- 10. Índices en todas las columnas foraneas. Postgres no los crea solo.
 --
 -- EL ORDEN IMPORTA
 -- -----------------
--- Las columnas NOT NULL se agregan SOLO si la tabla esta vacia o si todas las
+-- Las columnas NOT NULL se agregan Solo si la tabla está vacía o si todas las
 -- filas ya tienen valor. Es el mismo criterio que la 0001: no se borra data para
--- que una migracion "pase". Si la tabla tiene huerfanos, esto falla con el
+-- que una migración "pase". Si la tabla tiene huerfanos, esto falla con el
 -- SELECT de abajo como ayuda, y el operador decide.
 
 
@@ -66,12 +66,12 @@ END $$;
 -- ---------------------------------------------------------------------------
 --
 -- Va antes que todo lo demas porque `ADD COLUMN IF NOT EXISTS deleted_at` es
--- lo UNICO de esta migracion que no puede fallar: agregar una columna nullable
+-- lo Único de está migración que no puede fallar: agregar una columna nullable
 -- no rompe datos ni puede chocar con un constraint.
 --
 -- Va primero porque los pasos que siguen la consultan. El chequeo de duplicados
 -- en `models` usa `WHERE deleted_at IS NULL`, y si se corre antes de que la
--- columna exista, Postgres dice "column does not exist" y la migracion se frena
+-- columna exista, Postgres dice "column does not exist" y la migración se frena
 -- a mitad de camino. Ya paso.
 --
 -- `ADD COLUMN IF NOT EXISTS` la hace re-ejecutable.
@@ -82,7 +82,7 @@ ALTER TABLE models     ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE devices    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- `locations` NO tenia `updated_at` en el esquema viejo (solo `created_at`).
--- Sin agregarlo aca, el paso 7 falla con 'column updated_at does not exist':
+-- Sin agregarlo acá, el paso 7 falla con 'column updated_at does not exist':
 -- no se puede convertir un tipo de una columna que no existe.
 ALTER TABLE clients    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE locations  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
@@ -149,7 +149,7 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- 3. UNIQUE(brand, model)
 -- ---------------------------------------------------------------------------
--- Se agrega SIN VALIDAR si ya hay duplicados: el UNIQUE es un indice, se crea
+-- Se agrega SIN VALIDAR si ya hay duplicados: el UNIQUE es un índice, se crea
 -- siempre, pero el CHECK de duplicados avisa antes de romper nada.
 DO $$
 DECLARE
@@ -177,7 +177,7 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- Primero se normalizan las filas que ya esten desincronizadas: si el status
 -- dice IN_WAREHOUSE, el flag tiene que decir true. Se hace ANTES de agregar el
--- CHECK porque si no, la sentencia falla y la migracion se frena.
+-- CHECK porque si no, la sentencia falla y la migración se frena.
 --
 -- La normalizacion va en la direccion que manda `current_status`, porque es la
 -- columna de la que derivan los reportes y los ENUM.
@@ -190,7 +190,7 @@ ALTER TABLE devices ADD CONSTRAINT ck_devices_warehouse_status CHECK (
     is_warehouse = (current_status = 'IN_WAREHOUSE')
 );
 -- (Sin RAISE NOTICE: fuera de un bloque DO $$...$$ no es una sentencia
--- valida. El aviso va en el NOTICIO del paso siguiente.)
+-- válida. El aviso va en el NOTICIO del paso siguiente.)
 
 
 -- ---------------------------------------------------------------------------
@@ -229,9 +229,9 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 6. CHECK de una sola reparacion abierta
+-- 6. CHECK de una sola reparación abierta
 -- ---------------------------------------------------------------------------
--- Se agrega SOLO si no hay equipos con dos reparaciones abiertas. Si los hay, no
+-- Se agrega Solo si no hay equipos con dos reparaciones abiertas. Si los hay, no
 -- se elige una arbitrariamente: se aborta.
 DO $$
 DECLARE
@@ -258,14 +258,14 @@ END $$;
 
 -- 7. TIMESTAMP -> TIMESTAMPTZ
 -- ---------------------------------------------------------------------------
--- El cambio de tipo es seguro e implicitamente reescribe las filas. OJO: el
--- valor se interpreta con la zona horaria de la SESION en el momento de correr.
+-- El cambió de tipo es seguro e implicitamente reescribe las filas. OJO: el
+-- valor se interpreta con la zona horaria de la Sesión en el momento de correr.
 -- Por eso el `SET TIME ZONE` explicito: correr esto en un servidor en UTC
 -- cuando los datos se cargaron en Argentina desplaza todas las fechas.
--- `models` NO aparece en esta lista a proposito: no tiene created_at ni
+-- `models` NO aparece en está lista a propósito: no tiene created_at ni
 -- updated_at, ni en el esquema viejo ni en init.sql. Es una tabla de catalogo
--- y su fecha de creacion no se consulta nunca. Agregarla al Conversion fue un
--- error que solo se vio corriendo la migracion contra una base real.
+-- y su fecha de creacion no se consulta nunca. Agregarla al Conversión fue un
+-- error que solo se vio corriendo la migración contra una base real.
 SET TIME ZONE 'UTC';
 
 ALTER TABLE clients    ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
@@ -289,7 +289,7 @@ ALTER TABLE disposal_certificates ALTER COLUMN disposal_date TYPE TIMESTAMPTZ US
 -- 8. ON DELETE RESTRICT en las tablas de historial
 -- ---------------------------------------------------------------------------
 -- Postgres no tiene "cambiar la FK": hay que BORRAR la constraint y crearla de
--- nuevo. Los nombres AUTO-generados no son estables entre instalaciones, asi
+-- nuevo. Los nombres AUTO-generados no son estables entre instalaciones, así
 -- que se localiza cada FK POR COLUMNA y no por nombre.
 --
 -- OJO CON `DROP CONSTRAINT v_conname`: PL/pgSQL NO interpola variables en
@@ -350,8 +350,8 @@ BEGIN
     END IF;
 END $$;
 
--- Estas tres se crean de cero porque en el esquema viejo NO existian:
--- `authorized_by` era un INT suelto y `user_id` / `technician_id` todavia no
+-- Estás tres se crean de cero porque en el esquema viejo NO existian:
+-- `authorized_by` era un INT suelto y `user_id` / `technician_id` todavía no
 -- tienen FK (la 0001 los convierte a UUID y les pone nombre propio).
 DO $$
 BEGIN
@@ -411,11 +411,11 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
 -- ---------------------------------------------------------------------------
--- 10. Indices
+-- 10. Índices
 -- ---------------------------------------------------------------------------
--- Postgres NO crea indices en columnas foraneas. Sin esto, cada JOIN que entra
+-- Postgres NO crea índices en columnas foraneas. Sin esto, cada JOIN que entra
 -- por una FK es un seq scan — y las consultas que genera la IA llegan
--- justamente por estas columnas.
+-- justamente por estás columnas.
 CREATE INDEX IF NOT EXISTS idx_locations_client ON locations(client_id);
 CREATE INDEX IF NOT EXISTS idx_locations_active ON locations(is_active) WHERE is_active;
 
@@ -448,11 +448,11 @@ CREATE INDEX IF NOT EXISTS idx_disposal_repair ON disposal_certificates(repair_i
 
 
 -- ---------------------------------------------------------------------------
--- 11. Seed de categorias
+-- 11. Seed de categorías
 -- --------------------------------------------------------------------------
 -- devices.model_id y models.category_id ahora son NOT NULL: sin al menos una
--- categoria, no se puede crear ni un modelo ni un dispositivo. Este es el
--- minimo indispensable para que el sistema arranque con datos.
+-- categoría, no se puede crear ni un modelo ni un dispositivo. Este es el
+-- mínimo indispensable para que el sistema arranque con datos.
 INSERT INTO categories (name, description) VALUES
     ('Notebook',    'Equipos portatiles'),
     ('Desktop',     'Equipos de escritorio'),

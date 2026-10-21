@@ -3,8 +3,8 @@
  *
  * Salen abajo, se van solos y se anuncian a un lector de pantalla.
  *
- * `aria-live="polite"` y no `assertive`: un aviso es informacion, no una
- * emergencia. Con `assertive` el lector de pantalla interrumpe lo que esta
+ * `aria-live="polite"` y no `assertive`: un aviso es información, no una
+ * emergencia. Con `assertive` el lector de pantalla interrumpe lo que está
  * leyendo, y en un flujo de escaneo eso pasa cada dos segundos.
  *
  * NADA DE TEXTO POR `innerHTML`: el mensaje puede venir de la API, que a su vez
@@ -43,8 +43,8 @@ export function avisar(mensaje, tipo = 'info', duracion = 4000) {
 
   if (duracion > 0) {
     setTimeout(() => {
-      // Se quita despues de la transicion, y sin `onend`: si la transicion no
-      // corre (pestana en background, `prefers-reduced-motion`), el elemento
+      // Se quita después de la transición, y sin `onend`: si la transición no
+      // corre (pestaña en background, `prefers-reduced-motion`), el elemento
       // se queda pegado para siempre.
       nodo.style.opacity = '0';
       setTimeout(() => nodo.remove(), 200);
@@ -57,8 +57,8 @@ export function avisar(mensaje, tipo = 'info', duracion = 4000) {
 /**
  * Aviso persistente de escaneos sin enviar.
  *
- * Se muestra SOLO cuando hay algo en la cola. Un aviso permanente que dice
- * "todo bien" entrena al operador a no mirarlo, y el dia que importa no lo ve.
+ * Se muestra Solo cuando hay algo en la cola. Un aviso permanente que dice
+ * "todo bien" entrena al operador a no mirarlo, y el día que importa no lo ve.
  */
 export function marcarPendientes(cantidad) {
   const nodo = document.getElementById('aviso-offline');

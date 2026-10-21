@@ -1,14 +1,14 @@
 """
-Logica de dispositivos: alta, resolucion de codigo y ficha.
+Lógica de dispositivos: alta, resolucion de código y ficha.
 
 POR QUE UN SERVICE Y NO SQL EN EL ROUTER
 ----------------------------------------
-Porque hay tres consultas que se necesitan en mas de un endpoint —la resolucion
-del codigo, la ficha y el listado— y el `JOIN` de la ficha tiene ocho columnas.
+Porque hay tres consultas que se necesitan en más de un endpoint —la resolucion
+del código, la ficha y el listado— y el `JOIN` de la ficha tiene ocho columnas.
 Duplicado, el JOIN queda desactualizado en un lado y el reporte muestra
 `marca` mientras la pantalla muestra `brand`.
 
-ADEMAS DE UNA RAZON QUE NO ES DE ESTILO
+Ademas DE UNA Razon QUE NO ES DE ESTILO
 ----------------------------------------
 `is_warehouse` y `current_status` tienen que salir SIEMPRE consistentes. Si cada
 endpoint arma su propio SELECT, uno de ellos se olvida del
@@ -29,8 +29,8 @@ from src.core.config import get_settings
 from src.modules.ai.executor import get_ai_engine
 from src.modules.locations.service import ids_descendientes, ids_descendientes_categoria
 
-# El SELECT de la ficha. Un unico lugar donde se decide que "esta en el taller"
-# significa tener una reparacion abierta.
+# El SELECT de la ficha. Un único lugar donde se decide que "esta en el taller"
+# significa tener una reparación abierta.
 _SELECT_DISPOSITIVO = """
     SELECT
         d.id,
@@ -60,7 +60,7 @@ _SELECT_DISPOSITIVO = """
 
 
 class DispositivoNoEncontrado(LookupError):
-    """El codigo no resuelve a ningun componente."""
+    """El código no resuelve a ningún componente."""
 
 
 class CodigoDuplicado(ValueError):
@@ -68,17 +68,17 @@ class CodigoDuplicado(ValueError):
 
 
 class TransicionInvalida(ValueError):
-    """El cambio de estado pedido no es una transicion que el negocio reconozca."""
+    """El cambió de estado pedido no es una transición que el negocio reconozca."""
 
 
-# La MISMA matriz que valida el trigger `validar_transicion_estado` en la base.
-# Vive duplicada a proposito: el trigger es la red de seguridad (nada entra por
-# otro camino: importaciones, scripts, psql a mano), y esta copia es para que el
-# error llegue como un 409 con un mensaje util ANTES de tocar el motor, en vez de
+# La MISMA matriz que válida el trigger `validar_transición_estado` en la base.
+# Vive duplicada a propósito: el trigger es la red de seguridad (nada entra por
+# otro camino: importaciones, scripts, psql a mano), y está copia es para que el
+# error llegue como un 409 con un mensaje útil ANTES de tocar el motor, en vez de
 # un `check_violation` en ingles de Postgres.
 #
-# Si las dos se desincronizan, gana el trigger: una fila invalida es imposible
-# aunque esta tabla diga lo contrario. Por eso esta copia nunca es la ultima
+# Si las dos se desincronizan, gana el trigger: una fila inválida es imposible
+# aunque está tabla diga lo contrario. Por eso está copia nunca es la última
 # palabra, solo la primera.
 TRANSICIONES_VALIDAS: dict[str, set[str]] = {
     "IN_WAREHOUSE": {"IN_WAREHOUSE", "IN_TRANSIT", "IN_REPAIR"},
@@ -98,8 +98,8 @@ def _validar_transicion(desde: str | None, hacia: str | None) -> None:
     """
     Rechaza un cambio de estado que el negocio no reconoce.
 
-    No valida nada si el estado no cambia: editar el serial de un equipo no tiene
-    por que pasar por la matriz, y exigir una transicion valida para un UPDATE
+    No válida nada si el estado no cambia: editar el serial de un equipo no tiene
+    por que pasar por la matriz, y exigir una transicion válida para un UPDATE
     que no toca el estado haria que "corregir una tilde en la ubicacion" fallara
     por un motivo que no tiene nada que ver.
     """
@@ -149,13 +149,13 @@ def generar_qr() -> str:
     fuera el serial, un equipo dado de baja y otro nuevo con el mismo serial
     compartirian etiqueta.
 
-    El prefijo `INV-` hace que un codigo deste sistema sea reconocible a simple
+    El prefijo `INV-` hace que un código deste sistema sea reconocible a simple
     vista frente a uno de otro inventario, que ayuda cuando alguien escanea con
     la app equivocada.
 
     `secrets.token_hex`, no `uuid4()`: los dos son aleatorios, pero
-    `token_hex` no tiene version ni variant en el layout, asi que no hay forma
-    de que un escaner que adivina el patron de los UUID lo haga mas facil.
+    `token_hex` no tiene versión ni variant en el layout, así que no hay forma
+    de que un escaner que adivina el patron de los UUID lo haga más fácil.
     """
     return f"INV-{secrets.token_hex(8)}"
 
@@ -167,26 +167,26 @@ def _conexion():
 # Cuantas unidades se devuelven con un producto. Es un tope de prudencia: un
 # producto puede tener cientos de equipos, y la lista que se muestra en el
 # celular es para ELEGIR uno, no para hacer un inventario. Con 50, el que
-# esta en el deposito esta seguro en la lista.
+# está en el depósito está seguro en la lista.
 MAX_UNIDADES_PRODUCTO = 50
 
 
 def _producto_por_codigo(codigo: str) -> dict[str, Any] | None:
     """
-    Busca un PRODUCTO del maestro por el codigo de su etiqueta.
+    Busca un PRODUCTO del maestro por el código de su etiqueta.
 
     QUE ES ESTO
     -----------
-    El producto ("una notebook tal modelo: hay cinco en el deposito") tiene su
-    propia etiqueta, con su QR (`PRD-...`) y su codigo de barras. Es LA CAJA,
+    El producto ("una notebook tal modelo: hay cinco en el depósito") tiene su
+    propia etiqueta, con su QR (`PRD-...`) y su código de barras. Es LA CAJA,
     no el equipo. Cuando el operador apunta la camara a la caja, lo que lee es
-    esta etiqueta.
+    está etiqueta.
 
-    POR QUE LA BUSQUEDA TAMBIEN MIRA EL SKU
+    POR QUE LA BUSQUEDA También MIRA EL SKU
     ---------------------------------------
-    El codigo de barras del producto es, por defecto, su SKU. Y el SKU es lo
-    que el proveedor escribe a mano en la caja. Un codigo leido que no
-    pertenece a ningun equipo tiene que poder encontrar al producto.
+    El código de barras del producto es, por defecto, su SKU. Y el SKU es lo
+    que el proveedor escribe a mano en la caja. Un código leído que no
+    pertenece a ningún equipo tiene que poder encontrar al producto.
 
     POR QUE DEVUELVE SUS UNIDADES
     -----------------------------
@@ -240,29 +240,29 @@ def _producto_por_codigo(codigo: str) -> dict[str, Any] | None:
 
 def resolver_codigo(codigo: str) -> dict[str, Any]:
     """
-    Resuelve un codigo leido por el lector a un componente.
+    Resuelve un código leído por el lector a un componente.
 
     La busqueda es sobre `qr_code` Y `serial_number` en la MISMA consulta: lo que
-    el operador escanea puede ser cualquiera de los dos, y el caso mas comun en
+    el operador escanea puede ser cualquiera de los dos, y el caso más comun en
     el campo es el equipo viejo con la etiqueta del proveedor y sin QR propio.
 
-    Devuelve `encontrado=False` con un `motivo` en vez de levantar excepcion, y
-    la razon esta en el docstring del schema: el operador necesita distinguir
-    "no existe" de "esta dado de baja", y son dos instrucciones distintas.
+    Devuelve `encontrado=False` con un `motivo` en vez de levantar excepción, y
+    la razón está en el docstring del schema: el operador necesita distinguir
+    "no existe" de "está dado de baja", y son dos instrucciones distintas.
 
-    QUE PASA SI EL CODIGO ES DE UN PRODUCTO
+    QUE PASA SI EL Código ES DE UN PRODUCTO
     ---------------------------------------
-    Si el codigo es la etiqueta de la CAJA (el producto del maestro, `PRD-...`),
+    Si el código es la etiqueta de la CAJA (el producto del maestro, `PRD-...`),
     la respuesta trae `producto` con sus unidades y NO trae `dispositivo`: esa
     etiqueta no identifica a un equipo, y un escaneo de movimiento no se puede
     registrar sin saber cual. Quien llama tiene que distinguir los dos casos:
-    `encontrado` sigue siendo True, porque el codigo EXISTE.
+    `encontrado` sigue siendo True, porque el código EXISTE.
     """
     config = get_settings()
     codigo = (codigo or "").strip()
 
-    # El limite de longitud se aplica aca y no solo en el schema, porque esta
-    # funcion tambien la llaman los escaneos por lote, que no pasan por pydantic.
+    # El límite de longitud se aplica acá y no solo en el schema, porque está
+    # función también la llaman los escaneos por lote, que no pasan por pydantic.
     if not codigo:
         return {"encontrado": False, "codigo": codigo, "motivo": "El codigo viene vacio."}
 
@@ -277,7 +277,7 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
         }
 
     with _conexion() as conexion:
-        # Activos primero: si un codigo estuviera en las dos columnas, el
+        # Activos primero: si un código estuviera en las dos columnas, el
         # componente vivo es el que el operador quiere ver.
         fila = conexion.execute(
             text(
@@ -293,7 +293,7 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
         if fila:
             return {"encontrado": True, "codigo": codigo, "dispositivo": _a_resumen(dict(fila))}
 
-        # No esta activo. Se busca tambien entre los dados de baja, porque
+        # No está activo. Se busca también entre los dados de baja, porque
         # distinguir los dos casos es lo que le permite al operador actuar.
         baja = conexion.execute(
             text(
@@ -326,7 +326,7 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
         }
 
     # La etiqueta de la CAJA (el producto del maestro) no es la de un equipo.
-    # Se resuelve DESPUES del equipo y no antes, a proposito: si un codigo
+    # Se resuelve Después del equipo y no antes, a propósito: si un código
     # estuviera en las dos tablas, el equipo vivo es el que el operador quiere
     # ver. El prefijo `PRD-` evita que eso pase, pero el orden lo deja
     # garantizado.
@@ -354,10 +354,10 @@ def resolver_codigo(codigo: str) -> dict[str, Any]:
 
 def obtener_qr_equipo(device_id: int) -> str:
     """
-    El codigo de la ETIQUETA del equipo, que es lo que va codificado en el QR.
+    El código de la ETIQUETA del equipo, que es lo que va codificado en el QR.
 
     No el serial: el serial es del fabricante y hay proveedores que lo
-    reciclan, asi que dos equipos distintos pueden tener el mismo serial en
+    reciclan, así que dos equipos distintos pueden tener el mismo serial en
     distintos momentos. La etiqueta es propia del equipo.
 
     Lanza `DispositivoNoEncontrado` si no existe.
@@ -392,7 +392,7 @@ def obtener_dispositivo(device_id: int) -> dict[str, Any]:
 
         datos = dict(fila)
 
-        # Ultimo movimiento: alimenta el "donde estuve" de la ficha.
+        # Último movimiento: alimenta el "donde estuve" de la ficha.
         ultimo = conexion.execute(
             text(
                 """
@@ -414,8 +414,8 @@ def obtener_dispositivo(device_id: int) -> dict[str, Any]:
 
     resumen = _a_resumen(datos)
 
-    # Dias instalados. Es el dato que hace legible el desgaste: un componente
-    # instalado 900 dias en el mismo cliente es una señal que un humano necesita
+    # Días instalados. Es el dato que hace legible el desgaste: un componente
+    # instalado 900 días en el mismo cliente es una señal que un humano necesita
     # ver, y ninguna consulta de "cantidad de equipos" lo muestra.
     dias = None
     fecha_instalacion = datos.get("installation_date")
@@ -424,7 +424,7 @@ def obtener_dispositivo(device_id: int) -> dict[str, Any]:
         # La columna es `timestamp without time zone`, o sea que viene naive de
         # psycopg2. Comparar naive con aware revienta con TypeError, y el
         # sintoma aparece en la ficha de un componente instalado, que es justo
-        # el caso mas comun.
+        # el caso más comun.
         if fecha_instalacion.tzinfo is None:
             fecha_instalacion = fecha_instalacion.replace(tzinfo=timezone.utc)
         dias = max(0, (ahora - fecha_instalacion).days)
@@ -452,23 +452,23 @@ def listar_dispositivos(
     """
     Listado paginado, con filtros combinables.
 
-    LOS FILTROS DE UBICACION Y CATEGORIA BAJAN A LAS HIJAS
+    LOS FILTROS DE Ubicación Y Categoría BAJAN A LAS HIJAS
     -------------------------------------------------------
-    Filtrar por "Deposito Central" trae tambien lo que esta en sus pasillos y
+    Filtrar por "Depósito Central" trae también lo que está en sus pasillos y
     estantes; filtrar por "Portatiles" trae sus subcategorias. El operador
     pregunta por la BODEGA y por la RAMA, no por cada estante. Sin esto, un
-    filtro por bodega mostraria el deposito VACIO en un deposito con pasillos.
+    filtro por bodega mostraria el depósito Vacío en un depósito con pasillos.
 
     LA BUSQUEDA ES DE TEXTO COMPLETO
     --------------------------------
-    `search_vector` es una columna generada con el serial, el codigo de
+    `search_vector` es una columna generada con el serial, el código de
     etiqueta y los datos del producto (marca, modelo, variante, SKU). Con
     `plainto_tsquery` el operador puede escribir "portatil dell" y encontrar
     "Dell Latitude 5520": un `ILIKE`('%portatil dell%') no lo encuentra nunca.
 
-    El `ILIKE` queda como red de seguridad para los codigos con simbolos (un
+    El `ILIKE` queda como red de seguridad para los códigos con símbolos (un
     `INV-a1b2/3` no es una palabra del diccionario) y para los prefijos
-    parciales ("SN-DEMO" sin el numero).
+    parciales ("SN-DEMO" sin el número).
     """
     condiciones = ["d.deleted_at IS NULL"]
     parametros: dict[str, Any] = {"limite": limite, "offset": offset}
@@ -477,15 +477,15 @@ def listar_dispositivos(
         condiciones.append("d.current_status = :estado")
         parametros["estado"] = estado
     if ubicacion_id:
-        # La ubicacion y todas sus hijas (pasillos, estantes, bins).
+        # La ubicación y todas sus hijas (pasillos, estantes, bins).
         ids = ids_descendientes(ubicacion_id)
         if not ids:
-            # La ubicacion no existe: el filtro no debe traer la base entera.
+            # La ubicación no existe: el filtro no debe traer la base entera.
             condiciones.append("FALSE")
         else:
             condiciones.append(f"d.current_location_id IN ({','.join(str(int(i)) for i in ids)})")
     if categoria_id:
-        # La categoria y todas sus subcategorias.
+        # La categoría y todas sus subcategorias.
         ids_categoria = ids_descendientes_categoria(categoria_id)
         if not ids_categoria:
             condiciones.append("FALSE")
@@ -497,7 +497,7 @@ def listar_dispositivos(
         condiciones.append("c.name = :categoria")
         parametros["categoria"] = categoria
     if busqueda:
-        # Se escapan `%`, `_` y `\`. Sin esto, buscar "a_b" trae tambien
+        # Se escapan `%`, `_` y `\`. Sin esto, buscar "a_b" trae también
         # "aXb", y buscar "%" trae todo.
         condiciones.append(
             "(d.serial_number ILIKE :busqueda OR d.qr_code ILIKE :busqueda "
@@ -626,9 +626,9 @@ def actualizar_dispositivo(device_id: int, datos: dict[str, Any]) -> dict[str, A
     Un `PATCH` con todos los campos fijos obliga al frontend a reenviar el
     registro entero para cambiar una tilde, y cualquier campo que la pantalla no
     conozca se pisa con su valor por defecto. Con `exclude_unset` del lado del
-    schema, acá solo llega lo que el operador toco.
+    schema, aca solo llega lo que el operador toco.
 
-    Los NOMBRES DE COLUMNA no vienen del cliente: la lista de abajo es la unica
+    Los NOMBRES DE COLUMNA no vienen del cliente: la lista de abajo es la única
     fuente de verdad, y cada campo que llega se traduce a una de esas columnas. Un
     `datos` con una clave desconocida se ignora en el filtro, no se interpola.
     """
@@ -655,10 +655,10 @@ def actualizar_dispositivo(device_id: int, datos: dict[str, Any]) -> dict[str, A
                 asignaciones.append(f"{columna} = :{campo}")
                 parametros[campo] = datos[campo]
 
-        # El estado se valida contra la matriz antes de escribir. `is_warehouse`
+        # El estado se válida contra la matriz antes de escribir. `is_warehouse`
         # tiene que seguirlo: es la copia denormalizada que usan los reportes, y
         # dejarla desactualizada hace que un equipo instalado cuente como
-        # disponible en el deposito.
+        # disponible en el depósito.
         if "current_status" in datos:
             nuevo_estado = datos["current_status"]
             _validar_transicion(actual["current_status"], nuevo_estado)
@@ -704,7 +704,7 @@ def dar_de_baja(
 
     UN EQUIPO NO SE BORRA: SE MARCA
     -------------------------------
-    El `DELETE` fisico rompe el historial de movimientos (FK) y deja el
+    El `DELETE` físico rompe el historial de movimientos (FK) y deja el
     inventario sin trazabilidad: no se puede auditar que paso con el equipo que
     ocupaba ese lugar. `deleted_at` lo saca de todas las consultas —`listar`,
     `resolver`, `obtener` filtran por `deleted_at IS NULL`— y conserva el
@@ -739,13 +739,13 @@ def dar_de_baja(
         )
 
         # El certificado de baja. La tabla es la que sostiene la trazabilidad
-        # legal: dice quien dio de baja, cuando y por que. `resolver_codigo` ya
+        # legal: dice quien dio de baja, cuando y por que. `resolver_código` ya
         # lee de acá para explicarle al operador por que una etiqueta no resuelve.
         #
-        # `device_id` es UNIQUE en esta tabla, asi que un componente re-dado de
+        # `device_id` es UNIQUE en está tabla, así que un componente re-dado de
         # baja (baja, reactivacion manual y baja de nuevo) chocaria con la
         # primera fila. El `ON CONFLICT` actualiza la baja vigente en lugar de
-        # reventar contra un registro historico que ya no describe la situacion.
+        # reventar contra un registro histórico que ya no describe la situacion.
         conexion.execute(
             text(
                 """
@@ -765,7 +765,7 @@ def dar_de_baja(
                 "autorizado_por": usuario_id,
                 # La orden de trabajo que justifico la baja: sin esto, el
                 # certificado dice "se dio de baja" pero no dice POR QUE. Con
-                # el vinculo, el certificado apunta a la reparacion que
+                # el vinculo, el certificado apunta a la reparación que
                 # demostro que no se podia arreglar.
                 "repair_id": repair_id,
             },

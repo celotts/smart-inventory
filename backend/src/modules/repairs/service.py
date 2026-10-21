@@ -1,9 +1,9 @@
 """
 Service de reparaciones (el taller).
 
-QUE ES UNA REPARACION
+QUE ES UNA Reparacion
 ---------------------
-La EJECUCION tecnica de un problema. La incidencia (Service Desk) es el
+La EJECUCION técnica de un problema. La incidencia (Service Desk) es el
 REPORTE; la reparacion es la ORDEN DE TRABAJO: quien la atiende, que le
 diagnosticaron, que se hizo y cuanto costo.
 
@@ -29,7 +29,7 @@ EL CICLO
 --------
   1. `ingreso_taller`: el equipo entra al taller y se abre la orden.
   2. `cerrar_reparacion`: el taller termina. O queda REPAIRED (vuelve al
-     stock) o UNREPAIRABLE (no se pudo: es el caso del dano total).
+     stock) o UNREPAIRABLE (no se pudo: es el caso del daño total).
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from sqlalchemy import text
 
 from src.modules.ai.executor import get_ai_engine
 
-# Los estados de una reparacion. Los mismos que el ENUM de la base.
+# Los estados de una reparación. Los mismos que el ENUM de la base.
 REPARACIONES_REPAIRED = "REPAIRED"
 REPARACIONES_UNREPAIRABLE = "UNREPAIRABLE"
 
@@ -82,9 +82,9 @@ def ingreso_taller(
 
     EL ORDEN IMPORTA
     ----------------
-    Primero se abre la orden y despues se mueve el equipo: el trigger de la
-    base exige que exista la reparacion abierta para poner el equipo en
-    `IN_REPAIR`. Al reves, la base rechaza el cambio y el equipo queda
+    Primero se abre la orden y después se mueve el equipo: el trigger de la
+    base exige que exista la reparación abierta para poner el equipo en
+    `IN_REPAIR`. Al reves, la base rechaza el cambió y el equipo queda
     "en el taller" sin orden, que es justo lo que el trigger quiere evitar.
     """
     from src.modules.devices import service as devices_service
@@ -93,7 +93,7 @@ def ingreso_taller(
     with engine.begin() as conexion:
         existente = _reparacion_abierta(conexion, device_id)
         if existente:
-            # Ya esta en el taller: no se abre una segunda orden.
+            # Ya está en el taller: no se abre una segunda orden.
             return existente
 
         fila = conexion.execute(
@@ -121,7 +121,7 @@ def ingreso_taller(
         ).mappings().first()
 
     # El equipo pasa al taller. Si esto falla, la orden queda abierta: el
-    # tecnico ve que hay un equipo con orden y no en el taller, y lo
+    # técnico ve que hay un equipo con orden y no en el taller, y lo
     # resuelve. Es mejor eso que un equipo en el taller sin orden.
     devices_service.actualizar_dispositivo(device_id, {"current_status": "IN_REPAIR"})
 
@@ -139,9 +139,9 @@ def cerrar_reparacion(
     """
     Cierra la orden de trabajo del equipo.
 
-    - `reparado=True`: queda `REPAIRED`. El equipo puede volver al deposito.
+    - `reparado=True`: queda `REPAIRED`. El equipo puede volver al depósito.
     - `reparado=False`: queda `UNREPAIRABLE`. El equipo no se pudo arreglar:
-      es el caso del dano total, y el que lo resuelve da de baja el equipo.
+      es el caso del daño total, y el que lo resuelve da de baja el equipo.
 
     Si el equipo no tiene ninguna orden abierta, no hace nada y devuelve
     `None`: no es un error, es que el equipo nunca estuvo en el taller.
@@ -180,7 +180,7 @@ def cerrar_reparacion(
 
 
 def listar_reparaciones(device_id: int) -> list[dict[str, Any]]:
-    """Las ordenes de trabajo de un equipo, de la mas reciente a la mas vieja."""
+    """Las ordenes de trabajo de un equipo, de la más reciente a la más vieja."""
     engine = get_ai_engine()
     with engine.connect() as conexion:
         filas = conexion.execute(
@@ -195,7 +195,7 @@ def listar_reparaciones(device_id: int) -> list[dict[str, Any]]:
                     r.entry_date,
                     r.exit_date,
                     r.incident_id,
-                    u.full_name AS tecnico_nombre
+                    u.full_name AS técnico_nombre
                 FROM repairs r
                 LEFT JOIN users u ON u.id = r.technician_id
                 WHERE r.device_id = :device_id

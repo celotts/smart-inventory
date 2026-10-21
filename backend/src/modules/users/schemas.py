@@ -47,9 +47,9 @@ class CambiarPasswordRequest(BaseModel):
         """
         Que la nueva sea distinta de la actual.
 
-        Sin este chequeo, "cambiá tu contraseña" con la misma dos veces dice
+        Sin este chequeo, "cambia tu contraseña" con la misma dos veces dice
         "listo" y no cambió nada: el operador cree que lo hizo y la cuenta
-        sigue con la contraseña que él ya忌 sab exposureó.
+        sigue con la contraseña que él ya忌 sab exposureo.
         """
         actual = info.data.get("password_actual")
         if actual and v == actual:
@@ -79,10 +79,10 @@ class UsuarioResumen(BaseModel):
     @field_validator("email")
     @classmethod
     def _email_en_minusculas(cls, v):
-        # Normalizar acá evita dos cuentas con el mismo mail en mayúsculas y
+        # Normalizar acá evita dos cuentas con el mismo mail en mayusculas y
         # minusculas: el login es case-insensitive, pero el UNIQUE de la base
-        # es case-SENSITIVE, así que "Ana@" y "ana@" coexistirían y la
-        # validación del schema no lo impediría.
+        # es case-SENSITIVE, así que "Ana@" y "ana@" coexistirian y la
+        # validación del schema no lo impediria.
         return (v or "").strip().lower()
 
 
@@ -92,7 +92,7 @@ class CrearUsuarioRequest(BaseModel):
         ...,
         min_length=8,
         max_length=72,
-        description="Entre 8 y 72 bytes. Debe tener mayúscula, minúscula y número.",
+        description="Entre 8 y 72 bytes. Debe tener mayuscula, minuscula y número.",
     )
     full_name: str = Field(..., min_length=2, max_length=255)
     phone: str = Field(..., min_length=6, max_length=255)
@@ -114,8 +114,8 @@ class CrearUsuarioRequest(BaseModel):
     @classmethod
     def _rol_en_mayusculas(cls, v):
         # Si el rol se guarda como 'admin' y el mapa de permisos usa 'ADMIN', la
-        # comparación falla por una mayúscula y el usuario queda sin permisos.
-        # Normalizar acá hace que la comparación no falle por una mayúscula.
+        # comparacion falla por una mayúscula y el usuario queda sin permisos.
+        # Normalizar acá hace que la comparacion no falle por una mayúscula.
         return (v or "").strip().upper()
 
 

@@ -1,12 +1,12 @@
 -- ===========================================================================
--- 0016 - Gestion de incidencias y control de mantenimiento
+-- 0016 - Gestión de incidencias y control de mantenimiento
 -- ===========================================================================
 -- Objetivo:
 --   1. `incidents`: el ticket de una incidencia (un equipo que falla, una
 --      falla de red, un cliente sin servicio), con SLA, historial y cierre.
---   2. `incident_events`: la linea de tiempo INMUTABLE de cada incidencia.
+--   2. `incident_events`: la línea de tiempo INMUTABLE de cada incidencia.
 --   3. `incident_sla_policies`: los tiempos de respuesta y resolucion por
---      severidad. Son DATO, no codigo: el SLA cambia con el contrato, y no
+--      severidad. Son DATO, no código: el SLA cambia con el contrato, y no
 --      puede requerir un deploy.
 --   4. Vincular el correctivo (`repairs`) y el preventivo (`maintenance`) con
 --      la incidencia que los origina.
@@ -18,31 +18,31 @@
 --
 --   - INCIDENCIA: el REPORTE. "Este equipo no prende", "el cliente no tiene
 --     internet". Tiene severidad, responsable, SLA y un historial. Es la
---     unidad de trabajo del dia a dia.
---   - MANTENIMIENTO: la EJECUCION tecnica. Preventivo (un plan que vence) o
+--     unidad de trabajo del día a día.
+--   - MANTENIMIENTO: la EJECUCION técnica. Preventivo (un plan que vence) o
 --     correctivo (arreglar lo que reporto una incidencia). Ya existian
 --     `maintenance_plans` y `maintenance`; lo que faltaba era el vinculo con
 --     la incidencia y las metricas.
 --
--- POR QUE UN CODIGO LEGIBLE Y NO UN UUID
+-- POR QUE UN Código LEGIBLE Y NO UN UUID
 -- --------------------------------------
 -- `incidents.id` es un UUID (estable, sin filtrar). `incidents.code` es
--- `INC-2026-000001`: es lo que el operador lee por telefono, lo que va en la
+-- `INC-2026-000001`: es lo que el operador lee por teléfono, lo que va en la
 -- orden de trabajo y lo que se busca en el reporte. Un UUID en unticket de
--- soporte es un numero que nadie puede dictar por telefono.
+-- soporte es un número que nadie puede dictar por teléfono.
 --
--- EL NUMERO ES POR ANIO
+-- EL Número ES POR ANIO
 -- ---------------------
 -- El correlativo se reinicia cada ano: `INC-2026-000001` vuelve a ser el
--- primer caso del 2027. Un numero global creciente por año (el 000001 de 2027
--- despues del 000900 de 2026) obliga a leer el año para saber la antiguedad.
+-- primer caso del 2027. Un número global creciente por año (el 000001 de 2027
+-- después del 000900 de 2026) obliga a leer el año para saber la antiguedad.
 --
 -- POR QUE `client_ref` ES UNIQUE Y NULL
 -- ---------------------------------------
 -- Es la idempotencia: la app (una PWA, con red mala) manda la misma alta dos
 -- veces y el backend tiene que devolver LA MISMA incidencia, no crear dos.
 -- `NULL` se puede repetir todas las veces que haga falta: en Postgres,
--- `NULL` nunca choca con `NULL` en un indice unico.
+-- `NULL` nunca choca con `NULL` en un índice único.
 -- ===========================================================================
 
 -- ===========================================================================
@@ -50,9 +50,9 @@
 -- ===========================================================================
 --
 -- ENUM y no VARCHAR con CHECK: el ENUM no acepta un valor que no este en la
--- lista, y Postgres lo garantiza sin que ningun endpoint tenga que validar.
--- El orden del ENUM es el de la severidad: `S1` es mas grave que `S4`, y un
--- `ORDER BY severity` ordena de mas grave a menos.
+-- lista, y Postgres lo garantiza sin que ningún endpoint tenga que validar.
+-- El orden del ENUM es el de la severidad: `S1` es más grave que `S4`, y un
+-- `ORDER BY severity` ordena de más grave a menos.
 
 DO $$
 BEGIN
@@ -64,9 +64,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_status') THEN
         -- ESTADO: el ciclo de vida de la incidencia.
         --   OPEN       -> reportada, sin tocar
-        --   IN_PROGRESS-> alguien la esta trabajando
+        --   IN_PROGRESS-> alguien la está trabajando
         --   WAITING    -> esperando una parte (repuesto, aprobacion, el cliente)
-        --   RESOLVED   -> el problema esta resuelto, falta cerrar
+        --   RESOLVED   -> el problema está resuelto, falta cerrar
         --   CLOSED     -> cerrada y verificada
         --   CANCELLED  -> no era una incidencia (duplicado, error de uso)
         CREATE TYPE incident_status AS ENUM (
@@ -75,7 +75,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'incident_category') THEN
-        -- CATEGORIA: que tipo de problema es. Es lo que permite agrupar para
+        -- Categoría: que tipo de problema es. Es lo que permite agrupar para
         -- detectar patrones ("siempre falla la misma cosa").
         CREATE TYPE incident_category AS ENUM (
             'HARDWARE', 'SOFTWARE', 'NETWORK', 'PERIPHERAL',
@@ -86,16 +86,16 @@ END
 $$;
 
 -- ===========================================================================
--- 2. POLITICAS DE SLA
+-- 2. Políticas DE SLA
 -- ===========================================================================
 --
--- El SLA es un COMPROMISO con el cliente, no una constante del codigo: los
+-- El SLA es un COMPROMISO con el cliente, no una constante del código: los
 -- tiempos cambian por contrato y por cliente. Por eso es una tabla, con sus
 -- valores sembrados.
 --
--- `business_hours_only` esta preparado para el horario laboral, pero la
--- calculadora de la aplicacion TODAVIA no lo aplica (ver la nota del trigger
--- mas abajo): el campo existe para que la decision quede tomada y no para
+-- `business_hours_only` está preparado para el horario laboral, pero la
+-- calculadora de la aplicación Todavía no lo aplica (ver la nota del trigger
+-- más abajo): el campo existe para que la decisión quede tomada y no para
 -- cambiar el calculo a escondidas.
 
 CREATE TABLE IF NOT EXISTS incident_sla_policies (
@@ -123,13 +123,13 @@ ON CONFLICT (severity) DO UPDATE SET
     updated_at = NOW();
 
 -- ===========================================================================
--- 3. CONTADOR DE CODIGOS (correlativo por ano)
+-- 3. CONTADOR DE Códigos (correlativo por ano)
 -- ===========================================================================
 --
 -- Una tabla con una fila por ano y un UPSERT atomico. Es el patron clasico
 -- del correlativo por ejercicio: el `ON CONFLICT DO UPDATE` con `RETURNING`
--- devuelve el numero YA INCREMENTADO, y el UPSERT es atomico, asi que dos
--- altas simultaneas no pueden obtener el mismo numero.
+-- devuelve el número YA INCREMENTADO, y el UPSERT es atomico, así que dos
+-- altas simultaneas no pueden obtener el mismo número.
 
 CREATE TABLE IF NOT EXISTS incident_code_counters (
     year INT PRIMARY KEY,
@@ -158,7 +158,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS incidents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    -- El codigo legible. UNIQUE: dos incidencias no pueden llamarse igual.
+    -- El código legible. UNIQUE: dos incidencias no pueden llamarse igual.
     code VARCHAR(24) NOT NULL UNIQUE,
 
     -- Idempotencia del alta (la app es una PWA con red mala). NULL se
@@ -185,9 +185,9 @@ CREATE TABLE IF NOT EXISTS incidents (
     reported_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     assigned_to UUID REFERENCES users(id) ON DELETE RESTRICT,
 
-    -- SLA: los plazos se CALCULAN al crear, desde la politica de la
-    -- severidad. Se guardan, no se calculan al vuelo: una politica que
-    -- cambia despues no puede reescribir el pasado.
+    -- SLA: los plazos se CALCULAN al crear, desde la política de la
+    -- severidad. Se guardan, no se calculan al vuelo: una política que
+    -- cambia después no puede reescribir el pasado.
     response_due_at TIMESTAMPTZ NOT NULL,
     resolution_due_at TIMESTAMPTZ NOT NULL,
     first_response_at TIMESTAMPTZ,
@@ -201,8 +201,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     cost NUMERIC(12, 2) CHECK (cost >= 0),
 
     -- BLOQUEO OPTIMISTA
-    -- Dos operadores pueden editar la misma incidencia (el del deposito y el
-    -- de soporte). Con `version`, el segundo que guarda recibe un conflicto
+    -- Dos operadores pueden editar la misma incidencia (el del depósito y el
+    -- de soporte). Con `versión`, el segundo que guarda recibe un conflicto
     -- explicito en vez de pisar el trabajo del primero.
     version INT NOT NULL DEFAULT 1,
 
@@ -211,8 +211,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     deleted_at TIMESTAMPTZ
 );
 
--- Un titulo de una palabra no es un titulo: es un error de tipeo, y una
--- incidencia sin descripcion no se puede trabajar.
+-- Un título de una palabra no es un título: es un error de tipeo, y una
+-- incidencia sin descripción no se puede trabajar.
 ALTER TABLE incidents DROP CONSTRAINT IF EXISTS ck_incidents_title;
 ALTER TABLE incidents ADD CONSTRAINT ck_incidents_title
     CHECK (length(btrim(title)) >= 5 AND length(title) <= 200);
@@ -232,16 +232,16 @@ ALTER TABLE incidents ADD CONSTRAINT ck_incidents_tiempos CHECK (
 );
 
 -- El plazo de resolucion no puede ser anterior al de respuesta: es
--- fisicamente imposible responder despues de resolver.
+-- fisicamente imposible responder después de resolver.
 ALTER TABLE incidents DROP CONSTRAINT IF EXISTS ck_incidents_sla;
 ALTER TABLE incidents ADD CONSTRAINT ck_incidents_sla
     CHECK (resolution_due_at >= response_due_at);
 
 -- ===========================================================================
--- 5. LINEA DE TIEMPO (append-only)
+-- 5. Línea DE TIEMPO (append-only)
 -- ===========================================================================
 --
--- TODO lo que pasa en una incidencia queda aca: el alta, cada cambio de
+-- TODO lo que pasa en una incidencia queda acá: el alta, cada cambió de
 -- estado, las asignaciones, los cambios de severidad y los comentarios.
 --
 -- UNA TABLA Y NO DOS
@@ -254,7 +254,7 @@ ALTER TABLE incidents ADD CONSTRAINT ck_incidents_sla
 -- ---------
 -- Un trigger prohibe UPDATE y DELETE. El historial de un caso es la prueba de
 -- que paso: si se puede editar, no es una prueba. (En una app PWA, un
--- reintento con el mismo `client_ref` no debe duplicar la linea: por eso el
+-- reintento con el mismo `client_ref` no debe duplicar la línea: por eso el
 -- UNIQUE de abajo.)
 
 CREATE TABLE IF NOT EXISTS incident_events (
@@ -269,12 +269,12 @@ CREATE TABLE IF NOT EXISTS incident_events (
     to_status incident_status,
 
     -- Quien lo hizo. `ON DELETE SET NULL`: si se borra el usuario, el
-    -- historial sigue siendo valido (dice "lo hizo alguien que ya no esta").
+    -- historial sigue siendo válido (dice "lo hizo alguien que ya no está").
     actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
 
     note TEXT,
 
-    -- Datos extra del evento (cambio de severidad, de responsable, costo).
+    -- Datos extra del evento (cambió de severidad, de responsable, costo).
     payload JSONB,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -308,18 +308,18 @@ CREATE TRIGGER trigger_incident_event_inmutable
     FOR EACH ROW EXECUTE FUNCTION incident_event_inmutable();
 
 -- ===========================================================================
--- 6. SLA AL CREAR Y TRANSICIONES VALIDADAS
+-- 6. SLA AL CREAR Y Transiciones VALIDADAS
 -- ===========================================================================
 
--- El SLA se calcula al crear, desde la politica de la severidad.
+-- El SLA se calcula al crear, desde la política de la severidad.
 --
--- POR QUE UN TRIGGER Y NO LA APLICACION
+-- POR QUE UN TRIGGER Y NO LA Aplicación
 -- ------------------------------------
--- Si el calculo estuviera en el codigo, cada cliente que llega con un SLA
+-- Si el calculo estuviera en el código, cada cliente que llega con un SLA
 -- distinto necesitaria un deploy, y dos caminos distintos de calcular el
--- mismo plazo (el del trigger y el del reporte) podrian dar numeros
+-- mismo plazo (el del trigger y el del reporte) podrian dar números
 -- diferentes. Con el trigger, el plazo es un DATO: se guarda, y todos los
--- reportes leen el mismo numero.
+-- reportes leen el mismo número.
 CREATE OR REPLACE FUNCTION incident_calcula_sla()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -332,7 +332,7 @@ BEGIN
      WHERE severity = NEW.severity AND is_active = TRUE;
 
     IF v_response IS NULL THEN
-        -- Sin politica para esa severidad, el alta tiene que fallar: es
+        -- Sin política para esa severidad, el alta tiene que fallar: es
         -- preferible un error claro a una incidencia sin plazo de respuesta.
         RAISE EXCEPTION
             'No hay politica de SLA activa para la severidad %', NEW.severity
@@ -353,7 +353,7 @@ CREATE TRIGGER trigger_incident_calcula_sla
 
 -- La maquina de estados de la incidencia.
 --
--- LAS TRANSICIONES PERMITIDAS
+-- LAS Transiciones PERMITIDAS
 -- ---------------------------
 --   OPEN        -> IN_PROGRESS | WAITING | CANCELLED
 --   IN_PROGRESS -> WAITING | RESOLVED | CANCELLED
@@ -362,19 +362,19 @@ CREATE TRIGGER trigger_incident_calcula_sla
 --   CLOSED      -> (terminal)
 --   CANCELLED   -> (terminal)
 --
--- POR QUE EN LA BASE Y NO EN EL CODIGO
+-- POR QUE EN LA BASE Y NO EN EL Código
 -- -------------------------------------
 -- La maquina de estados de los movimientos ya vive en un trigger de Postgres,
--- y la razon es la misma: si la validacion esta en el codigo, el que
--- escribe en la base (un script, una migracion, un `psql`) la esquiva. Con
--- el trigger, una transicion imposible es un error de la BASE.
+-- y la razón es la misma: si la validación está en el código, el que
+-- escribe en la base (un script, una migración, un `psql`) la esquiva. Con
+-- el trigger, una transición imposible es un error de la BASE.
 --
--- ADEMAS, EL TRIGGER ESCRIBE EL EVENTO
+-- Además, EL TRIGGER ESCRIBE EL EVENTO
 -- ------------------------------------
--- El cambio de estado y la linea de tiempo se escriben en la misma
+-- El cambió de estado y la línea de tiempo se escriben en la misma
 -- transaccion. Si fueran dos operaciones, un error entre ellas dejaria una
--- incidencia cambiada de estado SIN su evento en el historial: el historico
--- mentiria, que es lo unico que no puede pasar.
+-- incidencia cambiada de estado SIN su evento en el historial: el histórico
+-- mentiria, que es lo único que no puede pasar.
 CREATE OR REPLACE FUNCTION incident_transicion_valida()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -384,7 +384,7 @@ DECLARE
 BEGIN
     -- QUIEN Y POR QUE
     --
-    -- El trigger no sabe quien esta operando: lo lee del CONTEXTO de la
+    -- El trigger no sabe quien está operando: lo lee del CONTEXTO de la
     -- transaccion, que la API setea con `SET LOCAL app.actor_id = ...`.
     --
     -- Por que no desde la app: la columna `actor_id` lo podria mandar
@@ -392,13 +392,13 @@ BEGIN
     -- que decir QUIEN lo toco, no lo que el cliente dijo que lo toco. El
     -- contexto de la transaccion lo setea el servidor, no el cliente.
     --
-    -- `current_setting(..., true)` con el `true` devuelve NULL si no esta
+    -- `current_setting(..., true)` con el `true` devuelve NULL si no está
     -- seteado, en vez de tirar el error " unrecognized configuration parameter".
     v_actor := NULLIF(current_setting('app.actor_id', true), '')::UUID;
     v_nota := NULLIF(current_setting('app.actor_note', true), '');
 
     IF NEW.status = OLD.status THEN
-        -- Mismo estado: no es una transicion. Se deja pasar (por ejemplo, un
+        -- Mismo estado: no es una transición. Se deja pasar (por ejemplo, un
         -- guardado que no cambia el estado) y no se escribe evento.
         NEW.updated_at := NOW();
         RETURN NEW;
@@ -456,26 +456,26 @@ CREATE TRIGGER trigger_incident_transicion
     BEFORE UPDATE OF status ON incidents
     FOR EACH ROW EXECUTE FUNCTION incident_transicion_valida();
 
--- `updated_at` automatico.
+-- `updated_at` automático.
 DROP TRIGGER IF EXISTS trigger_incidents_updated_at ON incidents;
 CREATE TRIGGER trigger_incidents_updated_at
     BEFORE UPDATE ON incidents
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Auditoria de la tabla (el mismo disparador que el resto del sistema).
+-- Auditoría de la tabla (el mismo disparador que el resto del sistema).
 DROP TRIGGER IF EXISTS audit_incidents ON incidents;
 CREATE TRIGGER audit_incidents
     AFTER INSERT OR DELETE OR UPDATE ON incidents
     FOR EACH ROW EXECUTE FUNCTION audit_soft_delete();
 
 -- ===========================================================================
--- 7. INDICES
+-- 7. Índices
 -- ===========================================================================
 --
--- Los indices que importan son los de las consultas que se hacen TODAS LAS
+-- Los índices que importan son los de las consultas que se hacen TODAS LAS
 -- VECES: las abiertas, las vencidas, las asignadas a mi, y las del equipo.
 
--- Las abiertas, ordenadas por severidad (la mas grave primero).
+-- Las abiertas, ordenadas por severidad (la más grave primero).
 CREATE INDEX IF NOT EXISTS idx_incidents_abiertas
     ON incidents(severity, created_at DESC)
     WHERE deleted_at IS NULL AND status NOT IN ('RESOLVED', 'CLOSED', 'CANCELLED');
@@ -495,24 +495,24 @@ CREATE INDEX IF NOT EXISTS idx_incidents_equipo
     ON incidents(device_id, created_at DESC)
     WHERE deleted_at IS NULL AND device_id IS NOT NULL;
 
--- Busqueda por texto (el titulo y la descripcion).
+-- Busqueda por texto (el título y la descripción).
 CREATE INDEX IF NOT EXISTS idx_incidents_titulo
     ON incidents USING GIN (to_tsvector('spanish', coalesce(title, '') || ' ' || coalesce(description, '')));
 
 -- ===========================================================================
--- 8. VINCULO CON EL MANTENIMIENTO Y LAS REPARACIONES
+-- 8. VINCULO CON EL MANTENIMIENTO Y LAS Reparaciones
 -- ===========================================================================
 --
--- La incidencia es el REPORTE; la reparacion y el mantenimiento son la
--- EJECUCION. El vinculo va desde la ejecucion hacia la incidencia: asi una
--- fila de `repairs` no tiene que conocer la tabla de incidencias mas que por
+-- La incidencia es el REPORTE; la reparación y el mantenimiento son la
+-- EJECUCION. El vinculo va desde la ejecucion hacia la incidencia: así una
+-- fila de `repairs` no tiene que conocer la tabla de incidencias más que por
 -- su id.
 --
 -- `ON DELETE SET NULL`: si la incidencia se borra (borrado logico, pero
--- puede pasar), la reparacion queda viva. Una orden de trabajo no puede
+-- puede pasar), la reparación queda viva. Una orden de trabajo no puede
 -- desaparecer porque al ticket le dio por borrado.
 
--- Primero la columna, despues la FK: al reves, la FK no tiene a que
+-- Primero la columna, después la FK: al reves, la FK no tiene a que
 -- apuntar y la sentencia falla.
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS incident_id UUID;
 ALTER TABLE repairs DROP CONSTRAINT IF EXISTS fk_repairs_incident;
@@ -533,8 +533,8 @@ CREATE INDEX IF NOT EXISTS idx_maintenance_incident ON maintenance(incident_id) 
 
 -- El SLA en curso, con los plazos que faltan y si ya se violaron.
 --
--- `min(0, ...)` para que "restante" sea NEGATIVO cuando ya se paso: asi el
--- tablero puede ordenar por lo mas vencido sin tener que comparar con NOW()
+-- `min(0, ...)` para que "restante" sea NEGATIVO cuando ya se paso: así el
+-- tablero puede ordenar por lo más vencido sin tener que comparar con NOW()
 -- en cada fila.
 CREATE OR REPLACE VIEW v_incident_sla AS
 SELECT
@@ -562,13 +562,13 @@ FROM incidents i
 WHERE i.deleted_at IS NULL;
 
 -- La salud del mantenimiento por modelo: MTBF (tiempo medio entre fallas),
--- MTTR (tiempo medio de reparacion), y el cumplimiento del plan preventivo.
+-- MTTR (tiempo medio de reparación), y el cumplimiento del plan preventivo.
 --
--- MTBF: el promedio de los dias entre dos incidencias del mismo modelo. Es el
--- numero que dice "cada cuanto se rompe".
+-- MTBF: el promedio de los días entre dos incidencias del mismo modelo. Es el
+-- número que dice "cada cuanto se rompe".
 --
 -- MTTR: el promedio de las horas entre que se reporto y se resolvio. Es el
--- numero que dice "cuanto tarda el taller".
+-- número que dice "cuanto tarda el taller".
 CREATE OR REPLACE VIEW v_maintenance_metrics AS
 SELECT
     m.id AS model_id,
@@ -594,7 +594,7 @@ LEFT JOIN (
     -- Fallas por modelo, con el tiempo medio entre ellas.
     --
     -- El `LAG` va en un subquery y el `AVG` por FUERA: Postgres no permite
-    -- una funcion de ventana dentro de un agregado ("aggregate function calls
+    -- una función de ventana dentro de un agregado ("aggregate function calls
     -- cannot contain window function calls"). Por eso son dos niveles.
     SELECT
         d.model_id,

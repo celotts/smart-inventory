@@ -2,8 +2,8 @@
 Guardia del SQL generado por el modelo.
 
 Este archivo es la razon por la que el agente de preguntas es aceptable en un
-sistema con datos de clientes. Un LLM escribe SQL; este modulo se encarga de
-que ese SQL no pueda escribir, no pueda leer de mas, ni pueda tumbar el servicio.
+sistema con datos de clientes. Un LLM escribe SQL; este módulo se encarga de
+que ese SQL no pueda escribir, no pueda leer de más, ni pueda tumbar el servicio.
 
 El modelo es la parte NO confiable del sistema, y hay que decirlo de forma
 explicita: pedirle a un LLM "no hagas DROP TABLE" es una instruccion, no un
@@ -27,7 +27,7 @@ CAPAS DE DEFENSA (todas hacen falta; ninguna sola alcanza)
 import re
 from typing import Any
 
-# Palabras que pueden escribir, cambiar la sesion, o leer fuera de la BD.
+# Palabras que pueden escribir, cambiar la sesión, o leer fuera de la BD.
 _PALABRAS_PROHIBIDAS: set[str] = {
     # escritura
     "insert",
@@ -55,14 +55,14 @@ _PALABRAS_PROHIBIDAS: set[str] = {
     "commit",
     "rollback",
     "savepoint",
-    # cambiar el rol o la sesion es el camino clasico de
+    # cambiar el rol o la sesión es el camino clasico de
     # "SELECT ...; SET ROLE postgres; ..."
     "set",
     "reset",
     "security",
     "definer",
     # funciones de solo lectura carisima: un `pg_sleep(600)` colgado en una
-    # subconsulta es un DoS de una linea
+    # subconsulta es un DoS de una línea
     "pg_sleep",
     "pg_read_file",
     "pg_ls_dir",
@@ -75,8 +75,8 @@ _PALABRAS_PROHIBIDAS: set[str] = {
 }
 
 _COMENTARIOS = re.compile(r"(--[^\n]*|/\*.*?\*/)", re.DOTALL)
-# Literales de texto: su contenido NO es codigo. Sin esto, un cliente llamado
-# "Pedro DROP TABLE" haria fallar la validacion de una consulta legitima.
+# Literales de texto: su contenido NO es código. Sin esto, un cliente llamado
+# "Pedro DROP TABLE" haria fallar la validación de una consulta legitima.
 _CADENAS = re.compile(r"'(?:[^']|'')*'")
 
 _IDENTIFICADORES_PERMITIDOS = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -103,14 +103,14 @@ def _cuerpos_de_cte(sql: str) -> list[str]:
     """
     Devuelve el cuerpo de cada CTE de un `WITH`, en orden.
 
-    Es un parser minimo y a proposito: recorre el texto contando parentesis y
+    Es un parser mínimo y a proposito: recorre el texto contando parentesis y
     se queda con lo que va entre `AS (` y su `)` de cierre, saltandose los
     parentesis anidados y los que estan dentro de cadenas o comentarios.
 
-    Que sea "minimo" no significa que sea flojo: la alternativa —filtrar
+    Que sea "mínimo" no significa que sea flojo: la alternativa —filtrar
     palabras prohibidas del texto y buscar en el resto— ya se probo y dejo
     pasar un INSERT. Este parser no busca palabras: mira la estructura, que es
-    lo unico que no se puede falsear escribiendo el SQL de otra manera.
+    lo único que no se puede falsear escribiendo el SQL de otra manera.
     """
     cuerpos: list[str] = []
     # Se ignoran los parentesis dentro de cadenas para no desbalancear el conteo
@@ -128,7 +128,7 @@ def _cuerpos_de_cte(sql: str) -> list[str]:
     largo = len(limpio_sin_cadenas)
 
     while pos < largo:
-        # Se termino la lista de CTEs: lo que sigue es la consulta principal.
+        # Se terminó la lista de CTEs: lo que sigue es la consulta principal.
         # Sin esta parada, un alias de la consulta final ("SELECT 1 AS total")
         # se confundiria con el AS de otro CTE.
         if re.match(r"\s*SELECT\b", limpio_sin_cadenas[pos:], re.IGNORECASE):
@@ -142,7 +142,7 @@ def _cuerpos_de_cte(sql: str) -> list[str]:
         # El parentesis de apertura no tiene que estar pegado al AS: la
         # sintaxis admite `AS MATERIALIZED (` y `AS NOT MATERIALIZED (` y el
         # cuerpo arranca igual en el parentesis. Lo que hay entre AS y el
-        # parentesis no importa para el analisis.
+        # parentesis no importa para el análisis.
         abre = limpio_sin_cadenas.find("(", as_idx)
         if abre == -1:
             break
@@ -176,10 +176,10 @@ def _cuerpos_de_cte(sql: str) -> list[str]:
 
 def validar_select(sql: str) -> str:
     """
-    Valida y devuelve el SQL listo para ejecutar.
+    Válida y devuelve el SQL listo para ejecutar.
 
     Lanza `SQLRechazado` con un motivo legible. El motivo importa: "consulta no
-    permitida" sin decir cual deja al operador adivinando si el modelo esta
+    permitida" sin decir cual deja al operador adivinando si el modelo está
     roto o si hay un problema de permisos.
     """
     if not sql or not sql.strip():
@@ -198,8 +198,8 @@ def validar_select(sql: str) -> str:
     limpio = limpio.rstrip().rstrip(";").strip()
 
     # Tiene que ser una lectura. `WITH ... INSERT` es la evasion clasica de un
-    # filtro por palabra clave, asi que el WITH no abre la puerta: el unico
-    # prefijo valido es SELECT o WITH.
+    # filtro por palabra clave, así que el WITH no abre la puerta: el único
+    # prefijo válido es SELECT o WITH.
     if not re.match(r"^(SELECT|WITH)\b", limpio, re.IGNORECASE):
         raise SQLRechazado(
             "Solo se permiten consultas de lectura (SELECT). "
@@ -210,10 +210,10 @@ def validar_select(sql: str) -> str:
     # (INSERT INTO ... RETURNING *) SELECT * FROM x` empieza con WITH y
     # termina con SELECT, asi que un filtro por prefijo lo deja pasar.
     #
-    # LA PRIMERA VERSION DE ESTE CHECK FiltrABA LAS PALABRAS PROHIBIDAS DEL
-    # CUERPO DEL CTE Y DESPUES BUSCABA EN EL RESTO. Es un error que se hace
+    # LA PRIMERA Versión DE ESTE CHECK FiltrABA LAS PALABRAS PROHIBIDAS DEL
+    # CUERPO DEL CTE Y Después BUSCABA EN EL RESTO. Es un error que se hace
     # pasar por correcto: al borrar "insert" del texto, el resto ya no la
-    # tiene, y la consulta entra. Se probo y pas�o.
+    # tiene, y la consulta entra. Se probó y pas�o.
     #
     # Lo que hace falta no es filtrar palabras sino LEER LA ESTRUCTURA: cada
     # cuerpo de un CTE tiene que empezar con SELECT.
@@ -242,9 +242,9 @@ def validar_select(sql: str) -> str:
             f"{', '.join(sorted(prohibidas))}. Solo se admiten lecturas."
         )
 
-    # Columnas que no salen del servidor. Va DESPUES del chequeo de palabras
-    # para que el mensaje sea el mas especifico posible: "no podes leer
-    # password" es mas util que "palabra no permitida: password".
+    # Columnas que no salen del servidor. Va Después del chequeo de palabras
+    # para que el mensaje sea el más específico posible: "no podés leer
+    # password" es más útil que "palabra no permitida: password".
     columna_prohibida = _referencia_columna_prohibida(limpio)
     if columna_prohibida:
         raise SQLRechazado(
@@ -276,7 +276,7 @@ def extraer_sql(texto: str) -> str:
     Tres capas, porque falla de tres formas distintas:
       1. Bloque ```sql ... ``` cuando el modelo obedecio el formato pedido.
       2. El texto entero, cuando devolvio solo la consulta sin envoltura.
-      3. La primera linea que empieza con SELECT/WITH, cuando metio una
+      3. La primera línea que empieza con SELECT/WITH, cuando metio una
          introduccion ("Claro, aqui tienes: SELECT ..."). Un modelo chico de
          3b hace esto bastante seguido, y es el que corre en el fallback.
     """
@@ -307,11 +307,11 @@ def extraer_sql(texto: str) -> str:
 
 def nombre_de_tabla(valor: Any) -> str:
     """
-    Valida un identificador usado como nombre de tabla.
+    Válida un identificador usado como nombre de tabla.
 
     Un nombre que viene del exterior NO se puede interpolar en SQL: aunque lo
     haya puesto el operador, el camino de vuelta desde la base o desde un
-    parametro HTTP lo convierte en dato no confiable otra vez.
+    parámetro HTTP lo convierte en dato no confiable otra vez.
     """
     texto = str(valor)
     if not _IDENTIFICADORES_PERMITIDOS.match(texto):
@@ -324,8 +324,8 @@ def tablas_permitidas() -> set[str]:
     Las 11 tablas del inventario.
 
     No se descubre de information_schema: si el modelo puede leer los
-    catalogs, tambien aprende de tablas que se agreguen despues sin querer.
-    Una lista explicita, usada tanto en el prompt como en la validacion, es mas
+    catalogs, también aprende de tablas que se agreguen después sin querer.
+    Una lista explicita, usada tanto en el prompt como en la validación, es más
     aburrida y es correcta.
     """
     return {
@@ -347,7 +347,7 @@ def tablas_permitidas() -> set[str]:
 #
 # `_PALABRAS_PROHIBIDAS` filtra ESCRITURAS; esto filtra LECTURAS que no
 # deberian salir del servidor. Es distinto y no estaba cubierto: `users.password`
-# es un hash bcrypt, no un dato de negocio, y no hay ningun caso de uso legitimo
+# es un hash bcrypt, no un dato de negocio, y no hay ningún caso de uso legitimo
 # para que un LLM lo consulte. Decirselo en el prompt no alcanza, lo mismo que
 # con los DROP TABLE: una instruccion no es un control de acceso.
 _COLUMNAS_PROHIBIDAS: set[str] = {
@@ -364,7 +364,7 @@ def _referencia_columna_prohibida(sql: str) -> str | None:
     Devuelve el nombre de la columna prohibida que el SQL menciona, o None.
 
     Se busca como palabra completa (`\\bpassword\\b`) para no dar falsos
-    positivos con nombres legitimos. Tambien cubre el acceso por JSONB
+    positivos con nombres legitimos. También cubre el acceso por JSONB
     (`->>'password'`), donde el nombre aparece igual.
     """
     minusculas = _CADENAS.sub(" '' ", sql).lower()

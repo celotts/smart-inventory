@@ -2,9 +2,9 @@
  * Base Agent - Clase padre para todos los agentes especializados.
  *
  * CADA AGENTE TIENE:
- * - systemPrompt: Instrucciones específicas de su dominio
+ * - systemPrompt: Instrucciones especificas de su dominio
  * - tools: Subconjunto de herramientas permitidas
- * - canHandoff: A qué otros agentes puede delegar
+ * - canHandoff: A que otros agentes puede delegar
  * - memory: Contexto persistente (se guarda en sessionStorage)
  */
 
@@ -54,7 +54,7 @@ export class BaseAgent {
   }
 
   /**
-   * Agrega mensaje a memoria de conversación.
+   * Agrega mensaje a memoria de conversacion.
    */
   agregarMemoria(role, content, metadata = {}) {
     this.memory.conversations.push({
@@ -167,7 +167,7 @@ export class BaseAgent {
         }
       }
 
-      // Agregar resultados y continuar conversación
+      // Agregar resultados y continuar conversacion
       messages.push(response, ...toolResults);
       response = await client.chat(messages, tools);
     }
@@ -267,7 +267,7 @@ export const HandoffTool = new Tool({
     type: 'object',
     properties: {
       targetAgent: { type: 'string', enum: ['inventory', 'maintenance', 'purchasing', 'reporting'], description: 'Agente destino' },
-      reason: { type: 'string', description: 'Por qué delegar (ej: "requiere crear orden de compra")' },
+      reason: { type: 'string', description: 'Por que delegar (ej: "requiere crear orden de compra")' },
       context: { type: 'object', description: 'Contexto relevante para el agente destino' },
     },
     required: ['targetAgent', 'reason'],

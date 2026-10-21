@@ -1,8 +1,8 @@
 /**
  * Vista "Clientes" — Maestro de clientes.
  *
- * Los clientes estan asociados a las salidas de productos (movimientos
- * OUT_TO_CLIENT). Cada cliente tiene un tax_id unico.
+ * Los clientes están asociados a las salidas de productos (movimientos
+ * OUT_TO_CLIENT). Cada cliente tiene un tax_id único.
  *
  * Solo visible/usable por quien tiene `devices:edit` (ADMIN).
  */
@@ -18,7 +18,7 @@ export function vistaClientes({ permisos = [] }) {
 
   const puedeEditar = permisos.includes('devices:edit');
 
-  // --- Cabecera con busqueda y boton de alta --------------------------------
+  // --- Cabecera con busqueda y botón de alta --------------------------------
   const tarjetaCabecera = crear('div', { clase: 'tarjeta' });
 
   const inputBuscar = crear('input', {
@@ -62,17 +62,17 @@ export function vistaClientes({ permisos = [] }) {
 
   tarjetaCabecera.append(encabezado, etiquetaBusqueda);
 
-  // --- Resumen de estadisticas ----------------------------------------------
+  // --- Resumen de estadísticas ----------------------------------------------
   const tarjetaStats = crear('div', { clase: 'tarjeta clientes-stats' });
   const statsGrid = crear('div', { clase: 'clientes-stats__grid' });
   tarjetaStats.append(statsGrid);
 
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
-  // LA PAGINACION
+  // LA Paginación
   //
   // Con miles de registros, traerlos todos y pintarlos todos deja la app
-  // sin responder. La pantalla pide de a paginas y el operador ve cuantos
+  // sin responder. La pantalla pide de a páginas y el operador ve cuantos
   // hay en total.
   let pagina = 0;
   let limite = 50;
@@ -132,13 +132,13 @@ export function vistaClientes({ permisos = [] }) {
     statsGrid.replaceChildren(
       statCard('Clientes', total, ICONOS.ok, 'var(--primario)'),
       statCard('Con contacto', conContacto, ICONOS.ubicacion, 'var(--exito)'),
-      statCard('Con telefono', conTelefono, ICONOS.camara, 'var(--aviso, #f59e0b)'),
+      statCard('Con teléfono', conTelefono, ICONOS.camara, 'var(--aviso, #f59e0b)'),
     );
   }
 
   function pintarLista(clientes) {
-    // El filtro YA lo aplico el servidor: filtrar aca de nuevo, sobre los 50
-    // de la pagina, dejaria filas fuera de la respuesta del servidor.
+    // El filtro YA lo aplico el servidor: filtrar acá de nuevo, sobre los 50
+    // de la página, dejaria filas fuera de la respuesta del servidor.
     const filtrados = clientes;
 
     if (!filtrados.length) {
@@ -181,12 +181,12 @@ export function vistaClientes({ permisos = [] }) {
       if (puedeEditar) {
         const acciones = crear('div', { clase: 'cliente-card__acciones' });
         const btnEditar = crear('button', {
-          clase: 'boton boton--suave boton--chico',
+          clase: 'botón botón--suave botón--chico',
           texto: 'Editar',
           atributos: { type: 'button', onclick: () => abrirEdicion(c) },
         });
         const btnEliminar = crear('button', {
-          clase: 'boton boton--chico boton--peligro',
+          clase: 'botón botón--chico botón--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button', onclick: () => eliminar(c) },
         });
@@ -226,7 +226,7 @@ export function vistaClientes({ permisos = [] }) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Guardar cliente',
       atributos: { type: 'submit' },
     });
@@ -234,7 +234,7 @@ export function vistaClientes({ permisos = [] }) {
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -275,7 +275,7 @@ export function vistaClientes({ permisos = [] }) {
 
     cerrarModal = abrirDialogo({
       titulo: 'Nuevo cliente',
-      nota: 'El tax_id es unico. Identifica al cliente ante impuestos.',
+      nota: 'El tax_id es único. Identifica al cliente ante impuestos.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -318,7 +318,7 @@ export function vistaClientes({ permisos = [] }) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'boton boton--bloque',
+      clase: 'botón botón--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -326,7 +326,7 @@ export function vistaClientes({ permisos = [] }) {
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'boton boton--suave',
+      clase: 'botón botón--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -367,7 +367,7 @@ export function vistaClientes({ permisos = [] }) {
 
     cerrarModal = abrirDialogo({
       titulo: `Editar cliente — ${c.commercial_name}`,
-      nota: 'El tax_id es unico. Identifica al cliente ante impuestos.',
+      nota: 'El tax_id es único. Identifica al cliente ante impuestos.',
       cuerpo: [form],
       clase: 'modal--formulario',
       acciones: [btnCancelar],
@@ -382,22 +382,22 @@ export function vistaClientes({ permisos = [] }) {
   function eliminar(c) {
     abrirDialogo({
       titulo: 'Eliminar cliente',
-      mensaje: `¿Eliminar al cliente "${c.commercial_name}"? Esta acción no se puede deshacer.`,
+      mensaje: `¿Eliminar al cliente "${c.commercial_name}"? Esta accion no se puede deshacer.`,
       clase: 'modal--confirmacion modal--peligro',
       acciones: [
         crear('button', {
-          clase: 'boton boton--suave',
+          clase: 'botón botón--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),
         crear('button', {
-          clase: 'boton boton--peligro',
+          clase: 'botón botón--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button' },
         }),
       ],
       alAbrir: (modal, cerrar) => {
-        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .boton');
+        const [btnCancelar, btnConfirmar] = modal.querySelectorAll('.modal__acciones .botón');
         btnCancelar.addEventListener('click', cerrar);
         btnConfirmar.addEventListener('click', async () => {
           btnConfirmar.disabled = true;
@@ -418,7 +418,7 @@ export function vistaClientes({ permisos = [] }) {
   }
 
   // El buscador va al SERVIDOR: con la lista paginada, filtrar en el
-  // navegador solo miraria los 50 de la pagina.
+  // navegador solo miraria los 50 de la página.
   inputBuscar.addEventListener('input', () => {
     pagina = 0;
     cargar();
@@ -438,7 +438,7 @@ function obtenerIniciales(nombre) {
     .join('');
 }
 
-/** Tarjeta de estadistica. */
+/** Tarjeta de estadística. */
 function statCard(etiqueta, valor, iconoPath, color) {
   const card = crear('div', { clase: 'stat-card' });
   const iconoEl = icono(iconoPath, { tamano: 18 });

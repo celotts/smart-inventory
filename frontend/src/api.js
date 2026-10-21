@@ -3,30 +3,30 @@
  *
  * DONDE VIVE EL TOKEN
  * -------------------
- * El access token vive EN MEMORIA, en una variable de este modulo, y nunca se
+ * El access token vive EN MEMORIA, en una variable de este módulo, y nunca se
  * escribe en el DOM.
  *
- * La version anterior lo ponia en el `value` de un `<input type="text">` de la
- * pagina. Eso era un robo de sesion trivial: cualquier XSS —y la pagina tenia
+ * La versión anterior lo ponia en el `value` de un `<input type="text">` de la
+ * página. Eso era un robo de sesión trivial: cualquier XSS —y la página tenia
  * varios, via el contenido de un QR y via la respuesta de la IA— hacia
- * `document.querySelector('#token').value` y se lo mandaba. Ademas el input era
+ * `document.querySelector('#token').value` y se lo mandaba. Además el input era
  * visible, aparecia en el historial del navegador al teclear con F12, y el token
- * viajaba en el `Referer` de cualquier peticion a un tercero.
+ * viajaba en el `Referer` de cualquier petición a un tercero.
  *
  * Refresh token: `sessionStorage`, no `localStorage`. La diferencia es que
- * `sessionStorage` muere cuando se cierra la pestana, y `localStorage` no
- * sobrevive ni a cerrar el navegador. En una tablet compartida en un deposito,
+ * `sessionStorage` muere cuando se cierra la pestaña, y `localStorage` no
+ * sobrevive ni a cerrar el navegador. En una tablet compartida en un depósito,
  * eso es la diferencia entre "cerrar la app" y "el turno siguiente entra con mi
- * sesion".
+ * sesión".
  *
- * `localStorage` tampoco sirve: es accesible desde cualquier script de la pagina
+ * `localStorage` tampoco sirve: es accesible desde cualquier script de la página
  * y sobrevive indefinidamente.
  *
  * RENOVACION
  * ----------
  * Un access token dura 15 minutos. Cuando la API responde 401, se intenta un
- * `refresh` una sola vez y se reintenta la peticion original. Si el refresh
- * falla, se cierra la sesion: seguir reintentando con un token muerto produce
+ * `refresh` una sola vez y se reintenta la petición original. Si el refresh
+ * falla, se cierra la sesión: seguir reintentando con un token muerto produce
  * un bucle de 401 que deja la app inutil.
  *
  * TIMEOUT Y REINTENTOS
@@ -41,16 +41,16 @@
 /** Base de la API. */
 const BASE = new URL('/api', window.location.origin).toString();
 
-/** Access token. Solo en memoria: si se recarga la pagina, hay que loguearse. */
+/** Access token. Solo en memoria: si se recarga la página, hay que loguearse. */
 let accessToken = null;
 
-/** Se evita el bucle infinito de refresh si el /refresh tambien falla. */
+/** Se evita el bucle infinito de refresh si el /refresh también falla. */
 let renovando = false;
 
 /**
  * La renovacion EN CURSO, compartida.
  *
- * Todas las peticiones que reciben un 401 al mismo tiempo esperan a ESTA
+ * Todas las peticiones que reciben un 401 al mismo tiempo esperan a Está
  * promesa: se renueva una sola vez, con un solo refresh token. (El backend
  * rota el refresh token en cada canje, y un token reutilizado se toma como
  * un token clonado: cierra todas las sesiones del usuario.)
@@ -67,8 +67,8 @@ let promesaRenovacion = null;
 let operacionPendiente = null;
 
 /**
- * Se llama cuando la sesion no se puede recuperar, para volver al login.
- * Lo inyecta `main.js` para que este modulo no sepa de vistas.
+ * Se llama cuando la sesión no se puede recuperar, para volver al login.
+ * Lo inyecta `main.js` para que este módulo no sepa de vistas.
  */
 let alPerderSesion = () => {};
 
@@ -78,7 +78,7 @@ let alPerderSesion = () => {};
  */
 let alRequerirLogin = null;
 
-/** Configuracion desde el modulo principal. */
+/** Configuración desde el módulo principal. */
 export function configurar({ alExpirar, alRequerirLogin: loginCallback } = {}) {
   if (typeof alExpirar === 'function') alPerderSesion = alExpirar;
   if (typeof loginCallback === 'function') alRequerirLogin = loginCallback;
@@ -89,8 +89,8 @@ export function configurar({ alExpirar, alRequerirLogin: loginCallback } = {}) {
  *
  * Se guarda EXACTAMENTE lo que `pedir` recibe: `{ ruta, ...opciones }`, con la
  * ruta relativa. Guardar la ruta ya concatenada con `BASE` obligaba a quien
- * reanuda a saber si tenía que quitarle el prefijo o no, y esa duda se
- * resolvia siempre mal: `pedir` lo vuelve a agregar y la peticion terminaba en
+ * reanuda a saber si tenia que quitarle el prefijo o no, y esa duda se
+ * resolvia siempre mal: `pedir` lo vuelve a agregar y la petición terminaba en
  * `/api/api/...`, un 404 que no dice nada de la causa real.
  *
  * @param {string} ruta       Relativa, como la recibe `pedir`. Ej: '/movements/escanear'
@@ -136,7 +136,7 @@ export function haySesion() {
   return Boolean(accessToken);
 }
 
-/** Guarda la sesion que devuelve /auth/login. */
+/** Guarda la sesión que devuelve /auth/login. */
 export function guardarSesion({ access_token, refresh_token }) {
   accessToken = access_token;
   try {
@@ -180,7 +180,7 @@ async function fetchConTimeout(url, opciones = {}, timeoutMs = 30000) {
     return response;
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new ErrorDeApi('La petición excedió el tiempo límite.', 408, null);
+      throw new ErrorDeApi('La petición excedio el tiempo límite.', 408, null);
     }
     throw error;
   } finally {
@@ -234,13 +234,13 @@ async function leerRefreshToken() {
  * vacío, y además su manejo de 401 dispara el modal de login y guarda la
  * operación pendiente: para restaurar eso no serve, es lo contrario.
  *
- * Y POR QUE HACE FALTA UNA FUNCIÓN PROPIA
+ * Y POR QUE HACE FALTA UNA Función PROPIA
  * ---------------------------------------
- * Antes esto se hacía con `api.pedir('/auth/refresh')` desde `main.js`. El
- * endpoint devolvía 200 con un token nuevo y, aun así, la app caía al login:
+ * Antes esto se hacia con `api.pedir('/auth/refresh')` desde `main.js`. El
+ * endpoint devolvia 200 con un token nuevo y, aún así, la app caia al login:
  * `guardarSesion()` solo se llama dentro de `renovar()`, que es el camino del
  * token vencido, no este. El access token nuevo se descartaba, `haySesion()`
- * seguía dando false y recargar la página te echaba siempre —con la sesión
+ * seguia dando false y recargar la página te echaba siempre —con la sesión
  * activa y el refresh token intacto en `sessionStorage`.
  *
  * @returns {Promise<object|null>} Los datos del token, o null si no hay sesión
@@ -280,11 +280,11 @@ export async function restaurarSesion() {
  * EL PROBLEMA QUE ESTO ARREGLA
  * ----------------------------
  * Cuando el access token vence (15 minutos), la app tiene varias peticiones
- * en vuelo: el tablero, la campana, la vista que se esta abriendo. Todas
+ * en vuelo: el tablero, la campana, la vista que se está abriendo. Todas
  * reciben un 401 AL MISMO TIEMPO, y todas llaman a `renovar()`.
  *
  * Con el guardia viejo ("si ya hay una renovacion en curso, devuelve false"),
- * la SEGUNDA peticion tomaba el `false` como "la sesion semurio" y llamaba a
+ * la SEGUNDA petición tomaba el `false` como "la sesión semurio" y llamaba a
  * `cerrarSesion()`: el operador quedaba afuera de la app a los 15 minutos de
  * usarla, sin haber hecho nada malo.
  *
@@ -314,7 +314,7 @@ async function renovar() {
   // un token clonado) cierra TODAS las sesiones del usuario.
   //
   // Armarla de entrada, sin `await` en el medio, hace que la segunda
-  // peticion encuentre la promesa y la espere.
+  // petición encuentre la promesa y la espere.
   promesaRenovacion = (async () => {
     const refresh = await leerRefreshToken();
     if (!refresh) return false;
@@ -335,8 +335,8 @@ async function renovar() {
       });
       return true;
     } catch {
-      // Sin red. No se pierde la sesion por un problema de conexion: el token
-      // viejo puede seguir siendo valido.
+      // Sin red. No se pierde la sesión por un problema de conexión: el token
+      // viejo puede seguir siendo válido.
       return false;
     } finally {
       renovando = false;
@@ -346,18 +346,18 @@ async function renovar() {
   try {
     return await promesaRenovacion;
   } finally {
-    // La promesa compartida se libera recien cuando TERMINO: mientras tanto,
+    // La promesa compartida se libera recien cuando Terminó: mientras tanto,
     // las peticiones que llegan siguen esperandola.
     promesaRenovacion = null;
   }
 }
 
 /**
- * Peticion a la API.
+ * Petición a la API.
  *
  * @param {string} ruta    Ej: '/devices/resolve'
  * @param {object} opciones
- * @param {string} [opciones.metodo]
+ * @param {string} [opciones.método]
  * @param {object} [opciones.cuerpo]
  * @param {object} [opciones.params]  Query string.
  * @param {boolean} [opciones.reintentar=true]  Un 401 no se reintenta solo.
@@ -407,12 +407,12 @@ export async function pedir(ruta, opciones = {}) {
       respuesta = await fetch(url, opcionesFetch);
     }
   } catch {
-    // Sin red, o el servidor no esta. En un proyecto que vive 100% en
-    // Docker, el caso mas comun es que el contenedor de la API no este
-    // arriba: el mensaje dice eso, porque "no hay conexion" no le dice al
+    // Sin red, o el servidor no está. En un proyecto que vive 100% en
+    // Docker, el caso más comun es que el contenedor de la API no este
+    // arriba: el mensaje dice eso, porque "no hay conexión" no le dice al
     // operador que hacer.
     throw new ErrorDeApi(
-      'No hay conexion con el servidor. Si el proyecto corre en Docker, ' +
+      'No hay conexión con el servidor. Si el proyecto corre en Docker, ' +
         'chequea que los contenedores esten arriba (`make estado`).',
       0,
       null,
@@ -435,7 +435,7 @@ export async function pedir(ruta, opciones = {}) {
     } else {
       alPerderSesion(); // Fallback: redirigir a login page
     }
-    throw new ErrorDeApi('Tu sesion termino. Inicia sesion para continuar.', 401, null);
+    throw new ErrorDeApi('Tu sesión terminó. Inicia sesión para continuar.', 401, null);
   }
 
   const texto = await respuesta.text();
@@ -463,10 +463,10 @@ export async function pedir(ruta, opciones = {}) {
 }
 
 /**
- * Saca un mensaje util del error de la API.
+ * Saca un mensaje útil del error de la API.
  *
  * El backend devuelve el detalle en varias formas —string, objeto con
- * `mensaje`, lista de validacion de pydantic— y el frontend tiene que mostrar lo
+ * `mensaje`, lista de validación de pydantic— y el frontend tiene que mostrar lo
  * que el operador puede hacer, no un JSON crudo.
  */
 function mensajeDeError(datos, status) {
@@ -484,7 +484,7 @@ function mensajeDeError(datos, status) {
       return `${detalle.mensaje}${extra}`;
     }
 
-    // Validacion de pydantic: [{loc: [...], msg: "..."}]
+    // Validación de pydantic: [{loc: [...], msg: "..."}]
     if (Array.isArray(datos?.detail)) {
       const partes = datos.detail.map((e) => {
         const campo = Array.isArray(e.loc) ? e.loc.filter((x) => x !== 'body').join('.') : '';
@@ -502,18 +502,18 @@ function mensajeDeError(datos, status) {
 /**
  * Atajos tipados de los endpoints que usa la app.
  *
- * `pedir` queda expuesto como `api.pedir` ademas de exportarlo suelto.
+ * `pedir` queda expuesto como `api.pedir` además de exportarlo suelto.
  *
- * POR QUE: `pedir` se exporta como funcion de modulo porque la usan `api.login`
+ * POR QUE: `pedir` se exporta como función de módulo porque la usan `api.login`
  * y los reintentos internos, pero las vistas la necesitan para endpoints que
- * no tienen atajo. Cuando la exportacion como metodo faltaba, `api.pedir(...)`
+ * no tienen atajo. Cuando la exportacion como método faltaba, `api.pedir(...)`
  * era `undefined` y rompia con un TypeError que el `try/catch` del llamador se
  * comia en silencio: la app Follow andando con el perfil sin cargar y sin que nadie
  * se enterara.
  *
  * Un error de este tipo es invisible por construccion (un TypeError no se ve en
- * un log de red porque no hubo request), asi que la regla es: si una vista
- * llama `api.algo`, `algo` tiene que existir aca.
+ * un log de red porque no hubo request), así que la regla es: si una vista
+ * llama `api.algo`, `algo` tiene que existir acá.
  */
 export const api = {
   pedir,
@@ -534,10 +534,10 @@ export const api = {
         // Un `fetch` que no llega al servidor tira un TypeError crudo
         // ("Failed to fetch"), que en pantalla es un mensaje que no le dice
         // nada al operador. En un proyecto que vive en Docker, casi siempre
-        // significa que el contenedor de la API no esta arriba.
+        // significa que el contenedor de la API no está arriba.
         if (error instanceof ErrorDeApi) throw error;
         throw new ErrorDeApi(
-          'No hay conexion con el servidor. Si el proyecto corre en Docker, ' +
+          'No hay conexión con el servidor. Si el proyecto corre en Docker, ' +
             'chequea que los contenedores esten arriba (`make estado`).',
           0,
           null,
@@ -549,7 +549,7 @@ export const api = {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}` },
       credentials: 'same-origin',
-    }).catch(() => { /* si falla, la sesion local se borra igual */ }),
+    }).catch(() => { /* si falla, la sesión local se borra igual */ }),
 
   resolverCodigo: (codigo) => pedir(`/devices/resolve`, { params: { codigo } }),
 
@@ -563,13 +563,13 @@ export const api = {
 
   obtenerDispositivo: (id, params) => pedir(`/devices/${id}`, { params }),
 
-  // PATCH y no PUT: se manda SOLO lo que el operador tocó. El backend ignora
-  // las claves ausentes, asi que editar el serial no pisa el modelo ni la
-  // ubicacion con los valores de la pantalla que quedaron viejos.
+  // PATCH y no PUT: se manda Solo lo que el operador toco. El backend ignora
+  // las claves ausentes, así que editar el serial no pisa el modelo ni la
+  // ubicación con los valores de la pantalla que quedaron viejos.
   actualizarDispositivo: (id, datos) =>
     pedir(`/devices/${id}`, { metodo: 'PATCH', cuerpo: datos }),
 
-  // DELETE en la API, baja LOGICA en la base: el historial se conserva.
+  // DELETE en la API, baja Lógica en la base: el historial se conserva.
   darDeBajaDispositivo: (id, datos) =>
     pedir(`/devices/${id}`, { metodo: 'DELETE', cuerpo: datos }),
 
@@ -591,10 +591,10 @@ export const api = {
 
   listaAlcances: () => pedir('/ai/alcances'),
 
-  // --- Sesion ---------------------------------------------------------------
+  // --- Sesión ---------------------------------------------------------------
   // `miPerfil` y `roles` devuelven lo que el SERVIDOR decide. El frontend no
   // calcula permisos: una copia de `core/permissions.py` en el cliente se
-  // desincroniza en el primer cambio de permisos y produce un boton visible
+  // desincroniza en el primer cambió de permisos y produce un botón visible
   // que devuelve 403.
   miPerfil: () => pedir('/auth/yo'),
   roles: () => pedir('/users/roles'),
@@ -602,8 +602,8 @@ export const api = {
 
   // --- Catalogo (maestro de productos) -------------------------------------
   categorias: () => pedir('/catalog/categories'),
-  // El maestro de productos: `{items, total}` desde la paginacion del
-  // backend. Los SELECTORES piden la lista entera (`limite` sin definir).
+  // El maestro de productos: `{items, total}` desde la paginación del
+  // backend. Los SELECTORES piden la lista entera (`límite` sin definir).
   productos: (params) => pedir('/catalog/products', { params }),
   crearProducto: (datos) => pedir('/catalog/products', { metodo: 'POST', cuerpo: datos }),
   actualizarProducto: (id, datos) => pedir(`/catalog/products/${id}`, { metodo: 'PUT', cuerpo: datos }),
@@ -616,7 +616,7 @@ export const api = {
   crearProveedor: (datos) => pedir('/catalog/vendors', { metodo: 'POST', cuerpo: datos }),
 
   // --- Stock agregado -------------------------------------------------------
-  // La existencia por producto y ubicacion: `{items, total}`.
+  // La existencia por producto y ubicación: `{items, total}`.
   resumenStock: (params) => pedir('/stock/summary', { params }),
   stockBajo: () => pedir('/stock/low'),
 
@@ -632,8 +632,8 @@ export const api = {
 
   // --- Movimientos por producto ---------------------------------------------
   // Un movimiento por cantidad: el operador elige producto y cuantas unidades,
-  // y el backend elige los equipos (FIFO) y los mueve. Es la operacion de
-  // deposito real: nadie tiene los seriales a mano cuando llega una caja.
+  // y el backend elige los equipos (FIFO) y los mueve. Es la operación de
+  // depósito real: nadie tiene los seriales a mano cuando llega una caja.
   moverPorProducto: (datos) =>
     pedir('/movements/por-producto', { metodo: 'POST', cuerpo: datos }),
 
@@ -648,7 +648,7 @@ export const api = {
   desactivarUsuario: (id) => pedir(`/users/${id}/desactivar`, { metodo: 'POST' }),
   restaurarUsuario: (id) => pedir(`/users/${id}/restaurar`, { metodo: 'POST' }),
   roles: () => pedir('/users/roles'),
-  // Mi propia contrasena: pide la ACTUAL (si no, cualquiera con un token
+  // Mi propia contraseña: pide la ACTUAL (si no, cualquiera con un token
   // robado se cambia la clave y echa al dueño de su cuenta).
   cambiarMiPassword: (datos) => pedir('/auth/cambiar-password', { metodo: 'POST', cuerpo: datos }),
 
@@ -661,18 +661,18 @@ export const api = {
   editarIncidencia: (id, datos) => pedir(`/incidents/${id}`, { metodo: 'PATCH', cuerpo: datos }),
   cambiarEstadoIncidencia: (id, datos) =>
     pedir(`/incidents/${id}/transitions`, { metodo: 'POST', cuerpo: datos }),
-  // TOMAR EL CASO: el tecnico lo saca de la bandeja y queda asignado a el.
+  // Tomar EL CASO: el técnico lo saca de la bandeja y queda asignado a el.
   tomarCasoIncidencia: (id) => pedir(`/incidents/${id}/claim`, { metodo: 'POST' }),
   // EL CIERRE: que se resolvio y que paso con el equipo (taller, reparado o
-  // dano total). El backend se encarga de mover el equipo en el inventario.
+  // daño total). El backend se encarga de mover el equipo en el inventario.
   cerrarIncidencia: (id, datos) =>
     pedir(`/incidents/${id}/cierre`, { metodo: 'POST', cuerpo: datos }),
   comentarIncidencia: (id, nota) =>
     pedir(`/incidents/${id}/comments`, { metodo: 'POST', cuerpo: { nota } }),
 
-  // --- Auditoria ------------------------------------------------------------
-  // `auditoria` une movimientos de inventario y eventos de cuentas en una sola
-  // linea de tiempo (ver el service del backend).
+  // --- Auditoría ------------------------------------------------------------
+  // `auditoría` une movimientos de inventario y eventos de cuentas en una sola
+  // línea de tiempo (ver el service del backend).
   auditoria: (params) => pedir('/audit/timeline', { params }),
   auditoriaResumen: () => pedir('/audit/resumen'),
 
