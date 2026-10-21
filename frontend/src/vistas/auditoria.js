@@ -55,7 +55,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
   );
 
   const btnActualizar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => recargar() },
   });
@@ -293,7 +293,7 @@ export function vistaAuditoria({ permisos = [] } = {}) {
     if (evento.categoria === 'inventario' && evento.device_id) {
       item.append(
         crear('button', {
-          clase: 'botón botón--suave',
+          clase: 'boton boton--suave',
           texto: 'Ver equipo',
           atributos: {
             type: 'button',

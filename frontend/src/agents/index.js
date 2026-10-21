@@ -1,5 +1,5 @@
 /**
- * Multi-Agente Smart Inventory - Entry Point
+ * Multi-Agente de Gestor de Activos - Entry Point
  *
  * USO:
  *   import { procesarQuery, getOrchestrator } from './agents';

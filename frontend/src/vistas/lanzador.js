@@ -71,7 +71,7 @@ export function pantallaDeEntrada({ usuario, alEntrar }) {
 
   const marca = crear('div', { clase: 'lanzador__marca' });
   marca.append(
-    crear('h1', { clase: 'lanzador__titulo', texto: 'Smart Inventory' }),
+    crear('h1', { clase: 'lanzador__titulo', texto: 'Gestor de Activos' }),
     crear('p', {
       clase: 'lanzador__subtitulo',
       texto: `${usuario?.full_name ?? ''} · ${usuario?.role_name ?? ''}`.trim(),

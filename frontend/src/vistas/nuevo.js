@@ -100,7 +100,7 @@ export function vistaNuevo({ permisos = [] }) {
   );
 
   const btnSubmit = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Crear componente',
     atributos: { type: 'submit' },
   });

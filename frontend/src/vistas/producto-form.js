@@ -151,7 +151,7 @@ import { botonEscanear } from '../escaner-campo.js';
     });
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Guardar producto',
       atributos: { type: 'submit' },
     });
@@ -159,7 +159,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -388,7 +388,7 @@ import { botonEscanear } from '../escaner-campo.js';
     pintarAtributos(zonaAtributos, selectCategoria.value, p.atributos || {});
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -396,7 +396,7 @@ import { botonEscanear } from '../escaner-campo.js';
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });

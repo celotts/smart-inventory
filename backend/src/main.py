@@ -1,5 +1,5 @@
 """
-Punto de entrada de la API de Smart Inventory B2B.
+Punto de entrada de la API de Gestor de Activos.
 
 POR QUE `uvicorn` Y NO `python src/main.py`
 ------------------------------------------
@@ -194,7 +194,7 @@ async def lifespan(_app: FastAPI):
                 await tarea
 
 app = FastAPI(
-    title="Smart Inventory B2B API — Activos e incidencias",
+    title="Gestor de Activos — API de activos e incidencias",
     version="0.5.0",
     description="Gestion de activos, inventario e incidencias para empresas, con IA.",
     lifespan=lifespan,

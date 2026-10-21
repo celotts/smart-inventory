@@ -177,7 +177,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
     if (verTodos && elementos.length) {
       const btn = crear('button', {
-        clase: 'botón botón--suave botón--chico',
+        clase: 'boton boton--suave boton--chico',
         texto: verTodos,
         atributos: { type: 'button' },
       });
@@ -646,7 +646,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
     });
 
     const btnCerrar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });

@@ -331,6 +331,39 @@ insomnia-check:
 	fi
 
 # ===========================================================================
+# PRUEBAS DE INTERFAZ (Playwright)
+# ===========================================================================
+#
+# El backend tiene sus pruebas en pytest. Esta seccion es la del FRONT: lo
+# que se ve y lo que se toca, con un navegador de verdad.
+#
+# POR QUE PRUEBAS DE INTERFAZ Y NO MAS
+# -------------------------------------
+# El front no tiene bundler: son modulos ES que el navegador carga uno por
+# uno. Un `SyntaxError` en UNO de ellos aborta el arranque entero y el
+# operador se queda viendo "Cargando..." para siempre. Las pruebas de Python
+# no lo detectan (no ejecutan JavaScript), y el vigilante de arranque del
+# front tarda 12 segundos en avisar.
+#
+# Las pruebas corren contra el front de DOCKER (el mismo que se usa), con las
+# cabeceras de seguridad y el service worker puestos: probar contra el
+# servidor de desarrollo seria probar otra cosa.
+#
+# `make test-e2e` levanta el stack si hace falta.
+
+# Las pruebas de interfaz. Requiere el stack arriba (`make up`).
+e2e:
+	@cd frontend && npx playwright test
+
+# Lo mismo, pero contra un front en otro lado (el de QA, por ejemplo).
+e2e-url:
+	@cd frontend && FRONT_URL=$(FRONT_URL) npx playwright test
+
+# Instala lo que hace falta para correrlas: el runner y el navegador.
+e2e-instalar:
+	@cd frontend && npm install && npx playwright install chromium
+
+# ===========================================================================
 # IA
 # ===========================================================================
 #

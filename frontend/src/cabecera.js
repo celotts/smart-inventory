@@ -189,7 +189,7 @@ export function pintarSelectorModulo() {
     if (!modulo) return;
 
     const etiqueta = crear('span', {
-      clase: 'cabecera__módulo cabecera__módulo--fijo',
+      clase: 'cabecera__modulo cabecera__modulo--fijo',
       texto: modulo.etiqueta,
       atributos: { 'data-modulo': clave },
     });
@@ -205,7 +205,7 @@ export function pintarSelectorModulo() {
 
     const boton = crear('button', {
       clase:
-        `cabecera__modulo${activo ? ' cabecera__módulo--activo' : ''}` +
+        `cabecera__modulo${activo ? ' cabecera__modulo--activo' : ''}` +
         (permitido ? '' : ' cabecera__módulo--no-disponible'),
       atributos: {
         type: 'button',

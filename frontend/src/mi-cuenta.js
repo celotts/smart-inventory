@@ -65,7 +65,7 @@ export function abrirMiCuenta(usuario) {
   form.append(zonaResumen, campoActual.campo, campoNueva.campo, campoRepetir.campo, medidor.elemento);
 
   const btnGuardar = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Cambiar contraseña',
     atributos: { type: 'submit' },
   });
@@ -110,7 +110,7 @@ export function abrirMiCuenta(usuario) {
   // El botón de CERRAR: sin el, el modal solo se cierra con Escape, y en
   // un celular no hay Escape.
   const btnCancelar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Cancelar',
     atributos: { type: 'button' },
   });

@@ -81,6 +81,27 @@
   --color-border-control: #909090;
   --color-border-focus: #3b82f6;          /* blue-500 */
 
+  /* EL FONDO DE LOS CUADROS DE TEXTO
+   *
+   * Es blanco SIEMPRE, y no el de la superficie, por una razon concreta: un
+   * campo de texto gris se lee como un campo deshabilitado o como un bloque
+   * de texto, no como "algo donde se escribe". El operador lo tiene que
+   *distinguir de un vistazo, y un gris sobre una tarjeta blanca no lo logra.
+   *
+   * El gris tambien venia del navegador: un `<select>` sin `appearance:
+   * none` se pinta con el aspecto NATIVO, que es gris, sin importar lo que
+   * diga el CSS. Por eso el token va con su regla y no como alias de la
+   * superficie.
+   */
+  --color-field-bg: #ffffff;
+
+  /* EL FONDO DE LAS TARJETAS DE RESUMEN DEL TABLERO
+   *
+   * Blanco, como las demas cajas. Antes las tres de arriba eran blancas y
+   * las cuatro de abajo grises: se leia como dos grupos sin relacion entre
+   * si, y el gris se confundia con un estado apagado. Ver `.kpi`. */
+  --color-kpi-bg: #ffffff;
+
   --color-text: #0f172a;                  /* slate-900 */
   --color-text-secondary: #334155;        /* slate-700 — 11:1 AAA */
   --color-text-muted: #64748b;            /* slate-500 — 7:1 AA large */
@@ -144,6 +165,11 @@
      ========================================================================= */
   --fondo: var(--color-bg);
   --superficie: var(--color-surface);
+  /* El fondo de los cuadros de texto. No es un alias de la superficie: el
+     campo tiene que ser blanco aunque la superficie sea gris. */
+  --campo-fondo: var(--color-field-bg);
+  /* El fondo de las tarjetas de resumen del tablero. */
+  --kpi-fondo-base: var(--color-kpi-bg);
   --superficie-2: var(--color-surface-hover);
   --superficie-hover: var(--color-surface-hover);
   --superficie-pressed: var(--color-surface-pressed);
@@ -204,6 +230,15 @@
   --color-border-control: #6b6b6b;
   --color-border-focus: #60a5fa;          /* blue-400 */
 
+  /* En el tema oscuro el cuadro de texto NO puede ser blanco: el texto es
+     claro y quedaria blanco sobre blanco. El token sigue existiendo para
+     que la regla del campo sea una sola y no tenga dos versiones. */
+  --color-field-bg: #262626;
+
+  /* En el tema oscuro la tarjeta del tablero es la superficie oscura: el
+   * numero es claro y necesita un fondo oscuro para leerse. */
+  --color-kpi-bg: #1f1f1f;
+
   --color-text: #fafafa;                  /* neutral-50 */
   --color-text-secondary: #d4d4d4;        /* neutral-300 — 10:1 AAA */
   --color-text-muted: #a3a3a3;            /* neutral-400 — 7:1 AA large */
@@ -258,6 +293,13 @@
   --color-border-strong: #999999;
   --color-border-control: #767676;        /* 3:1 o mas contra la superficie */
   --color-border-focus: #8b4513;           /* marrón alto contraste */
+
+  /* El modo exterior es el que se usa con el sol de frente: el campo
+     tiene que ser BLANCO y puro, sin tinte ninguno. */
+  --color-field-bg: #ffffff;
+
+  /* Modo exterior (sol de frente): la tarjeta del tablero, blanca y pura. */
+  --color-kpi-bg: #ffffff;
 
   --color-text: #000000;
   --color-text-secondary: #1a1a1a;
@@ -881,7 +923,11 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
    * decorativo de las tarjetas. */
   border: 1px solid var(--color-border-control);
   border-radius: var(--radio-sm);
-  background: var(--superficie);
+  /* El fondo es BLANCO, no el de la superficie. Un cuadro de texto gris se
+   * lee como deshabilitado: el operador tiene que ver de un vistazo que
+   * ahí se escribe. Y en modo exterior (al sol) la superficie es gris
+   * claro, y el campo se perdía. */
+  background: var(--campo-fondo);
   color: var(--texto);
   font: inherit;
   /* 16px minimo: por debajo, iOS hace zoom automatico al enfocar y la pagina
@@ -895,6 +941,77 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primario) 18%, transparent);
 }
 .campo__control:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* El marcador de posicion (placeholder) tiene que LEERSE, no distinguirse.
+ * El navegador lo pinta gris clarito sobre el campo, y con el fondo blanco
+ * un gris claro se pierde. */
+.campo__control::placeholder {
+  color: var(--texto-tenue);
+  opacity: 1;
+}
+
+/* EL SELECT: EL GRIS DEL NAVEGADOR
+ *
+ * Un `<select>` sin `appearance: none` lo pinta el navegador con su aspecto
+ * NATIVO: fondo gris, borde de 3D, flecha del sistema. El CSS dice blanco y
+ * el navegador dice gris, y gana el navegador.
+ *
+ * Con `appearance: none` el fondo es el que dice el CSS (blanco) y la
+ * flecha es la que ponemos nosotros. */
+select.campo__control {
+  appearance: none;
+  -webkit-appearance: none;
+  /* La flecha: un SVG en linea, dibujada con `currentColor` para que tome
+   * el color del texto y se vea en el tema oscuro sin cambiar la imagen. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 12px 12px;
+  /* El espacio de la derecha es para la flecha: sin padding extra, el texto
+   * largo pasa por debajo de la flecha. */
+  padding-right: 2rem;
+}
+[data-theme="dark"] select.campo__control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a3a3a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+}
+
+/* El calendario del `<input type="date">` tambien viene con su aspecto
+ * nativo (fondo gris en algunos navegadores). Con `appearance: none` toma
+ * el del CSS, y el icono se ve igual.
+ *
+ * El `type="number"` NO va acá: quitarle la apariencia le saca las flechitas
+ * de subir y bajar, que son la forma mas rapida de escribir una cantidad. */
+input[type="date"].campo__control,
+input[type="time"].campo__control {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* El `type="number"` conserva sus flechitas (son la forma rapida de escribir
+ * una cantidad), pero el fondo tiene que ser el del campo: el navegador lo
+ * pinta con su gris nativo si no se lo dice. */
+input[type="number"].campo__control {
+  background-color: var(--campo-fondo);
+}
+input[type="number"].campo__control::-webkit-inner-spin-button,
+input[type="number"].campo__control::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+/* El AUTOFILL DEL NAVEGADOR
+ *
+ * Cuando el navegador completa solo un email o una clave, lo pinta con su
+ * fondo (un amarillo o un gris claro) que no se puede cambiar con `color`
+ * ni con `background`. Se tapa con una sombra interior del color del campo:
+ * es el unico truco que funciona en todos los navegadores. */
+.campo__control:-webkit-autofill,
+.campo__control:-webkit-autofill:hover,
+.campo__control:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--texto);
+  -webkit-box-shadow: 0 0 0 1000px var(--campo-fondo) inset;
+  caret-color: var(--texto);
+  transition: background-color 9999s ease-out 0s;
+}
 
 /* Un `textarea` con la altura de sus lineas: el scroll interno en un campo de
  * texto largo esconde justo lo que el operador esta por escribir. */
@@ -1563,10 +1680,24 @@ textarea.campo__control {
   padding: 0.25rem 0.4rem;
   border: 1px solid var(--borde);
   border-radius: var(--radio-sm);
-  background: var(--superficie);
+  /* El fondo es BLANCO, como el de los otros campos, y con la flecha
+   * propia: sin `appearance: none` el navegador lo pinta con su aspecto
+   * NATIVO (gris con borde de 3D), que es lo unico gris que quedaba en la
+   * app y que se leia como un control apagado. */
+  background-color: var(--campo-fondo);
   color: var(--texto);
   font: inherit;
   font-size: 0.82rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.35rem center;
+  background-size: 10px 10px;
+  padding-right: 1.5rem;
+}
+[data-theme="dark"] .paginacion__cantidad {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a3a3a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
 }
 
 /* LA VISTA PREVIA DE LA ETIQUETA
@@ -1678,9 +1809,21 @@ textarea.campo__control {
    * su estilo nativo (fondo gris, borde de 3D de 2px) si no se le saca la
    * "apariencia". Con el fondo declarado aca y en la variable, el boton se
    * ve EXACTAMENTE igual que la caja que era antes, y el destacado puede
-   * cambiarlo sin que se pisen las reglas. */
-  --kpi-fondo: var(--superficie-2, var(--superficie));
-  --kpi-borde: var(--borde);
+   * cambiarlo sin que se pisen las reglas.
+   *
+   * EL FONDO ES BLANCO EN TODAS LAS TARJETAS
+   * -----------------------------------------
+   * Antes las tres de arriba (las destacadas) eran blancas y las cuatro de
+   * abajo grises. Se leia como dos grupos distintos que no tenian nada que
+   * ver, y el gris de abajo se confundia con un estado apagado: el operador
+   * leia "Instalados: 0" sobre una caja gris y no sabia si era un dato o un
+   * cartel.
+   *
+   * Todos los cuadros son blancos y la pantalla se lee como UNA rejilla. La
+   * jerarquia la marcan el color del numero (el del modulo) y el tamano, no
+   * el fondo de la caja. */
+  --kpi-fondo: var(--kpi-fondo-base);
+  --kpi-borde: var(--color-border-strong);
 
   padding: 0.75rem 1rem;
   border: 1px solid var(--kpi-borde);
@@ -1699,7 +1842,7 @@ textarea.campo__control {
  * grandes y los secundarios van en una fila aparte, mas chicos. El tamanio
  * es la jerarquia, no el color. */
 .kpi--destacado {
-  --kpi-fondo: var(--color-surface);
+  --kpi-fondo: var(--kpi-fondo-base);
   --kpi-borde: var(--color-border-strong);
 
   padding: 1rem 1.25rem;

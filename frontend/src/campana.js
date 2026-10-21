@@ -33,24 +33,46 @@ let timer = null;
 let iniciado = false;
 
 /**
+ * El listener de `visibilitychange`, guardado para poder SACARLO.
+ *
+ * Sin esto, cada vez que la app se reiniciaba (login → logout → login) se
+ * añadía un listener nuevo y el antiguo se quedaba: tres veces logged in,
+ * tres peticiones al volver a la pestaña. Y en `detenerCampana()` no se
+ * podía quitar ninguno, porque no se sabía cuáles eran.
+ */
+let alCambiarVisibilidad = null;
+
+/**
  * Pinta la campana y la conecta. Se llama una vez, al arrancar la app.
+ *
+ * El guardia es `iniciado`, NO `boton`: el botón es el mismo elemento del
+ * DOM siempre, así que `boton` sigue teniendo valor después de un logout y
+ * el guardia cortaría el segundo `iniciarCampana()` (el del login nuevo).
+ * Con `iniciado` el timer se vuelve a levantar, que es lo que hace falta.
  */
 export function iniciarCampana() {
-  if (boton) return;
+  if (iniciado) return;
 
   boton = document.getElementById('btn-campana');
   contador = document.getElementById('campana-contador');
   if (!boton) return;
 
-  boton.addEventListener('click', () => abrirAvisos());
-
-  conTooltip(boton, 'Avisos de SLA: casos por vencer, vencidos y escalados.');
+  // El listener de click se conecta UNA vez: el botón del DOM no cambia, y
+  // si se reconectara en cada arranque, un clic abriría dos listas de avisos.
+  if (!boton.dataset.campanaConectada) {
+    boton.dataset.campanaConectada = '1';
+    boton.addEventListener('click', () => abrirAvisos());
+    conTooltip(boton, 'Avisos de SLA: casos por vencer, vencidos y escalados.');
+  }
 
   // El badge se pregunta al volver a la app: si el operador estuvo en otra
   // pestaña veinte minutos, el número que ve tiene que ser el de ahora.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') actualizarContador();
-  });
+  if (!alCambiarVisibilidad) {
+    alCambiarVisibilidad = () => {
+      if (document.visibilityState === 'visible') actualizarContador();
+    };
+    document.addEventListener('visibilitychange', alCambiarVisibilidad);
+  }
 
   iniciado = true;
   actualizarContador();
@@ -148,7 +170,7 @@ async function abrirAvisos() {
   }
 
   const btnCerrar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Cerrar',
     atributos: { type: 'button' },
   });
@@ -185,9 +207,29 @@ async function mostrarIncidencia(incidenciaId) {
   abrirDetalleDe(detalle);
 }
 
-/** Para las pruebas y para el cierre limpio. */
+/**
+ * Detiene la campana: el timer y el listener de visibilidad.
+ *
+ * POR QUÉ HAY QUE LLAMARLA AL CERRAR LA SESIÓN
+ * ---------------------------------------------
+ * El polling de la campana pide `/incidents/notifications/count` cada 30
+ * segundos. Si sigue corriendo después de que el operador cerró sesión,
+ * esa petición va SIN token, el backend responde 401, y `api.js` interpreta
+ * el 401 como "tu sesión venció" y abre el modal de "Sesión expirada".
+ *
+ * El síntoma era: el operador cerraba sesión y, treinta segundos después,
+ * le aparecía un cartel de sesión expirada encima del login. La sesión
+ * estaba cerrada y el cartel decía lo contrario.
+ *
+ * Para las pruebas y para el cierre limpio.
+ */
 export function detenerCampana() {
   if (timer) clearInterval(timer);
   timer = null;
   iniciado = false;
+
+  if (alCambiarVisibilidad) {
+    document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+    alCambiarVisibilidad = null;
+  }
 }

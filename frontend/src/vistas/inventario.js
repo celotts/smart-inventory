@@ -124,7 +124,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
   conTooltip(textoUbicacion, 'Filtra por la ubicación. Trae también sus pasillos y estantes.');
 
   const btnExportar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Exportar CSV',
     atributos: { type: 'button' },
   });
@@ -247,7 +247,7 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
       const cuerpo = crear('div', { clase: 'lista__cuerpo' });
       cuerpo.append(
         crear('div', {
-          clase: 'lista__título mono',
+          clase: 'lista__titulo mono',
           texto: item.serial_number,
         }),
         crear('div', {
@@ -384,7 +384,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
   });
 
   const botonVolver = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Volver',
     atributos: {
       type: 'button',
@@ -404,7 +404,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
   });
 
   const botonBaja = crear('button', {
-    clase: 'botón botón--peligro',
+    clase: 'boton boton--peligro',
     texto: 'Dar de baja',
     atributos: { type: 'button', onclick: () => abrirBaja() },
   });
@@ -557,7 +557,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -565,7 +565,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -657,7 +657,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     form.append(campoMotivo.campo);
 
     const btnConfirmar = crear('button', {
-      clase: 'botón botón--peligro botón--bloque',
+      clase: 'boton boton--peligro boton--bloque',
       texto: 'Confirmar baja',
       atributos: { type: 'submit' },
     });
@@ -665,7 +665,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });

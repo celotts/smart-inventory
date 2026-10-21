@@ -181,12 +181,12 @@ export function vistaClientes({ permisos = [] }) {
       if (puedeEditar) {
         const acciones = crear('div', { clase: 'cliente-card__acciones' });
         const btnEditar = crear('button', {
-          clase: 'botón botón--suave botón--chico',
+          clase: 'boton boton--suave boton--chico',
           texto: 'Editar',
           atributos: { type: 'button', onclick: () => abrirEdicion(c) },
         });
         const btnEliminar = crear('button', {
-          clase: 'botón botón--chico botón--peligro',
+          clase: 'boton boton--chico boton--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button', onclick: () => eliminar(c) },
         });
@@ -226,7 +226,7 @@ export function vistaClientes({ permisos = [] }) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Guardar cliente',
       atributos: { type: 'submit' },
     });
@@ -234,7 +234,7 @@ export function vistaClientes({ permisos = [] }) {
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -318,7 +318,7 @@ export function vistaClientes({ permisos = [] }) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Guardar cambios',
       atributos: { type: 'submit' },
     });
@@ -326,7 +326,7 @@ export function vistaClientes({ permisos = [] }) {
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -386,12 +386,12 @@ export function vistaClientes({ permisos = [] }) {
       clase: 'modal--confirmacion modal--peligro',
       acciones: [
         crear('button', {
-          clase: 'botón botón--suave',
+          clase: 'boton boton--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),
         crear('button', {
-          clase: 'botón botón--peligro',
+          clase: 'boton boton--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button' },
         }),

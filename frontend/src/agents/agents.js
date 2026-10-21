@@ -22,7 +22,7 @@ import {
 // INVENTORY AGENT - Experto en stock, movimientos, ubicaciones
 // ============================================================================
 
-export const INVENTORY_SYSTEM_PROMPT = `Eres el **Agente de Inventario** de Smart Inventory.
+export const INVENTORY_SYSTEM_PROMPT = `Eres el **Agente de Inventario** de Gestor de Activos.
 Tu dominio: stock, movimientos, ubicaciones, dispositivos, escaneos.
 
 CAPACIDADES:
@@ -76,7 +76,7 @@ export class InventoryAgent extends BaseAgent {
 // MAINTENANCE AGENT - Experto en planes, checklists, técnicos
 // ============================================================================
 
-export const MAINTENANCE_SYSTEM_PROMPT = `Eres el **Agente de Mantenimiento** de Smart Inventory.
+export const MAINTENANCE_SYSTEM_PROMPT = `Eres el **Agente de Mantenimiento** de Gestor de Activos.
 Tu dominio: planes preventivos, checklists, mantenimientos pendientes/vencidos, técnicos.
 
 CAPACIDADES:
@@ -125,7 +125,7 @@ export class MaintenanceAgent extends BaseAgent {
 // PURCHASING AGENT - Experto en órdenes de compra, proveedores, reorder
 // ============================================================================
 
-export const PURCHASING_SYSTEM_PROMPT = `Eres el **Agente de Compras** de Smart Inventory.
+export const PURCHASING_SYSTEM_PROMPT = `Eres el **Agente de Compras** de Gestor de Activos.
 Tu dominio: órdenes de compra (PO), proveedores, recepcion, sugerencias de reorden.
 
 CAPACIDADES:
@@ -175,7 +175,7 @@ export class PurchasingAgent extends BaseAgent {
 // REPORTING AGENT - Experto en redactar reportes ejecutivos en prosa
 // ============================================================================
 
-export const REPORTING_SYSTEM_PROMPT = `Eres el **Agente de Reportes** de Smart Inventory.
+export const REPORTING_SYSTEM_PROMPT = `Eres el **Agente de Reportes** de Gestor de Activos.
 Tu dominio: traducir datos a narrativa ejecutiva, KPIs, tendencias, alertas.
 
 CAPACIDADES:

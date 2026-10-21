@@ -60,11 +60,22 @@ let renovando = false;
 let promesaRenovacion = null;
 
 /**
- * Operación pendiente guardada cuando expira el token durante una request.
- * Permite reanudar tras login sin perder datos.
- * @type {Object|null}
+ * NO HAY OPERACIÓN PENDIENTE
+ * --------------------------
+ * Antes, cuando el token se vencía en mitad de una petición, esa petición
+ * se guardaba (`sessionStorage`) y se volvía a ejecutar sola después del
+ * login, sin que el operador lo pidiera.
+ *
+ * Eso es una petición CON EFECTO que el operador no autorizó: un "Guardar
+ * cambios" que se reejecuta solo puede volver a escribir, y un "Registrar
+ * escaneo" que se reejecuta solo puede duplicar el movimiento. Que la app
+ * "se acuerde" de lo que el operador estaba por hacer y lo haga por las
+ * espaldas es peor que perder el trabajo.
+ *
+ * La regla ahora es una sola: una petición que no se pudo hacer, no se hace
+ * después. Se avisa, se pide la clave de nuevo, y el operador repite lo que
+ * quería hacer.
  */
-let operacionPendiente = null;
 
 /**
  * Se llama cuando la sesión no se puede recuperar, para volver al login.
@@ -84,61 +95,49 @@ export function configurar({ alExpirar, alRequerirLogin: loginCallback } = {}) {
   if (typeof loginCallback === 'function') alRequerirLogin = loginCallback;
 }
 
-/**
- * Guarda la operación actual para reanudar tras login.
- *
- * Se guarda EXACTAMENTE lo que `pedir` recibe: `{ ruta, ...opciones }`, con la
- * ruta relativa. Guardar la ruta ya concatenada con `BASE` obligaba a quien
- * reanuda a saber si tenia que quitarle el prefijo o no, y esa duda se
- * resolvia siempre mal: `pedir` lo vuelve a agregar y la petición terminaba en
- * `/api/api/...`, un 404 que no dice nada de la causa real.
- *
- * @param {string} ruta       Relativa, como la recibe `pedir`. Ej: '/movements/escanear'
- * @param {object} opciones   Las mismas opciones de `pedir`.
- */
-function guardarOperacionPendiente(ruta, opciones) {
-  const op = { ruta, ...opciones };
-  operacionPendiente = op;
-  try {
-    sessionStorage.setItem('si.pendingOp', JSON.stringify(op));
-  } catch { /* ignore */ }
-}
-
-/**
- * Recupera y limpia la operación pendiente.
- * @returns {Object|null}
- */
-export function consumirOperacionPendiente() {
-  if (operacionPendiente) {
-    const op = operacionPendiente;
-    operacionPendiente = null;
-    try { sessionStorage.removeItem('si.pendingOp'); } catch {}
-    return op;
-  }
-  try {
-    const raw = sessionStorage.getItem('si.pendingOp');
-    if (raw) {
-      sessionStorage.removeItem('si.pendingOp');
-      return JSON.parse(raw);
-    }
-  } catch {}
-  return null;
-}
-
-/**
- * Indica si hay una operación guardada esperando login.
- */
-export function hayOperacionPendiente() {
-  return !!operacionPendiente || !!sessionStorage.getItem('si.pendingOp');
-}
-
 export function haySesion() {
   return Boolean(accessToken);
+}
+
+/**
+ * Marca que el operador CERRÓ la sesión a propósito.
+ *
+ * POR QUÉ EXISTE
+ * --------------
+ * Un 401 significa "tu sesión ya no vale". Pero después de un logout
+ * explícito, un 401 no significa eso: significa que la petición se hizo
+ * sin token, porque la sesión ya estaba cerrada. Son cosas distintas:
+ *
+ *   - 401 con sesión viva  → el token venció → hay que avisar y re-loguear.
+ *   - 401 sin sesión      → el operador ya salió → NO hay que avisar nada.
+ *
+ * Sin esta marca, cerrar sesión y esperar medio minuto mostraba el cartel
+ * de "Sesión expirada" encima de la pantalla de login: el operador leía
+ * "tu sesión expiró" cuando lo que había pasado es que él la había cerrado.
+ *
+ * La marca se limpia sola en `guardarSesion()`: si el operador vuelve a
+ * entrar, la sesión nueva vuelve a ser una sesión viva.
+ */
+let sesionCerradaPorElOperador = false;
+
+export function marcarSesionCerrada() {
+  sesionCerradaPorElOperador = true;
+}
+
+/**
+ * ¿La sesión la cerró el operador (y no venció)?
+ * @returns {boolean}
+ */
+export function sesionCerradaVoluntariamente() {
+  return sesionCerradaPorElOperador;
 }
 
 /** Guarda la sesión que devuelve /auth/login. */
 export function guardarSesion({ access_token, refresh_token }) {
   accessToken = access_token;
+  // Una sesión nueva es una sesión VIVA: la marca de "cerrada a propósito"
+  // se borra acá, o el próximo 401 de verdad no avisaría nada.
+  sesionCerradaPorElOperador = false;
   try {
     if (refresh_token) sessionStorage.setItem('si.refresh', refresh_token);
   } catch {
@@ -152,6 +151,11 @@ export function cerrarSesion() {
   accessToken = null;
   try {
     sessionStorage.removeItem('si.refresh');
+    // La operación pendiente ya no existe (ver "NO HAY OPERACIÓN PENDIENTE"),
+    // pero un `sessionStorage` de una versión anterior puede tenerla
+    // guardada. Se borra igual: es una petición con efecto que no debe
+    // quedar dando vueltas.
+    sessionStorage.removeItem('si.pendingOp');
   } catch { /* sin storage: no hay nada que borrar */ }
 }
 
@@ -425,10 +429,17 @@ export async function pedir(ruta, opciones = {}) {
   }
 
   if (respuesta.status === 401) {
-    // Guardar operación para reanudar tras login (modal, no full page)
-    if (reintentar) {
-      guardarOperacionPendiente(ruta, { ...opciones, reintentar: false });
+    // El operador CERRÓ la sesión: este 401 es de una petición que se hizo
+    // sin token (el polling de la campana, una vista que estaba abriendo).
+    // No hay nada que avisar: la sesión ya está cerrada y el operador lo
+    // sabe porque él la cerró. Avisarle "tu sesión expiró" sería
+    // contradecirlo.
+    if (sesionCerradaPorElOperador) {
+      throw new ErrorDeApi('La sesión está cerrada.', 401, null);
     }
+
+    // NO se guarda la petición para reejecutarla después del login: ver la
+    // nota de "NO HAY OPERACIÓN PENDIENTE" más arriba.
     cerrarSesion();
     if (alRequerirLogin) {
       alRequerirLogin(); // Mostrar modal login

@@ -551,6 +551,267 @@ class TestCss:
             assert regla in texto, f"styles.css: falta la regla '{regla}'"
 
 
+def _sin_acentos(texto: str) -> str:
+    """El texto sin acentos: `botón` -> `boton`."""
+    import unicodedata
+
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+# Clases que el front usa y que TODAVIA no tienen diseno en `styles.css`.
+#
+# No es una lista deDesired: es la lista de lo que falta. Cada clase que se
+# agrega aqui es una decision: "esta clase todavia no tiene estilo, y se
+# estiliza cuando haga falta".
+#
+# La lista NO puede tener acentos: un nombre de clase con acento es siempre
+# un error de escritura.
+CLASES_SIN_DISENO = {
+    # Escáner: los chips de tipo de movimiento y la tarjeta de la camara.
+    "chip--movimiento",
+    "tarjeta--accion",
+    "tarjeta--camara",
+    "tarjeta__header",
+    "vista-escanear",
+    "formulario-manual",
+    "boton--manual",
+    "campo__control--codigo",
+    "modal--escaner",
+    # Modal de la etiqueta del producto.
+    "modal--etiqueta",
+    # Tarjeta de cliente: hay `__avatar` y `__acciones`, falta la base.
+    "cliente-card",
+    # Cierre de la incidencia.
+    "incidencia__cierre",
+    # Insignia de "creado" en la auditoria: el CSS tiene `resultado--ok`.
+    "insignia--ok",
+    # Titulo del login.
+    "login__titulo",
+    # Boton de modo exterior y el texto del idioma, en la cabecera.
+    "cabecera__exterior",
+    "cabecera__exterior-icon",
+    "cabecera__idioma-texto",
+}
+
+
+def _sin_interpolaciones(texto: str) -> str:
+    """
+    Quita de una plantilla literal lo que va adentro de `${...}`.
+
+    `insignia ${u.is_active ? 'insignia--deposito' : 'insignia--baja'}` deja
+    `insignia  'insignia--deposito' : 'insignia--baja'`.
+
+    Las llaves se cuentan, para que un `${}` que tenga un objeto adentro no
+    corte la interpolacion por la mitad.
+    """
+    resultado = []
+    i = 0
+    while i < len(texto):
+        if texto[i] == "$" and i + 1 < len(texto) and texto[i + 1] == "{":
+            profundidad = 1
+            i += 2
+            while i < len(texto) and profundidad > 0:
+                if texto[i] == "{":
+                    profundidad += 1
+                elif texto[i] == "}":
+                    profundidad -= 1
+                i += 1
+            resultado.append(" ")
+            continue
+        resultado.append(texto[i])
+        i += 1
+    return "".join(resultado)
+
+
+class TestClasesDelCss:
+    """
+    Una clase que el JS pide y el CSS no tiene NO EXISTE.
+
+    QUE PASO
+    --------
+    Un pase de acentos cambió los nombres de clase del JavaScript: `boton`
+    pasó a ser `botón` (con ñ) en los 30 archivos que la usaban. El CSS se
+    quedó como estaba, con `.boton`.
+
+    El resultado: NINGÚN BOTÓN DE LA APP TENÍA ESTILO. El navegador los
+    pintaba con su aspecto nativo (gris, borde de 3D). La app no daba ningún
+    error, la consola no decía nada, y el síntoma era "se ve feo".
+
+    POR QUE ES UN TEST Y NO UN LINTER
+    ----------------------------------
+    Por la misma razón que el test de comentarios cerrados: el linter
+    detectaría el error de escritura (un acento en un identificador), pero
+    esto detecta el EFECTO: una clase que el código usa y el CSS no define.
+    Lo primero se evita escribiendo bien; lo segundo se detecta solo.
+
+    QUE CHEQUEA
+    -----------
+    Que cada clase que el front usa exista en `styles.css`. Con dos
+    tolerancias, y las dos son deliberadas:
+
+    - `x` (una sola letra): hay clases de una letra que son de uso interno.
+    - Las que se arman por partes (`cabecera__modulo${activo ? ... : ''}`):
+      el nombre final depende de una condición, y el CSS lo define.
+    """
+
+    def _css(self) -> str:
+        raiz = _raiz_del_front()
+        for ruta in (raiz / "styles.css", raiz.parent / "styles.css"):
+            if ruta.exists():
+                return ruta.read_text(encoding="utf-8")
+        pytest.skip("No se encuentra styles.css.")
+
+    def _clases_del_css(self) -> set[str]:
+        # Solo las que empiezan una regla (`.boton {`, `.boton:hover {`), no
+        # las que aparecen dentro de un selector compuesto.
+        return set(re.findall(r"\.([A-Za-z][A-Za-z0-9_-]*)", self._css()))
+
+    def _clases_usadas(self) -> dict[str, set[str]]:
+        """
+        Las clases que el front pide, con los archivos de los que salen.
+
+        Solo se miran los LUGARES donde un nombre de clase va de verdad:
+        la clave `clase:`, el atributo `class=` y las llamadas a `classList`.
+        En cualquier otro sitio, una palabra con acento es PROSA (un
+        comentario que dice "un botón"), y tocarla seria romper el texto.
+
+        Y de los Plantillas Literales solo se lee la parte LITERAL: lo de
+        adentro de `${...}` es JavaScript (`${u.is_active ? 'a' : 'b'}`),
+        y sus palabras no son clases.
+        """
+        raiz = _raiz_del_front()
+        archivos = list(raiz.rglob("*.js")) + [raiz.parent / "index.html"]
+
+        patrones = (
+            r"(clase:\s*')([^']*)(')",
+            r'(clase:\s*")([^"]*)(")',
+            r"(clase:\s*`)([^`]*)(`)",
+            r'(class=")([^"]*)(")',
+            r"(classList\.(?:add|toggle|remove)\(')([^']*)('\))",
+        )
+
+        usadas: dict[str, set[str]] = {}
+        for archivo in archivos:
+            if not archivo.exists():
+                continue
+            texto = archivo.read_text(encoding="utf-8")
+            for patron in patrones:
+                for _, cuerpo, _ in re.findall(patron, texto):
+                    cuerpo = _sin_interpolaciones(cuerpo)
+                    # Los tokens: ni comillas, ni espacios. Un token que
+                    # termina en `--` es el PREFIJO de un nombre que se arma
+                    # con una interpolacion (`insignia--${...}`): no es una
+                    # clase completa y no se puede comprobar.
+                    for token in re.findall(r"[A-Za-z][A-Za-z0-9_-]*", cuerpo):
+                        if token == "x" or token.endswith("--"):
+                            continue
+                        usadas.setdefault(token, set()).add(archivo.name)
+        return usadas
+
+    def test_toda_clase_usada_existe_en_el_css(self):
+        """
+        La clase que pide el JavaScript tiene que existir en el CSS.
+
+        El caso que DUELA es el del pase de acentos: el JS pedía `botón` y
+        el CSS tenía `.boton`. Por eso la comparación IGNORA los acentos: si
+        el CSS tiene la clase sin acentos y el JS la pide con acentos, es un
+        bug, y sale de acá.
+
+        Las clases que el CSS no tiene NI con acentos ni sin ellos están en
+        la lista de pendientes: son clases que todavia no tienen diseno (se
+        usan como marcador o como gancho). Si una clase nueva aparece sin
+        diseno, se agrega a la lista a proposito, no por descuido.
+        """
+        definidas = self._clases_del_css()
+        usadas = self._clases_usadas()
+
+        # Las que el CSS tiene, sin acentos.
+        definidas_planas = {_sin_acentos(clase) for clase in definidas}
+
+        faltan = {}
+        for clase, archivos in usadas.items():
+            if clase in definidas:
+                continue
+            if _sin_acentos(clase) in definidas_planas:
+                # El CSS tiene la version sin acentos: el JS pide la otra.
+                faltan[clase] = archivos
+            elif clase not in CLASES_SIN_DISENO:
+                faltan[clase] = archivos
+
+        assert not faltan, (
+            "Estas clases las pide el JavaScript y no existen en styles.css: "
+            "el navegador las ignora y el elemento sale SIN ESTILO (con el "
+            "aspecto nativo del navegador).\n"
+            + "\n".join(
+                f"  .{clase}  (en {', '.join(sorted(archivos))})"
+                for clase, archivos in sorted(faltan.items())
+            )
+        )
+
+    def test_las_clases_sin_diseno_no_crecen_solas(self):
+        """
+        La lista de clases que todavia no tienen diseno no crece sin que
+        alguien lo decida.
+
+        Si una clase nueva aparece en la lista, es porque alguien la agrego a
+        proposito (para darle diseno después). Si aparece sola, es que se
+        coló un `.algo` en un `clase:` y el elemento sale sin estilo.
+        """
+        # No hay lista fija que comparar: este test documenta la idea. Lo que
+        # se verifica es que la lista NO contenga acentos (serian errores de
+        # escritura) ni espacios (no son clases).
+        for clase in CLASES_SIN_DISENO:
+            assert " " not in clase, f"La clase '{clase}' tiene espacios."
+            assert not any(ord(c) > 127 for c in clase), (
+                f"La clase '{clase}' lleva acentos: los nombres de clase van "
+                "sin acentos."
+            )
+
+    def test_las_clases_no_llevan_acentos(self):
+        """
+        Los nombres de clase son IDENTIFICADORES, no prosa: van sin acentos.
+
+        Un acento en el nombre es un error de escritura que no da error de
+        sintaxis: el JS pide `botón` y el CSS define `.boton`, y el elemento
+        sale sin estilo sin que nadie se entere.
+        """
+        raiz = _raiz_del_front()
+        archivos = list(raiz.rglob("*.js")) + [raiz.parent / "index.html"]
+
+        patrones = (
+            r"(clase:\s*')([^']*)(')",
+            r'(clase:\s*")([^"]*)(")',
+            r"(clase:\s*`)([^`]*)(`)",
+            r'(class=")([^"]*)(")',
+        )
+
+        con_acento: dict[str, set[str]] = {}
+        for archivo in archivos:
+            if not archivo.exists():
+                continue
+            texto = archivo.read_text(encoding="utf-8")
+            for patron in patrones:
+                for _, cuerpo, _ in re.findall(patron, texto):
+                    cuerpo = _sin_interpolaciones(cuerpo)
+                    for token in re.findall(
+                        r"[A-Za-z][A-Za-z0-9_áéíóúüñÁÉÍÓÚÜÑ-]*", cuerpo
+                    ):
+                        if any(ord(c) > 127 for c in token):
+                            con_acento.setdefault(token, set()).add(archivo.name)
+
+        assert not con_acento, (
+            "Estas clases del JavaScript llevan acentos. Los nombres de clase "
+            "son identificadores: van sin acentos, o el CSS no las encuentra.\n"
+            + "\n".join(
+                f"  .{clase}  (en {', '.join(sorted(archivos))})"
+                for clase, archivos in sorted(con_acento.items())
+            )
+        )
+
+
 class TestGrafoDeModulos:
     def test_todo_import_existe(self):
         """

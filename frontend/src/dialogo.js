@@ -238,12 +238,12 @@ export function abrirDialogo({
     // tema y el foco.
     if (avanzarAlCerrar && !descartar && hayCambiosSinGuardar()) {
       const btnPerder = crear('button', {
-        clase: 'botón botón--peligro',
+        clase: 'boton boton--peligro',
         texto: 'Descartar los cambios',
         atributos: { type: 'button' },
       });
       const btnSeguir = crear('button', {
-        clase: 'botón botón--suave',
+        clase: 'boton boton--suave',
         texto: 'Seguir editando',
         atributos: { type: 'button' },
       });
@@ -335,12 +335,12 @@ export function confirmar({
 }) {
   return new Promise((resolver) => {
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: textoCancelar,
       atributos: { type: 'button' },
     });
     const btnAceptar = crear('button', {
-      clase: `boton${peligro ? ' botón--peligro' : ''}`,
+      clase: `boton${peligro ? ' boton--peligro' : ''}`,
       texto: textoConfirmar,
       atributos: { type: 'button' },
     });

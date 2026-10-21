@@ -235,7 +235,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
 
       if (puedeEditar) {
         const btnClave = crear('button', {
-          clase: 'botón botón--suave botón--chico',
+          clase: 'boton boton--suave boton--chico',
           texto: 'Clave',
           atributos: { type: 'button', onclick: () => abrirReset(u) },
         });
@@ -327,7 +327,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Crear usuario',
       atributos: { type: 'submit' },
     });
@@ -381,7 +381,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -427,7 +427,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     form.append(zonaResumen, campoClave.campo, medidor.elemento);
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Cambiar contraseña',
       atributos: { type: 'submit' },
     });
@@ -463,7 +463,7 @@ export function vistaUsuarios({ permisos = [] } = {}) {
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });

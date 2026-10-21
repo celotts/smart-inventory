@@ -19,9 +19,16 @@
  * operador deje trusting la app.
  */
 
-import { api, configurar, consumirOperacionPendiente, haySesion, restaurarSesion } from './api.js';
+import {
+  api,
+  cerrarSesion,
+  configurar,
+  haySesion,
+  marcarSesionCerrada,
+  restaurarSesion,
+} from './api.js';
 import { actualizarCabeceraUsuario, actualizarEstadoIA } from './cabecera.js';
-import { iniciarCampana } from './campana.js';
+import { detenerCampana, iniciarCampana } from './campana.js';
 import { crear, reemplazar } from './dom.js';
 import { estado, setUsuario } from './estado.js';
 import { mostrarVista } from './navegacion.js';
@@ -210,12 +217,12 @@ export async function intentarRestaurar() {
  */
 export function cerrar() {
   const btnCancelar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Cancelar',
     atributos: { type: 'button' },
   });
   const btnConfirmar = crear('button', {
-    clase: 'botón botón--peligro',
+    clase: 'boton boton--peligro',
     texto: 'Cerrar sesión',
     atributos: { type: 'button' },
   });
@@ -293,7 +300,7 @@ export function mostrarLoginModal(alExito) {
   });
 
   const btnSubmit = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Entrar',
     atributos: { type: 'submit' },
   });
@@ -317,35 +324,57 @@ export function mostrarLoginModal(alExito) {
 }
 
 /**
- * Reanuda operación pendiente tras login exitoso.
+ * NO HAY NADA QUE REANUDAR
+ * -------------------------
+ * Antes, cuando el token se vencía en mitad de una petición, esa petición
+ * se guardaba y se volvía a ejecutar sola después del login.
  *
- * `consumirOperacionPendiente` es un export con nombre de `api.js`, no un método
- * del objeto `api`: llamar `api.consumirOperacionPendiente()` es `undefined`
- * y tira un TypeError que el manejador de promesas no controladas de más abajo
- * convierte en un error rojo en la consola, sin relacion visible con lo que el
- * operador estaba haciendo.
+ * Se eliminó: una petición que se reejecuta sola puede volver a escribir
+ * (un "Guardar cambios") o duplicar un movimiento (un escaneo), y el
+ * operador nunca lo pidió. Lo que NO se pudo hacer, no se hace después: se
+ * avisa, se pide la clave de nuevo, y el operador repite lo que quería hacer.
+ *
+ * La función queda como una bandera explícita para que quien lea el código
+ * vea que la decisión es DELIBERADA y no un olvido.
  */
 export async function reanudarOperacionPendiente() {
-  const op = consumirOperacionPendiente();
-  if (!op) return;
-
-  const { ruta, ...opciones } = op;
-  try {
-    avisar('Reanudando operación…', 'info', 1500);
-    await api.pedir(ruta, opciones);
-    avisar('Operación completada', 'exito', 2000);
-  } catch (error) {
-    if (error.status !== 401) { // 401 ya manejado por api.js
-      avisar(`No se pudo reanudar: ${error.message}`, 'error');
-    }
-  }
+  // Sin efecto, a propósito. Ver la nota de arriba.
 }
 
 /**
  * Cierra la sesión en el servidor y vuelve al login.
+ *
+ * EL ORDEN IMPORTA
+ * ----------------
+ * Primero se avisa al backend (que revoca la sesión), después se borra lo
+ * local. Al revés, el POST saldría sin token y el backend no sabría que
+ * cerrar.
+ *
+ * Y BORRAR LO LOCAL NO ES OPCIONAL
+ * --------------------------------
+ * `api.logout()` revoca la sesión en el servidor, pero el access token
+ * seguía EN MEMORIA y el refresh token en `sessionStorage`. Con eso, la
+ * pantalla de login era una pantalla de mentira: la sesión seguía viva en
+ * el cliente, y un `F5` podía devolver al operador a la app con el refresh
+ * token que quedó guardado. `cerrarSesion()` (la de `api.js`) es la que
+ * limpia las dos cosas.
+ *
+ * LA CAMPANA SE DETIENE
+ * ---------------------
+ * La campana pregunta el conteo de avisos cada 30 segundos. Si sigue
+ * corriendo con la sesión cerrada, esa petición va sin token, el backend
+ * responde 401, y la app le mostraba al operador el cartel de "Sesión
+ * expirada" encima del login: un mensaje que decía lo contrario de lo que
+ * había pasado.
  */
 export function hacerLogout() {
+  // La campana primero: mientras sigue el polling, hay peticiones en vuelo
+  // que pueden volver con un 401 en cualquier momento.
+  detenerCampana();
+  marcarSesionCerrada();
+
   api.logout().finally(() => {
+    cerrarSesion();
     setUsuario(null);
     pintarLogin();
   });
@@ -408,14 +437,15 @@ const VISTAS_POR_NOMBRE = {
 // `alExpirar` (401 en una petición cualquiera) VUELVE AL LOGIN: la sesión se
 // fue y hay que empezar de cero.
 //
-// `alRequerirLogin` (401 en una petición CON la operación pendiente guardada)
-// ABRE UN MODAL SIN CAMBIAR DE VISTA: el operador estaba llenando un
-// formulario y perderlo por un token vencido es la clase de error que hace
-// que deje de confiar en la app.
+// `alRequerirLogin` ABRE UN MODAL SIN CAMBIAR DE VISTA: el operador estaba
+// llenando un formulario y perderlo por un token vencido es la clase de error
+// que hace que deje de confiar en la app.
 //
-// `alRequerirLogin` se dispara desde `api.js` cuando hay una operación
-// pendiente: es el único caso en el que el formulario que hay que preservar
-// es el que está en pantalla.
+// LO QUE EL MODAL NO HACE
+// -----------------------
+// El modal pide la clave y reabre la sesión, pero NO repite la petición que
+// falló: esa petición no se guardó, y no se va a reejecutar sola. Ver
+// "NO HAY OPERACIÓN PENDIENTE" en `api.js`.
 configurar({
   alExpirar: () => {
     setUsuario(null);
@@ -427,7 +457,8 @@ configurar({
       await cargarUsuario();
       cabecera.hidden = false;
       avisar(`Hola, ${estado.usuario.full_name ?? estado.usuario.email ?? ''}`.trim(), 'exito', 2500);
-      // Reanudar operación pendiente
+      // La petición que falló NO se reejecuta: el operador repite lo que
+      // quería hacer. Ver "NO HAY OPERACIÓN PENDIENTE" en `api.js`.
       await reanudarOperacionPendiente();
     });
   },

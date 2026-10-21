@@ -81,7 +81,7 @@ export function vistaProductos({ permisos = [] }) {
     });
     conTooltip(btnNuevo, 'Alta de un producto del maestro: marca, modelo, SKU, stock y códigos de etiqueta.');
     const btnCategorias = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Categorias',
       atributos: {
         type: 'button',
@@ -197,7 +197,7 @@ export function vistaProductos({ permisos = [] }) {
       item.append(qr, cuerpo);
 
       const btnEtiqueta = crear('button', {
-        clase: 'botón botón--suave botón--chico',
+        clase: 'boton boton--suave boton--chico',
         texto: 'Etiqueta',
         atributos: { type: 'button', onclick: () => abrirEtiqueta(p) },
       });
@@ -206,13 +206,13 @@ export function vistaProductos({ permisos = [] }) {
 
       if (puedeEditar) {
         const btnEditar = crear('button', {
-          clase: 'botón botón--suave botón--chico',
+          clase: 'boton boton--suave boton--chico',
           texto: 'Editar',
           atributos: { type: 'button', onclick: () => abrirEdicion(p) },
         });
         conTooltip(btnEditar, 'Edita el producto: precio, puntos de stock, códigos de etiqueta y atributos.');
         const btnDuplicar = crear('button', {
-          clase: 'botón botón--suave botón--chico',
+          clase: 'boton boton--suave boton--chico',
           texto: 'Duplicar',
           atributos: { type: 'button', onclick: () => abrirAlta(p) },
         });
@@ -221,7 +221,7 @@ export function vistaProductos({ permisos = [] }) {
           'Abre el alta con los datos de este producto ya cargados (marca, modelo, variante, categoría, costo y stock). El SKU queda vacío: es lo único que hay que escribir.',
         );
         const btnDescontinuar = crear('button', {
-          clase: 'botón botón--chico botón--peligro',
+          clase: 'boton boton--chico boton--peligro',
           texto: p.is_active ? 'Descontinuar' : 'Reactivar',
           atributos: { type: 'button', onclick: () => confirmarAlternarActivo(p) },
         });
@@ -232,7 +232,7 @@ export function vistaProductos({ permisos = [] }) {
             : 'Vuelve a marcar el producto como vendible.',
         );
         const btnEliminar = crear('button', {
-          clase: 'botón botón--chico botón--peligro',
+          clase: 'boton boton--chico boton--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button', onclick: () => confirmarEliminarProducto(p) },
         });
@@ -266,7 +266,7 @@ export function vistaProductos({ permisos = [] }) {
     const qr = imagenQrProducto(p.id, p.qr_code || p.sku, 180);
     const barras = imagenBarcodeProducto(p.id, p.barcode || p.sku, 280);
 
-    const codigos = crear('div', { clase: 'etiqueta__códigos mono' });
+    const codigos = crear('div', { clase: 'etiqueta__codigos mono' });
     codigos.append(
       crear('div', { texto: `QR: ${p.qr_code || p.sku}` }),
       crear('div', { texto: `Barras: ${p.barcode || p.sku}` }),
@@ -281,7 +281,7 @@ export function vistaProductos({ permisos = [] }) {
     });
     conTooltip(btnImprimir, 'Abre la etiqueta en una ventana aparte, sola y lista para imprimir.');
     const btnCerrar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
@@ -390,12 +390,12 @@ export function vistaProductos({ permisos = [] }) {
       clase: 'modal--confirmacion modal--peligro',
       acciones: [
         crear('button', {
-          clase: 'botón botón--suave',
+          clase: 'boton boton--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),
         crear('button', {
-          clase: 'botón botón--peligro',
+          clase: 'boton boton--peligro',
           texto: 'Eliminar',
           atributos: { type: 'button' },
         }),
@@ -428,7 +428,7 @@ export function vistaProductos({ permisos = [] }) {
       clase: 'modal--confirmacion',
       acciones: [
         crear('button', {
-          clase: 'botón botón--suave',
+          clase: 'boton boton--suave',
           texto: 'Cancelar',
           atributos: { type: 'button' },
         }),

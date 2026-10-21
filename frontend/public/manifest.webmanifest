@@ -1,5 +1,5 @@
 {
-  "name": "Smart Inventory — Activos e incidencias",
+  "name": "Gestor de Activos — Inventario e incidencias",
   "short_name": "Inventario",
   "description": "Inventario de activos con escáner de códigos QR y barras, incidencias con SLA y mantenimiento.",
   "start_url": "/",

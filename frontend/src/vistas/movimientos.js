@@ -126,14 +126,14 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   );
 
   const btnActualizar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => cargar() },
   });
   conTooltip(btnActualizar, 'Vuelve a pedir el stock por producto al servidor.');
 
   const btnExportar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Exportar CSV',
     atributos: {
       type: 'button',
@@ -558,7 +558,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     );
 
     const btnMover = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Mover mercancia',
       atributos: { type: 'submit' },
     });
@@ -566,7 +566,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
 
     let cerrarModal = () => {};
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });

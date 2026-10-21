@@ -145,7 +145,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
   for (const texto of PREGUNTAS_SUGERIDAS) {
     sugerencias.append(
       crear('button', {
-        clase: 'botón botón--suave',
+        clase: 'boton boton--suave',
         texto: texto,
         atributos: {
           type: 'button',
@@ -181,7 +181,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
   // --- Reporte --------------------------------------------------------------
   if (permisos.includes('ai:report')) {
     const botonReporte = crear('button', {
-      clase: 'botón botón--exito botón--bloque',
+      clase: 'boton boton--exito boton--bloque',
       texto: 'Generar reporte operativo',
       atributos: { type: 'button', onclick: () => generarReporte(caja) },
     });
@@ -239,7 +239,7 @@ export function vistaConsultas({ permisos = [] } = {}) {
       // La accion sugerida ("anda a Productos"): un botón, no un texto.
       if (respuesta.sugerencia?.vista) {
         const btnSugerencia = crear('button', {
-          clase: 'botón botón--suave botón--chico',
+          clase: 'boton boton--suave boton--chico',
           texto: respuesta.sugerencia.texto,
           atributos: { type: 'button' },
         });

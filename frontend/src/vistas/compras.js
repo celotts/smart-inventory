@@ -79,7 +79,7 @@ export function vistaCompras({ permisos = [] }) {
   }
 
   const btnRecargar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Actualizar',
     atributos: { type: 'button', onclick: () => cargar() },
   });
@@ -247,7 +247,7 @@ export function vistaCompras({ permisos = [] }) {
 
     if (puedeCrear && pendientes.length) {
       const btnRecibir = crear('button', {
-        clase: 'botón botón--exito',
+        clase: 'boton boton--exito',
         texto: 'Recibir mercancia',
         atributos: { type: 'button' },
       });
@@ -307,7 +307,7 @@ export function vistaCompras({ permisos = [] }) {
     // Orden ya completa (o usuario sin permiso): solo mostrar.
     acciones.push(
       crear('button', {
-        clase: 'botón botón--suave',
+        clase: 'boton boton--suave',
         texto: 'Cerrar',
         atributos: { type: 'button' },
       }),
@@ -390,14 +390,14 @@ export function vistaCompras({ permisos = [] }) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Crear orden',
       atributos: { type: 'submit' },
     });
     form.append(btnGuardar);
 
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });

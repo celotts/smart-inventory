@@ -269,7 +269,7 @@ export const TRADUCCIONES = {
   'Anterior': 'Previous',
 
   // --- La cabecera ---
-  'Smart Inventory': 'Smart Inventory',
+  'Gestor de Activos': 'Gestor de Activos',
   'Inicio': 'Home',
   'Escanear': 'Scan',
   'Inventario': 'Inventory',
@@ -297,7 +297,7 @@ export const TRADUCCIONES = {
   // --- La pantalla de entrada ---
   'Elegí con que módulo vas a trabajar. Podés cambiarlo desde la cabecera.':
     'Choose the workspace you are working on. You can change it from the header.',
-  'Smart Inventory · Activos e incidencias': 'Smart Inventory · Assets and incidents',
+  'Gestor de Activos · Inventario e incidencias': 'Gestor de Activos · Assets and incidents',
 
   // --- El login ---
   'Iniciar sesión': 'Sign in',

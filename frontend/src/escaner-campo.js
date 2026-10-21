@@ -166,7 +166,7 @@ export function leerConCamara() {
     }
 
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -225,7 +225,7 @@ export async function escanearEnCampo({ campo, nombre = 'el campo', alUsar }) {
  */
 export function botonEscanear({ campo, nombre = 'el campo', texto = 'Escanear' }) {
   const boton = crear('button', {
-    clase: 'botón botón--suave botón--chico',
+    clase: 'boton boton--suave boton--chico',
     texto,
     atributos: {
       type: 'button',

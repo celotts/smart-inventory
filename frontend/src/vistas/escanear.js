@@ -190,7 +190,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
   // Botón cámara: toggle on/off con tooltip
   botonCamara = crear('button', {
-    clase: 'botón botón--bloque botón--camara',
+    clase: 'boton boton--bloque boton--camara',
     atributos: {
       type: 'button',
       'aria-label': 'Alternar cámara del escaner',
@@ -220,7 +220,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
 
   // ----- 3. Tarjeta: Ingreso Manual (COLAPSABLE) -----
   inputCodigo = crear('input', {
-    clase: 'campo__control campo__control--código mono',
+    clase: 'campo__control campo__control--codigo mono',
     atributos: {
       type: 'text',
       id: 'codigo-manual',
@@ -236,7 +236,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   });
 
   botonManual = crear('button', {
-    clase: 'botón botón--bloque botón--manual',
+    clase: 'boton boton--bloque boton--manual',
     texto: 'Registrar',
     atributos: {
       type: 'submit',
@@ -899,7 +899,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
 
     const cuerpo = crear('div', { clase: 'lista__cuerpo' });
     cuerpo.append(
-      crear('div', { clase: 'lista__título mono', texto: unidad.serial_number }),
+      crear('div', { clase: 'lista__titulo mono', texto: unidad.serial_number }),
       crear('div', {
         clase: 'lista__meta',
         texto: [estadoInfo.texto, unidad.ubicacion_nombre].filter(Boolean).join(' · '),
@@ -907,7 +907,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     );
 
     const btnRegistrar = crear('button', {
-      clase: 'botón botón--chico',
+      clase: 'boton boton--chico',
       texto: 'Registrar',
       atributos: { type: 'button' },
     });
@@ -950,7 +950,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
   }
 
   const boton = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Entendido',
     atributos: { type: 'button' },
   });
@@ -1032,7 +1032,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     if (dispositivo.id) {
       bloque.append(
         crear('button', {
-          clase: 'botón botón--suave botón--bloque',
+          clase: 'boton boton--suave boton--bloque',
           texto: 'Ver la ficha del componente',
           atributos: {
             type: 'button',
@@ -1140,7 +1140,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       );
 
       const btnLimpiar = crear('button', {
-        clase: 'botón botón--suave botón--chico',
+        clase: 'boton boton--suave boton--chico',
         texto: 'Limpiar',
         atributos: { type: 'button' },
       });
@@ -1152,7 +1152,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
       conTooltip(btnLimpiar, 'Borra el recibo de escaneos de está sesión.');
 
       const btnExportar = crear('button', {
-        clase: 'botón botón--suave botón--chico',
+        clase: 'boton boton--suave boton--chico',
         texto: 'Exportar CSV',
         atributos: { type: 'button' },
       });

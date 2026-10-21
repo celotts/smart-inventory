@@ -1,4 +1,4 @@
-# Smart Inventory B2B
+# Gestor de Activos
 
 Control de activos para empresas: inventario de dispositivos con escáner de
 códigos, incidencias con SLA y mantenimiento, con IA integrada para análisis y

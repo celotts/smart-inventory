@@ -55,13 +55,13 @@ import { campoTexto } from '../formulario.js';
           );
 
           const btnAtributos = crear('button', {
-            clase: 'botón botón--suave botón--chico',
+            clase: 'boton boton--suave boton--chico',
             texto: 'Atributos',
             atributos: { type: 'button', onclick: () => abrirAtributos(c) },
           });
 
           const btnEditar = crear('button', {
-            clase: 'botón botón--suave botón--chico',
+            clase: 'boton boton--suave boton--chico',
             texto: 'Editar',
             atributos: { type: 'button', onclick: () => abrirEdicionCategoria(c, pintar) },
           });
@@ -85,7 +85,7 @@ import { campoTexto } from '../formulario.js';
     conTooltip(btnNueva, 'Crea una categoría. Si le pones una categoría padre, pasa a ser una subcategoria.');
 
     const btnCerrar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });
@@ -157,7 +157,7 @@ import { campoTexto } from '../formulario.js';
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: categoria ? 'Guardar cambios' : 'Crear categoría',
       atributos: { type: 'submit' },
     });
@@ -200,7 +200,7 @@ import { campoTexto } from '../formulario.js';
     // tecla Escape, y en un celular no hay Escape: el operador queda
     // atrapado en el formulario.
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -307,7 +307,7 @@ import { campoTexto } from '../formulario.js';
     );
 
     const btnAgregar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Agregar atributo',
       atributos: { type: 'submit' },
     });
@@ -353,7 +353,7 @@ import { campoTexto } from '../formulario.js';
     }
 
     const btnCerrar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cerrar',
       atributos: { type: 'button' },
     });

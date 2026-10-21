@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import io
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -39,18 +40,63 @@ BOM = "﻿"
 SEPARADOR = ";"
 
 
+# Los caracteres con los que Excel interpreta una celda como una FORMULA.
+# Una celda que empieza por estos, cuando se abre el CSV, se EVALUA: no es
+# texto, es codigo.
+PREFIJOS_DE_FORMULA = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _celda_segura(valor: Any) -> str:
+    """
+    Una celda que Excel no pueda ejecutar.
+
+    EL RIESGO REAL
+    --------------
+    `csv.writer` escapa el separador y las comillas, asi que el CSV es
+    correcto como CSV. Lo que NO escapa es que la celda EMPIECE por `=`, `+`,
+    `-` o `@`: Excel (y LibreOffice) lo toman como una formula y la
+    EVALUAN al abrir el archivo.
+
+    Y los valores vienen de la base, que es de gente que escribe: el nombre
+    de un producto, el de un cliente, el titulo de un caso, el serial de un
+    equipo leido de una etiqueta. Con eso, cualquiera que pueda dar de alta un
+    producto puede dejar en el CSV un `=HYPERLINK(...)` o un `=cmd|...` que
+    se ejecuta en la maquina de quien abre el listado (el jefe).
+
+    El prefijo de comilla simple (`'`) es la forma estandar de neutralizarlo:
+    Excel lo muestra como texto y no lo evalua.
+
+    El `\\t` y el `\\r` tambien se escapan: hay lectores que los saltean
+    como un separador de celdas y convierten la celda siguiente en formula.
+    """
+    if valor is None:
+        return ""
+    # Un numero no es una formula: el `-` de un negativo es un signo, y
+    # prefijarlo convertiria la celda en texto (y el "menor que" del jefe
+    # dejaria de funcionar).
+    if isinstance(valor, (int, float, Decimal)) and not isinstance(valor, bool):
+        return str(valor)
+    texto = str(valor)
+    if texto.startswith(PREFIJOS_DE_FORMULA):
+        return "'" + texto
+    return texto
+
+
 def _a_csv(encabezados: list[str], filas: list[list[Any]]) -> str:
     """
     Arma el CSV.
 
     `csv.writer` con `lineterminator='\\r\\n'`: es lo que espera Excel en
     Windows, y con `\\n` las líneas se ven pegadas en algunos lectores.
+
+    Cada celda pasa por `_celda_segura`: el CSV se abre en Excel, y Excel
+    EJECUTA las celdas que empiezan por `=`.
     """
     buffer = io.StringIO()
     escritor = csv.writer(buffer, delimiter=SEPARADOR, lineterminator="\r\n")
     escritor.writerow(encabezados)
     for fila in filas:
-        escritor.writerow(["" if v is None else v for v in fila])
+        escritor.writerow([_celda_segura(v) for v in fila])
     return BOM + buffer.getvalue()
 
 

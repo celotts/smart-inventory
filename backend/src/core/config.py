@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     )
 
     # --- General ---------------------------------------------------------
-    app_name: str = "Smart Inventory B2B API"
+    app_name: str = "Gestor de Activos — API"
     app_env: str = "production"
     debug: bool = False
 

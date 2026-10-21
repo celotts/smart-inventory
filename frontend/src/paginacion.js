@@ -51,14 +51,14 @@ export function crearPaginacion({
   const zona = crear('div', { clase: 'paginacion' });
 
   const btnAnterior = crear('button', {
-    clase: 'botón botón--suave botón--chico',
+    clase: 'boton boton--suave boton--chico',
     texto: '‹ Anterior',
     atributos: { type: 'button' },
   });
   conTooltip(btnAnterior, 'Vuelve a la página anterior.');
 
   const btnSiguiente = crear('button', {
-    clase: 'botón botón--suave botón--chico',
+    clase: 'boton boton--suave boton--chico',
     texto: 'Siguiente ›',
     atributos: { type: 'button' },
   });

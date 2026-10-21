@@ -29,7 +29,6 @@
 
 import { verificarVersionDelServidor } from './build.js';
 import { iniciarChipUsuario, iniciarModoExterior, iniciarSelectorModulo, inicializarFooter } from './cabecera.js';
-import { iniciarCampana } from './campana.js';
 import { aplicarIdiomaGuardado, iniciarSelectorIdioma } from './idioma.js';
 import { mostrarVista } from './navegacion.js';
 import { arrancar, cerrar } from './sesion.js';

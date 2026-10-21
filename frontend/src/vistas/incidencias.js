@@ -510,7 +510,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       );
 
       const btnVer = crear('button', {
-        clase: 'botón botón--suave botón--chico',
+        clase: 'boton boton--suave boton--chico',
         texto: 'Ver',
         atributos: { type: 'button', onclick: () => abrirDetalle(i) },
       });
@@ -524,7 +524,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       // puede, y abrir cada caso para leerlo antes seria un paso de más.
       if (puedeGestionar && !i.assigned_to && i.status === 'OPEN') {
         const btnTomar = crear('button', {
-          clase: 'botón botón--chico',
+          clase: 'boton boton--chico',
           texto: 'Tomar',
           atributos: { type: 'button' },
         });
@@ -615,7 +615,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     );
 
     const btnGuardar = crear('button', {
-      clase: 'botón botón--bloque',
+      clase: 'boton boton--bloque',
       texto: 'Reportar incidencia',
       atributos: { type: 'submit' },
     });
@@ -668,7 +668,7 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     // formulario y no puede volver a la lista. Todo modal con formulario
     // tiene que tener una salida visible.
     const btnCancelar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cancelar',
       atributos: { type: 'button' },
     });
@@ -896,7 +896,7 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
   }
 
   const btnCerrar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Cerrar',
     atributos: { type: 'button' },
   });
@@ -935,7 +935,7 @@ function accionesDe(detalle, alCambiar) {
     }
 
     const btnCambiar = crear('button', {
-      clase: 'botón botón--suave',
+      clase: 'boton boton--suave',
       texto: 'Cambiar estado',
       atributos: { type: 'button' },
     });
@@ -983,7 +983,7 @@ function accionesDe(detalle, alCambiar) {
   });
 
   const btnComentar = crear('button', {
-    clase: 'botón botón--suave',
+    clase: 'boton boton--suave',
     texto: 'Comentar',
     atributos: { type: 'button' },
   });
@@ -1082,7 +1082,7 @@ function cierreDe(detalle, alCambiar) {
   zona.append(campoResolucion.campo, zonaDestino);
 
   const btnResolver = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Resolver el caso',
     atributos: { type: 'button' },
   });

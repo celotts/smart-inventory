@@ -82,3 +82,7 @@ desktop.ini
 *~
 .idea/
 .vscode/
+# Playwright: resultados de las pruebas de interfaz.
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright/

@@ -30,7 +30,7 @@ export function vistaLogin({ alEntrar }) {
 
   marca.append(
     logo,
-    crear('h1', { clase: 'login__titulo', texto: 'Smart Inventory' }),
+    crear('h1', { clase: 'login__titulo', texto: 'Gestor de Activos' }),
     crear('p', { clase: 'tenue pequeno', texto: 'Activos, inventario e incidencias' }),
   );
 
@@ -70,7 +70,7 @@ export function vistaLogin({ alEntrar }) {
   error.hidden = true;
 
   const boton = crear('button', {
-    clase: 'botón botón--bloque',
+    clase: 'boton boton--bloque',
     texto: 'Entrar',
     atributos: { type: 'submit' },
   });

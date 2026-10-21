@@ -252,6 +252,22 @@ def validar_select(sql: str) -> str:
             "del servidor por preguntas en lenguaje natural."
         )
 
+    # LAS TABLAS
+    #
+    # El chequeo de palabras y de columnas alcanza para que no se ESCRIBA y
+    # para que no salgan las credenciales. Lo que no cubria era el ALCANCE: la
+    # lista de tablas permitidas se le decia al modelo, pero no se le
+    # imponia. Con las credenciales de la aplicacion, que ven todo, un
+    # operador podia pedirle a la IA los datos de una tabla que su rol no
+    # tiene permiso de ver.
+    tabla_no_permitida = _tabla_no_permitida(limpio)
+    if tabla_no_permitida:
+        raise SQLRechazado(
+            f"La tabla `{tabla_no_permitida}` no se puede consultar: el "
+            "agente solo lee el inventario (clientes, equipos, movimientos, "
+            "reparaciones, ordenes de compra)."
+        )
+
     return limpio
 
 
@@ -343,6 +359,20 @@ def tablas_permitidas() -> set[str]:
     }
 
 
+# Las VISTAS que el agente puede consultar.
+#
+# Cada una es una consulta ya escrita sobre tablas que el prompt no le
+# muestra (stock, mantenimiento, incidencias). Se listan una por una: si se
+# agrega una vista nueva, hay que decidir aqui si entra.
+VISTAS_PERMITIDAS: set[str] = {
+    "v_devices_maintenance_due",
+    "v_low_stock",
+    "v_stock_summary",
+    "v_incident_sla",
+    "v_maintenance_metrics",
+}
+
+
 # Columnas que el LLM no puede leer NI SI EL MISMO LO PIDE.
 #
 # `_PALABRAS_PROHIBIDAS` filtra ESCRITURAS; esto filtra LECTURAS que no
@@ -356,7 +386,99 @@ _COLUMNAS_PROHIBIDAS: set[str] = {
     # cualquier tabla, incluidas las de negocio y las de clientes.
     "old_value",
     "new_value",
+    # DATOS DE CONTACTO
+    #
+    # Las preguntas de inventario ("cuantos equipos hay en el deposito",
+    # "que se movio ayer") no necesitan el email ni el telefono de nadie. Y
+    # un operador que en la interfaz no puede ver la lista de usuarios, por
+    # la IA no tiene por que verle los contactos: la tabla `users` se puede
+    # consultar para el nombre y el rol (que es lo que se usa para armar los
+    # historiales), pero el contacto personal no sale.
+    "email",
+    "contact_email",
+    "phone",
+    "phone2",
+    "contact_phone",
+    "address",
+    # El identificador fiscal identifica al cliente ante la administracion
+    # publica: no es un dato de inventario.
+    "tax_id",
 }
+
+
+def _tablas_del_sql(sql: str) -> set[str]:
+    """
+    Las tablas que el SQL menciona.
+
+    Se buscan despues de `FROM` y de `JOIN` (con sus alias) y tambien las
+    tablas del `UPDATE`/`INTO` (que ya no llegan aca, pero el analizador no
+    distingue y es mejor que sobre).
+
+    El nombre de la tabla es el que sigue a la palabra clave: los alias
+    (`FROM devices d`) no son tablas, y `v_devices` (una vista) tampoco: se
+    toma el ultimo segmento de un nombre con punto, y las vistas que no
+    esten en la lista se tratan como la tabla de base.
+    """
+    tablas: set[str] = set()
+
+    for coincidencia in re.finditer(
+        r"\b(?:from|join|into|update)\s+([a-zA-Z_][\w$]*(?:\.[a-zA-Z_][\w$]*)?)",
+        sql,
+        re.IGNORECASE,
+    ):
+        nombre = coincidencia.group(1).lower()
+        if "." in nombre:
+            nombre = nombre.rsplit(".", 1)[1]
+        tablas.add(nombre)
+
+    return tablas
+
+
+def _tabla_no_permitida(sql: str) -> str | None:
+    """
+    La tabla que el SQL menciona y que NO puede consultar, o None.
+
+    POR QUE IMPORTA
+    ---------------
+    La lista de tablas permitidas se le DECIA al modelo en el prompt, pero
+    no se IMPONIA: el modelo podia escribir `SELECT ... FROM sessions` y
+    salia. Y la consulta corria con las credenciales de la aplicacion, que
+    ven TODO: un operador (que no puede ver la lista de usuarios ni la
+    auditoria en la interfaz) podia pedirle a la IA "dame los usuarios con
+    su email" y le contestaba.
+
+    O sea: el permiso por rol no se aplicaba a las consultas del agente.
+    Esto lo cierra: la tabla tiene que estar en la lista, y si no esta, la
+    consulta se rechaza con un motivo legible.
+    """
+    permitidas = tablas_permitidas()
+
+    # Los NOMBRES DE LOS CTE no son tablas: `WITH x AS (SELECT ...) SELECT *
+    # FROM x` consulta la tabla del cuerpo, no una tabla llamada "x".
+    # El nombre de un CTE es el que va justo antes de su `AS (`: asi se
+    #recognizan todos, los que van separados por comas y los que usan
+    # "RECURSIVO" (que en espanol es "RECURSIVO" y no "RECURSIVE").
+    nombres_de_cte = {
+        m.group(1).lower()
+        for m in re.finditer(
+            r"([a-zA-Z_][\w$]*)\s+AS\s*(?:(?:NOT\s+)?MATERIALIZED\s*)?\(",
+            sql,
+            re.IGNORECASE,
+        )
+    }
+
+    for tabla in _tablas_del_sql(sql):
+        if tabla in permitidas or tabla in nombres_de_cte:
+            continue
+        # Las VISTAS del sistema son consultas sobre tablas que el modelo
+        # no ve en el prompt (stock, mantenimiento, incidencias). Se
+        # permiten una por una y por su nombre: un comodin `v_*` seria un
+        # agujero, porque cualquier vista que se agregue despues pasaria
+        # sin revisarla.
+        if tabla in VISTAS_PERMITIDAS:
+            continue
+        return tabla
+    return None
 
 
 def _referencia_columna_prohibida(sql: str) -> str | None:

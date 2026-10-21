@@ -1,5 +1,5 @@
 """
-Middleware de seguridad y observabilidad para la API de Smart Inventory.
+Middleware de seguridad y observabilidad para la API de Gestor de Activos.
 
 Capa transversal: se aplica a TODAS las rutas, incluyendo las que no requieren
 auth, porque el objetivo es defender el perimetro antes de que llegue al router.

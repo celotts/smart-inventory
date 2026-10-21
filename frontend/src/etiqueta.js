@@ -33,6 +33,7 @@
 
 import { crear } from './dom.js';
 import { api } from './api.js';
+import { svgComoNodo as svgSaneado } from './svg-seguro.js';
 
 /**
  * Pide un SVG a la API y lo devuelve como nodo del documento.
@@ -44,21 +45,15 @@ import { api } from './api.js';
 async function svgComoNodo(ruta, alt) {
   const svgTexto = await api.pedir(ruta, { comoTexto: true });
 
-  const doc = new DOMParser().parseFromString(svgTexto, 'image/svg+xml');
-
-  // Un SVG mal formado no lanza: `DOMParser` devuelve un documento con un
-  // `<parsererror>` adentro. Sin este chequeo, se insertaria el error de
-  // parseo en la etiqueta.
-  const raiz = doc.documentElement;
-  if (!raiz || raiz.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) {
-    throw new Error('El backend no devolvio un SVG válido.');
-  }
-
-  // Nada de scripts. Es código de nuestro propio backend, pero un SVG no
-  // tiene por que traerlos.
-  for (const script of raiz.querySelectorAll('script')) script.remove();
-
-  const nodo = document.importNode(raiz, true);
+  // El SVG pasa por el saneador: sin scripts, sin manejadores de evento, sin
+  // referencias a recursos de otros servidores. Es codigo de nuestro propio
+  // backend, pero un SVG no tiene por que traer esas cosas.
+  //
+  // El import se renombra (`svgSaneado`) porque esta función tambien se
+  // llama `svgComoNodo`: dos declaraciones con el mismo nombre en el mismo
+  // modulo son un `SyntaxError`, y un `SyntaxError` en un modulo aborta el
+  // arranque de la app entera.
+  const nodo = svgSaneado(svgTexto);
   nodo.setAttribute('role', 'img');
   nodo.setAttribute('aria-label', alt);
   return nodo;
