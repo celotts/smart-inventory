@@ -243,6 +243,94 @@ def _claves_de_crear(texto: str) -> set[str]:
     return claves
 
 
+class TestCss:
+    """
+    El CSS es codigo, y tiene una clase de bug que no da error: una regla
+    MUERTA.
+
+    QUE PASO
+    ---------
+    Un comentario de cabecera quedo sin cerrar (al insertar un bloque antes
+    del comentario, se llevo su linea de cierre). Todo lo que venia
+    despues quedo DENTRO del comentario: la regla `.kpi` dejo de existir.
+
+    El sintoma no fue un error: fue un diseno roto. Los cuadros de resumen
+    del tablero dejaron de tener fondo y borde, y el navegador los pinto con
+    su aspecto NATIVO de boton (gris, con borde de 3D). La app no daba
+    ningun error, la consola no decia nada, y el unico sintoma era que la
+    pantalla se veia fea.
+
+    POR QUE UN TEST Y NO UN LINTER
+    -------------------------------
+    Porque el linter (si lo hubiera) avisaria del comentario sin cerrar, que
+    es el error de ESCRITURA; el test de abajo detecta el efecto: reglas
+    muertas y contenedores sin cerrar. Lo primero se evita escribiendo bien;
+    lo segundo se detecta solo.
+    """
+
+    def _css(self) -> str:
+        # El CSS puede estar en la raiz del front o dentro de `src`: se
+        # buscan los dos y no se assume ninguna de las dos.
+        raiz = _raiz_del_front()
+        for ruta in (raiz / "styles.css", raiz.parent / "styles.css"):
+            if ruta.exists():
+                return ruta.read_text(encoding="utf-8")
+        pytest.skip("No se encuentra styles.css.")
+
+    def test_los_comentarios_estan_cerrados(self):
+        """
+        Un `/*` sin su `*/` se traga todo lo que viene despues: las reglas
+        que quedan dentro del comentario no existen, y el navegador no dice
+        nada.
+        """
+        texto = self._css()
+
+        abiertos = texto.count("/*")
+        cerrados = texto.count("*/")
+
+        assert abiertos == cerrados, (
+            f"styles.css tiene {abiertos} comentarios abiertos y {cerrados} cerrados: "
+            "las reglas entre un '/*' sin cerrar y el siguiente '*/' estan MUERTAS."
+        )
+
+    def test_las_llaves_estan_balanceadas(self):
+        """
+        Una llave de mas deja todo lo que sigue dentro de la regla anterior;
+        una de menos rompe el archivo entero.
+        """
+        texto = self._css()
+        # Los comentarios se borran primero: un `{` dentro de un comentario no
+        # cuenta (y un `/*` puede tener un `*/` adentro de un ejemplo).
+        sin_comentarios = re.sub(r"/\*.*?\*/", "", texto, flags=re.S)
+
+        profundidad = 0
+        for i, linea in enumerate(sin_comentarios.split("\n"), 1):
+            profundidad += linea.count("{") - linea.count("}")
+            assert profundidad >= 0, f"styles.css: sobra un '}}' en la linea {i}"
+
+        assert profundidad == 0, (
+            f"styles.css: faltan {profundidad} llaves de cierre: las reglas "
+            "del final del archivo estan dentro de otra regla."
+        )
+
+    def test_las_reglas_de_los_kpis_existen(self):
+        """
+        Las reglas que dan el diseno de los cuadros de resumen tienen que
+        estar en el archivo. Si una se traga un comentario, el tablero se
+        ve con el estilo NATIVO del boton: gris, con borde de 3D, y nadie
+        sabe por que.
+        """
+        texto = self._css()
+
+        for regla in (
+            ".kpi {",
+            ".kpi--destacado {",
+            ".kpi__valor {",
+            ".kpi--accion {",
+        ):
+            assert regla in texto, f"styles.css: falta la regla '{regla}'"
+
+
 class TestGrafoDeModulos:
     def test_todo_import_existe(self):
         """

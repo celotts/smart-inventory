@@ -30,6 +30,10 @@ export const estado = {
 /** Cambia el modulo de trabajo. */
 export function setModulo(modulo) {
   estado.modulo = modulo;
+  // El `body` lleva el modulo: el CSS usa `body[data-modulo]` para pintar
+  // con el color del modulo (azul Inventario, ambar Service Desk). Sin esto,
+  // el color vive solo en los botones de la cabecera.
+  document.body.dataset.modulo = modulo;
 }
 
 /** Guarda el usuario conectado. */

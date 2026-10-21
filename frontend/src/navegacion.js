@@ -30,7 +30,7 @@ import { vistaNuevo } from './vistas/nuevo.js';
 import { vistaProductos } from './vistas/productos.js';
 import { vistaUsuarios } from './vistas/usuarios.js';
 import { reemplazar } from './dom.js';
-import { permisosDe, setVistaActual, estado } from './estado.js';
+import { permisosDe, setModulo, setVistaActual, estado } from './estado.js';
 import { MODULOS, modulosDe, pestanasDelModulo } from './modulos.js';
 import { actualizarCabeceraUsuario } from './cabecera.js';
 
@@ -136,7 +136,9 @@ export function mostrarVista(nombre, opciones = {}) {
  */
 export function cambiarModulo(modulo, usuario) {
   if (!modulosDe(usuario).includes(modulo)) return;
-  estado.modulo = modulo;
+  // `setModulo` deja el modulo en el `body`: el CSS lo usa para pintar con
+  // el color del modulo (azul Inventario, ambar Service Desk).
+  setModulo(modulo);
   // Las pestanas dependen del modulo: hay que repintarlas o la app queda
   // mostrando las del modulo anterior.
   actualizarCabeceraUsuario();

@@ -1302,11 +1302,23 @@ textarea.campo__control {
 
 /* ---------------------------------------------------------------------------
    KPIs
+   ---------------------------------------------------------------------------
+   Los cuadros de resumen del tablero. */
 .kpi {
+  /* El fondo y el borde en VARIABLES, no en valores fijos.
+   *
+   * Un KPI accionable es un `<button>`, y el navegador pinta los botones con
+   * su estilo nativo (fondo gris, borde de 3D de 2px) si no se le saca la
+   * "apariencia". Con el fondo declarado aca y en la variable, el boton se
+   * ve EXACTAMENTE igual que la caja que era antes, y el destacado puede
+   * cambiarlo sin que se pisen las reglas. */
+  --kpi-fondo: var(--superficie-2, var(--superficie));
+  --kpi-borde: var(--borde);
+
   padding: 0.75rem 1rem;
-  border: 1px solid var(--borde);
+  border: 1px solid var(--kpi-borde);
   border-radius: var(--radio);
-  background: var(--superficie-2, var(--superficie));
+  background: var(--kpi-fondo);
 }
 .kpi__valor {
   font-size: var(--text-2xl, 1.5rem);
@@ -1320,9 +1332,21 @@ textarea.campo__control {
  * grandes y los secundarios van en una fila aparte, mas chicos. El tamanio
  * es la jerarquia, no el color. */
 .kpi--destacado {
+  --kpi-fondo: var(--color-surface);
+  --kpi-borde: var(--color-border-strong);
+
   padding: 1rem 1.25rem;
-  background: var(--color-surface);
-  border-color: var(--color-border-strong);
+  background: var(--kpi-fondo);
+  border-color: var(--kpi-borde);
+}
+
+/* El numero grande, con el color del MODULO.
+ *
+ * Inventario es azul y Service Desk es ambar: el color del numero dice de
+ * que modulo es el tablero, sin necesidad de un cartel que lo diga. Los dos
+ * tokens ya estan verificados por contraste sobre blanco (5.8:1 y 5.1:1). */
+.kpi--destacado .kpi__valor {
+  color: var(--modulo-color, var(--texto));
 }
 
 .kpi--destacado .kpi__valor {
@@ -2174,6 +2198,26 @@ textarea.campo__control {
   border-color: var(--modulo-color, var(--primary));
 }
 
+/* EL COLOR DEL MODULO, PARA TODA LA APP
+ *
+ * El color del modulo (azul Inventario, ambar Service Desk) estaba puesto
+ * solo en los elementos que lo usaban (el lanzador y los botones de la
+ * cabecera). Con el atributo en el `body`, cualquier parte de la pantalla
+ * puede usar `--modulo-color` y el tablero entero se ve del color del
+ * modulo en el que se esta trabajando.
+ *
+ * Los valores son los MISMOS tokens que ya estan verificados por contraste:
+ * un color nuevo es un color sin verificar. */
+body[data-modulo="inventario"] {
+  --modulo-color: var(--primary);
+  --modulo-suave: var(--primary-soft);
+}
+
+body[data-modulo="helpdesk"] {
+  --modulo-color: var(--warning);
+  --modulo-suave: var(--warning-soft);
+}
+
 /* El selector de la cabecera, con el color del modulo. */
 .cabecera__modulo[data-modulo="inventario"] {
   --modulo-color: var(--primary);
@@ -2341,22 +2385,49 @@ textarea.campo__control {
    El desplazamiento de un pixel al pasar el mouse es lo que comunica "esto
    se puede tocar": es la misma pista que da el borde que cambia de color. */
 .kpi--accion {
+  /* `appearance: none` es lo importante: sin esto el navegador pinta el
+   * boton con su aspecto NATIVO (fondo gris y borde de 3D), que es lo que
+   * rompio el diseno de los cuadros de resumen. Con esto, el boton se ve
+   * como la caja que era antes. */
+  appearance: none;
+  -webkit-appearance: none;
+
   width: 100%;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  border-color: var(--color-border-strong);
-  transition: border-color 0.12s ease-out, transform 0.12s ease-out;
+
+  background: var(--kpi-fondo);
+  border: 1px solid var(--kpi-borde);
+
+  transition:
+    border-color 0.12s ease-out,
+    background-color 0.12s ease-out,
+    box-shadow 0.12s ease-out,
+    transform 0.12s ease-out;
 }
 
+/* EL EFECTO DE "SE PUEDE TOCAR"
+ *
+ * El borde toma el color del modulo y la caja se levanta un pixel: son las
+ * dos pistas que explican que el numero lleva a otro lado. La sombra es
+ * suave: el numero tiene que seguir siendo lo que se mira. */
 .kpi--accion:hover {
-  border-color: var(--primary);
+  border-color: var(--modulo-color, var(--primary));
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.08);
   transform: translateY(-1px);
+}
+
+.kpi--accion:focus-visible {
+  outline: 2px solid var(--modulo-color, var(--primary));
+  outline-offset: 2px;
 }
 
 .kpi--accion:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ---------------------------------------------------------------------------
