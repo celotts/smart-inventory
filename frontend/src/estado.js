@@ -22,7 +22,15 @@ export const estado = {
   usuario: null,
   vistaActual: null,
   vistaActualNombre: null,
+  // El modulo en el que se esta trabajando: `inventario` o `helpdesk`.
+  // Decide que pestanas se ven y que tablero se pinta.
+  modulo: 'inventario',
 };
+
+/** Cambia el modulo de trabajo. */
+export function setModulo(modulo) {
+  estado.modulo = modulo;
+}
 
 /** Guarda el usuario conectado. */
 export function setUsuario(usuario) {

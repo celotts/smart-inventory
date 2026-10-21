@@ -31,6 +31,8 @@ import { vistaProductos } from './vistas/productos.js';
 import { vistaUsuarios } from './vistas/usuarios.js';
 import { reemplazar } from './dom.js';
 import { permisosDe, setVistaActual, estado } from './estado.js';
+import { MODULOS, modulosDe, pestanasDelModulo } from './modulos.js';
+import { actualizarCabeceraUsuario } from './cabecera.js';
 
 /** El registro de vistas. La clave es la que viaja en el hash de la URL. */
 export const VISTAS = {
@@ -86,6 +88,13 @@ export function mostrarVista(nombre, opciones = {}) {
     const vista = definicion.construir({
       alAbrirDispositivo: (id) => mostrarVista('dispositivo', { deviceId: id }),
       permisos: permisosDe(),
+      // El modulo va a la vista: el tablero y los filtros dependen de si se
+      // esta trabajando en Inventario o en Service Desk.
+      modulo: estado.modulo,
+      // Los filtros de entrada: cuando se hace clic en un KPI del tablero, la
+      // vista se abre YA filtrada. El operador no tiene que reconstruir en
+      // el filtro lo que el tablero le acaba de decir.
+      filtros: opciones.filtros ?? null,
     });
     setVistaActual(vista, nombre);
   }
@@ -96,6 +105,9 @@ export function mostrarVista(nombre, opciones = {}) {
   const elemento = estado.vistaActual?.elemento ?? estado.vistaActual;
 
   reemplazar(contenido, elemento);
+
+  // La app empezo: la navegacion y el selector de modulo vuelven.
+  cabecera.classList.remove('cabecera--lanzador');
 
   // La app YA ARRANCO. El vigilante de `arranque.js` mira esta marca para no
   // pisar una app que ya esta pintada: sin ella, un arranque lento (celular
@@ -114,6 +126,21 @@ export function mostrarVista(nombre, opciones = {}) {
   if (window.location.hash !== `#${nombre}`) {
     history.pushState({ vista: nombre }, '', `#${nombre}`);
   }
+}
+
+/**
+ * Cambia de modulo y vuelve al tablero de ese modulo.
+ *
+ * @param {string} modulo
+ * @param {object} usuario
+ */
+export function cambiarModulo(modulo, usuario) {
+  if (!modulosDe(usuario).includes(modulo)) return;
+  estado.modulo = modulo;
+  // Las pestanas dependen del modulo: hay que repintarlas o la app queda
+  // mostrando las del modulo anterior.
+  actualizarCabeceraUsuario();
+  mostrarVista('inicio');
 }
 
 /**

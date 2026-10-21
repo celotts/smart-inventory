@@ -76,7 +76,7 @@ export function vistaProductos({ permisos = [] }) {
     const btnNuevo = crear('button', {
       clase: 'boton',
       texto: 'Nuevo producto',
-      atributos: { type: 'button', onclick: abrirAlta },
+      atributos: { type: 'button', onclick: () => abrirAlta() },
     });
     conTooltip(btnNuevo, 'Alta de un producto del maestro: marca, modelo, SKU, stock y codigos de etiqueta.');
     const btnCategorias = crear('button', {
@@ -177,6 +177,15 @@ export function vistaProductos({ permisos = [] }) {
           atributos: { type: 'button', onclick: () => abrirEdicion(p) },
         });
         conTooltip(btnEditar, 'Edita el producto: precio, puntos de stock, codigos de etiqueta y atributos.');
+        const btnDuplicar = crear('button', {
+          clase: 'boton boton--suave boton--chico',
+          texto: 'Duplicar',
+          atributos: { type: 'button', onclick: () => abrirAlta(p) },
+        });
+        conTooltip(
+          btnDuplicar,
+          'Abre el alta con los datos de este producto ya cargados (marca, modelo, variante, categoria, costo y stock). El SKU queda vacio: es lo unico que hay que escribir.',
+        );
         const btnDescontinuar = crear('button', {
           clase: 'boton boton--chico boton--peligro',
           texto: p.is_active ? 'Descontinuar' : 'Reactivar',
@@ -194,7 +203,7 @@ export function vistaProductos({ permisos = [] }) {
           atributos: { type: 'button', onclick: () => confirmarEliminarProducto(p) },
         });
         conTooltip(btnEliminar, 'Borra el producto del maestro. Solo se puede si no tiene equipos ni movimientos.');
-        item.append(btnEditar, btnDescontinuar, btnEliminar);
+        item.append(btnEditar, btnDuplicar, btnDescontinuar, btnEliminar);
       }
       lista.append(item);
     }

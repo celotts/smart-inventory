@@ -28,7 +28,7 @@
  */
 
 import { verificarVersionDelServidor } from './build.js';
-import { iniciarChipUsuario, iniciarModoExterior, inicializarFooter } from './cabecera.js';
+import { iniciarChipUsuario, iniciarModoExterior, iniciarSelectorModulo, inicializarFooter } from './cabecera.js';
 import { iniciarCampana } from './campana.js';
 import { mostrarVista } from './navegacion.js';
 import { arrancar, cerrar } from './sesion.js';
@@ -113,6 +113,10 @@ iniciarModoExterior();
 // El chip de usuario: "Mi cuenta" (cambiar la propia contraseña).
 iniciarChipUsuario();
 
+// El selector de modulo, en la cabecera. Solo aparece para quien puede usar
+// los dos modulos.
+iniciarSelectorModulo();
+
 // Una vista puede pedir un salto a otra ("Ver todos" en el tablero). Se usa un
 // evento de documento y no un import de `navegacion.js`: importarla desde una
 // vista crearia un ciclo (navegacion importa las vistas, y las vistas
@@ -120,7 +124,9 @@ iniciarChipUsuario();
 // `undefined` en el primer arranque, sin error que lo diga.
 document.addEventListener('app:ir-a', (evento) => {
   const destino = evento.detail?.vista;
-  if (destino) mostrarVista(destino);
+  // Los filtros viajan con el salto: un KPI del tablero abre la vista YA
+  // filtrada (los equipos "en deposito", las incidencias "abiertas"...).
+  if (destino) mostrarVista(destino, { filtros: evento.detail?.filtros ?? null });
 });
 
 // ---------------------------------------------------------------------------

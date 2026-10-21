@@ -200,6 +200,52 @@ export function campoTexto({
 }
 
 /**
+ * Campo de texto largo.
+ *
+ * Un `textarea` con el MISMO contrato que `campoTexto` (etiqueta, error,
+ * `aria-required`, tooltip): un campo que se ve distinto rompe el formulario
+ * y obliga al operador a aprender dos cosas en vez de una.
+ *
+ * @param {object} opciones
+ * @param {string} opciones.etiqueta
+ * @param {string} [opciones.placeholder]
+ * @param {string} [opciones.ayuda]
+ * @param {boolean} [opciones.requerido]
+ * @param {number} [opciones.filas]      Alto inicial, en lineas.
+ * @returns {object}
+ */
+export function campoArea({
+  etiqueta,
+  placeholder = '',
+  ayuda,
+  descripcion,
+  requerido = false,
+  maxlength,
+  valor = '',
+  filas = 4,
+}) {
+  const atributos = {
+    placeholder,
+    autocomplete: 'off',
+    autocapitalize: 'none',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    rows: String(filas),
+  };
+  if (maxlength) atributos.maxlength = String(maxlength);
+
+  const control = crear('textarea', { clase: 'campo__control', atributos });
+
+  // El valor inicial va DESPUES de crear el control: el `value` de un
+  // `textarea` es una PROPIEDAD, no un atributo.
+  if (valor !== '' && valor !== undefined && valor !== null) {
+    control.value = String(valor);
+  }
+
+  return construirCampo({ etiqueta, control, ayuda, requerido, descripcion });
+}
+
+/**
  * Campo numerico.
  *
  * @param {object} opciones

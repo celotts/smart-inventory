@@ -674,6 +674,14 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .campo__control:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Un `textarea` con la altura de sus lineas: el scroll interno en un campo de
+ * texto largo esconde justo lo que el operador esta por escribir. */
+textarea.campo__control {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .campo__ayuda {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
@@ -1273,6 +1281,27 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   align-items: end;
 }
 
+/* La resolucion de un caso resuelto.
+   Un borde de acento a la izquierda: se distingue del reporte original
+   (que es el problema) sin romper la tipografia de la ficha. */
+.incidencia__resolucion {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--primario);
+  background: var(--superficie-2);
+  border-radius: var(--radio-sm);
+}
+.incidencia__resolucion-titulo {
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-suave);
+  margin-bottom: 0.25rem;
+}
+
+/* ---------------------------------------------------------------------------
+   KPIs
 .kpi {
   padding: 0.75rem 1rem;
   border: 1px solid var(--borde);
@@ -2100,6 +2129,234 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .aviso-fila__fecha {
   font-size: var(--text-xs);
   color: var(--texto-tenue);
+}
+
+/* EL COLOR POR MODULO
+   -------------------
+   Cada solucion tiene su color, y se usa EL MISMO en la pantalla de entrada
+   y en la cabecera. Asi el modulo se reconoce de un vistazo, sin leer: azul
+   es Inventario, ambar es Service Desk.
+
+   Los colores son los TOKENS del sistema (los que ya estan verificados por
+   contraste), no colores nuevos: un color nuevo es un color sin verificar. */
+.lanzador__opcion {
+  position: relative;
+  overflow: hidden;
+}
+
+.lanzador__opcion::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--modulo-color, var(--primary));
+}
+
+.lanzador__opcion[data-modulo="inventario"] {
+  --modulo-color: var(--primary);
+}
+
+.lanzador__opcion[data-modulo="inventario"] .lanzador__icono {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.lanzador__opcion[data-modulo="helpdesk"] {
+  --modulo-color: var(--warning);
+}
+
+.lanzador__opcion[data-modulo="helpdesk"] .lanzador__icono {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+.lanzador__opcion:hover {
+  border-color: var(--modulo-color, var(--primary));
+}
+
+/* El selector de la cabecera, con el color del modulo. */
+.cabecera__modulo[data-modulo="inventario"] {
+  --modulo-color: var(--primary);
+}
+
+.cabecera__modulo[data-modulo="helpdesk"] {
+  --modulo-color: var(--warning);
+}
+
+.cabecera__modulo--activo {
+  color: var(--modulo-color, var(--texto));
+}
+
+/* El modulo que el usuario NO puede usar.
+ *
+ * `visibility: hidden` y NO `hidden`: con `hidden` el elemento sale del
+ * flujo y el boton que queda se corre hacia un lado, segun el rol. Con
+ * `visibility` el hueco ocupa su lugar, y la cabecera se ve EXACTAMENTE IGUAL
+ * para el operador, para el tecnico y para el admin: los botones no se
+ * mueven nunca. */
+.cabecera__modulo--no-disponible {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   PANTALLA DE ENTRADA: ELEGIR MODULO
+   ---------------------------------------------------------------------------
+   La pantalla que separa las dos soluciones. Es la PRIMERA pantalla que ve
+   el operador despues de autenticarse, asi que tiene que decir QUE VA A
+   HACER y no mostrar un menu de funciones.
+
+   Es una pantalla, no un menu: dos tarjetas grandes, con el nombre del
+   modulo y lo que se va a hacer ahi. Un menu con dos items de texto deja
+   dudar al operador de que choisir. */
+/* Durante el lanzador, la cabecera se reduce a la marca y al usuario: las
+   pestanas de un modulo que todavia no se eligio son ruido. */
+.cabecera--lanzador .cabecera__nav,
+.cabecera--lanzador .cabecera__modulos {
+  display: none;
+}
+
+.lanzador {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  padding: var(--space-6) var(--space-4);
+}
+
+.lanzador__tarjeta {
+  width: min(560px, 100%);
+  text-align: center;
+}
+
+.lanzador__marca {
+  margin-bottom: var(--space-6);
+}
+
+.lanzador__titulo {
+  margin: 0;
+  font-size: var(--text-2xl, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lanzador__subtitulo {
+  margin: 0.25rem 0 0;
+  color: var(--texto-tenue);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.lanzador__opciones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lanzador__opcion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease-out, transform 0.12s ease-out;
+}
+
+.lanzador__opcion:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.lanzador__icono {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.lanzador__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.lanzador__texto strong {
+  font-size: var(--text-lg, 1.125rem);
+}
+
+.lanzador__detalle {
+  color: var(--texto-tenue);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.lanzador__nota {
+  margin: var(--space-4) 0 0;
+  color: var(--texto-tenue);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+/* El selector de modulo, en la cabecera. */
+.cabecera__modulos {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm, 8px);
+  background: var(--superficie-2);
+}
+
+.cabecera__modulo {
+  padding: 0.35rem 0.7rem;
+  border: none;
+  border-radius: var(--radio-xs, 4px);
+  background: transparent;
+  color: var(--texto-secundario);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cabecera__modulo--activo {
+  background: var(--color-surface);
+  color: var(--texto);
+  box-shadow: var(--shadow-xs, 0 1px 2px rgb(15 23 42 / 0.04));
+}
+
+/* Un KPI QUE LLEVA A OTRO LADO TIENE QUE PARECER UN BOTON
+   -------------------------------------------------------
+   Si el numero es clicable, tiene que verse clicable: si no, el operador
+   hace clic y no pasa nada, y la conclusion es que la app esta rota.
+
+   El desplazamiento de un pixel al pasar el mouse es lo que comunica "esto
+   se puede tocar": es la misma pista que da el borde que cambia de color. */
+.kpi--accion {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-color: var(--color-border-strong);
+  transition: border-color 0.12s ease-out, transform 0.12s ease-out;
+}
+
+.kpi--accion:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.kpi--accion:active {
+  transform: translateY(0);
 }
 
 /* ---------------------------------------------------------------------------

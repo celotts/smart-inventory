@@ -134,6 +134,43 @@ class ComentarRequest(BaseModel):
     nota: str = Field(..., min_length=1, max_length=2000)
 
 
+class CerrarIncidenciaRequest(BaseModel):
+    """
+    El cierre de un caso: que se hizo y que paso con el EQUIPO.
+
+    `destino_equipo` es lo que hace que este Service Desk sea el control del
+    stock danado y no un ticket de software:
+
+    - TALLER: el equipo se rompio y va al taller (`IN_REPAIR`).
+    - REPARADO: se arreglo y vuelve al deposito (`IN_WAREHOUSE`).
+    - DANO_TOTAL: no se arregla; el equipo se desincorpora del stock.
+
+    Sin destino, el caso se cierra y el inventario no se entera: el equipo
+    sigue contando como disponible cuando en realidad esta roto.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    resolution: str = Field(..., min_length=3, max_length=4000)
+    estado: str = Field("RESOLVED")
+    destino_equipo: str = Field("NINGUNO")
+
+    @field_validator("estado")
+    @classmethod
+    def _estado_valido(cls, valor: str) -> str:
+        if valor not in ESTADOS:
+            raise ValueError(f"Estado invalido. Validos: {', '.join(ESTADOS)}.")
+        return valor
+
+    @field_validator("destino_equipo")
+    @classmethod
+    def _destino_valido(cls, valor: str) -> str:
+        validos = ("NINGUNO", "TALLER", "REPARADO", "DANO_TOTAL")
+        if valor not in validos:
+            raise ValueError(f"Destino invalido. Validos: {', '.join(validos)}.")
+        return valor
+
+
 class IncidenciaResumen(BaseModel):
     """Una incidencia en la lista: lo minimo para identificarla."""
 
@@ -188,6 +225,11 @@ class IncidenciaDetalle(IncidenciaResumen):
     cost: float | None = None
     downtime_minutes: int | None = None
     eventos: list[EventoIncidencia] = []
+
+    # Lo que paso con el EQUIPO al cerrar el caso ("quedo en el taller con la
+    # orden #12"). La pantalla lo muestra: el tecnico necesita ver que el
+    # equipo se movio de verdad, no solo que el caso se cerro.
+    mensaje_equipo: str | None = None
 
 
 class ListaIncidenciasResponse(BaseModel):

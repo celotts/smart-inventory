@@ -591,6 +591,12 @@ export const api = {
   editarIncidencia: (id, datos) => pedir(`/incidents/${id}`, { metodo: 'PATCH', cuerpo: datos }),
   cambiarEstadoIncidencia: (id, datos) =>
     pedir(`/incidents/${id}/transitions`, { metodo: 'POST', cuerpo: datos }),
+  // TOMAR EL CASO: el tecnico lo saca de la bandeja y queda asignado a el.
+  tomarCasoIncidencia: (id) => pedir(`/incidents/${id}/claim`, { metodo: 'POST' }),
+  // EL CIERRE: que se resolvio y que paso con el equipo (taller, reparado o
+  // dano total). El backend se encarga de mover el equipo en el inventario.
+  cerrarIncidencia: (id, datos) =>
+    pedir(`/incidents/${id}/cierre`, { metodo: 'POST', cuerpo: datos }),
   comentarIncidencia: (id, nota) =>
     pedir(`/incidents/${id}/comments`, { metodo: 'POST', cuerpo: { nota } }),
 

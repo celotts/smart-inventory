@@ -196,6 +196,17 @@
     </button>
 
     <!--
+      El selector de modulo.
+
+      Solo aparece para quien puede usar los dos modulos (el ADMIN). El
+      operador y el tecnico tienen uno solo: no hay nada que elegir, y un
+      selector con una sola opcion es ruido.
+
+      Lo arma `cabecera.js`: depende de los permisos, que son del servidor.
+    -->
+    <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
+
+    <!--
       La campana de avisos de SLA.
 
       El badge con el numero es lo que el operador ve de reojo: un caso que

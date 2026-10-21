@@ -34,11 +34,10 @@
  */
 
 import { api } from '../api.js';
-import { ESTADOS, crear } from '../dom.js';
+import { ESTADOS, crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
+import { abrirDialogo } from '../dialogo.js';
 import { conTooltip } from '../tooltip.js';
-
-const CLAVE_SOLUCION = 'si-solucion';
 
 const SOLUCIONES = {
   inventario: {
@@ -47,13 +46,13 @@ const SOLUCIONES = {
     subtitulo: 'Donde esta cada equipo, cuanto vale y que hay que reponer.',
   },
   helpdesk: {
-    etiqueta: 'Helpdesk',
-    titulo: 'Helpdesk',
+    etiqueta: 'Service Desk',
+    titulo: 'Service Desk',
     subtitulo: 'Los problemas reportados, el SLA y el taller.',
   },
 };
 
-export function vistaInicio({ permisos = [] } = {}) {
+export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
   const raiz = crear('div');
 
   const puedeVerIncidencias = permisos.includes('incidents:read');
@@ -68,84 +67,54 @@ export function vistaInicio({ permisos = [] } = {}) {
   textosCabecera.append(titulo, subtitulo);
   encabezado.append(textosCabecera);
 
-  // El selector de solucion: un control con pestanas, no un par de botones sueltos.
-  const selector = crear('div', { clase: 'segmented-control', role: 'tablist' });
-  const botones = {};
-
-  for (const [clave, definicion] of Object.entries(SOLUCIONES)) {
-    if (clave === 'helpdesk' && !puedeVerIncidencias) continue;
-
-    const boton = crear('button', {
-      clase: 'segmento',
-      // `role` e `id` van DENTRO de `atributos`: `crear()` descarta en
-      // silencio cualquier clave que no sea clase, id, texto, atributos o
-      // hijos, y un `role` que se pierde deja el boton sin announce.
-      atributos: {
-        type: 'button',
-        role: 'tab',
-        id: `solucion-${clave}`,
-        'aria-selected': 'false',
-      },
-      texto: definicion.etiqueta,
-    });
-    boton.addEventListener('click', () => elegirSolucion(clave));
-    botones[clave] = boton;
-    selector.appendChild(boton);
-  }
-
   // La zona de numeros: tres destacados y una fila de secundarios.
   const zonaDestacados = crear('div', { clase: 'rejilla-kpi' });
   const zonaSecundarios = crear('div', { clase: 'rejilla-kpi' });
   const zonaContenido = crear('div', { clase: 'apilado' });
 
-  tarjetaCabecera.append(encabezado, selector, zonaDestacados, zonaSecundarios);
+  tarjetaCabecera.append(encabezado, zonaDestacados, zonaSecundarios);
 
   raiz.append(tarjetaCabecera, zonaContenido);
 
   // --- Estado ---------------------------------------------------------------
-  let solucionActual = null;
+  //
+  // EL MODULO, NO UN SELECTOR PROPIO
+  // --------------------------------
+  // El tablero NO decide que muestra: lo decide el modulo en el que se esta
+  // trabajando, que se eligio en la pantalla de entrada. Por eso aca no hay un
+  // selector: habria DOS lugares para cambiar de modulo (este y el de la
+  // cabecera) y se desincronizarian.
+  let solucionActual = modulo;
   let datosInventario = null;
   let datosHelpdesk = null;
   let casosAbiertos = [];
+  let casosSinAtender = [];
 
   function definicionActual() {
     return SOLUCIONES[solucionActual] ?? Object.values(SOLUCIONES)[0];
-  }
-
-  function elegirSolucion(clave) {
-    if (solucionActual === clave) return;
-    solucionActual = clave;
-    try {
-      localStorage.setItem(CLAVE_SOLUCION, clave);
-    } catch {
-      // Sin storage (Safari privado): se muestra la solucion elegida y listo.
-    }
-    marcarSelector();
-    pintar();
-  }
-
-  function marcarSelector() {
-    for (const [nombre, boton] of Object.entries(botones)) {
-      const activa = nombre === solucionActual;
-      boton.classList.toggle('segmento--activo', activa);
-      boton.setAttribute('aria-selected', activa ? 'true' : 'false');
-    }
   }
 
   async function cargar() {
     try {
       // Las tres cosas se piden juntas: el operador cambia de solucion seguido,
       // y con esperas separadas el tablero tarda medio minuto.
-      const [inventario, helpdesk, casos] = await Promise.all([
+      const [inventario, helpdesk, casos, sinAtender] = await Promise.all([
         api.pedir('/reports/dashboard'),
         puedeVerIncidencias ? api.metricasIncidencias().catch(() => null) : Promise.resolve(null),
         puedeVerIncidencias
           ? api.incidencias({ solo_abiertas: true, limite: 6 }).catch(() => null)
           : Promise.resolve(null),
+        // EL BACKLOG: los casos que NADIE respondio. Van aparte de los que
+        // vencen: un caso puede no haber vencido y aun asi estar parado
+        // desde hace tres dias.
+        puedeVerIncidencias
+          ? api.incidencias({ sin_atender: true, limite: 6 }).catch(() => null)
+          : Promise.resolve(null),
       ]);
       datosInventario = inventario;
       datosHelpdesk = helpdesk;
       casosAbiertos = casos?.items ?? [];
+      casosSinAtender = sinAtender?.items ?? [];
     } catch (error) {
       avisar(`No se pudo cargar el tablero: ${error.message}`, 'error');
     }
@@ -159,16 +128,29 @@ export function vistaInicio({ permisos = [] } = {}) {
    * `destacado` lo hace grande: es el que se mira en los tres segundos. Los
    * secundarios van chicos, en una fila aparte.
    */
-  function numero({ etiqueta, valor, ayuda, destacado = false }) {
-    const caja = crear('div', {
+  function numero({ etiqueta, valor, ayuda, destacado = false, destino }) {
+    const caja = crear(destino ? 'button' : 'div', {
       clase: destacado ? 'kpi kpi--destacado' : 'kpi',
-      atributos: { tabindex: '0' },
+      atributos: destino
+        ? { type: 'button', 'aria-label': `${etiqueta}: ${valor}. Ver el detalle.` }
+        : { tabindex: '0' },
     });
     caja.append(
       crear('div', { clase: 'kpi__valor', texto: String(valor) }),
       crear('div', { clase: 'kpi__etiqueta', texto: etiqueta }),
     );
     conTooltip(caja, ayuda);
+
+    // UN NUMERO QUE NO LLEVA A NINGUN LADO ES DECORACION
+    // -------------------------------------------------
+    // Si el operador hace clic en "En deposito", espera ver los equipos que
+    // estan en deposito. Con el filtro YA PUESTO: no tiene que reconstruir
+    // lo que el tablero le acaba de decir.
+    if (destino) {
+      caja.classList.add('kpi--accion');
+      caja.addEventListener('click', () => irA(destino.vista, destino.filtros));
+    }
+
     return caja;
   }
 
@@ -259,18 +241,21 @@ export function vistaInicio({ permisos = [] } = {}) {
         etiqueta: 'Equipos',
         valor: valor(kpis.total_devices),
         ayuda: 'Componentes activos en el inventario, sin los dados de baja.',
+        destino: { vista: 'inventario' },
       }),
       numero({
         destacado: true,
         etiqueta: 'En deposito',
         valor: valor(kpis.en_deposito),
         ayuda: 'Disponibles para salir. Es el stock que se puede entregar hoy.',
+        destino: { vista: 'inventario', filtros: { estado: 'IN_WAREHOUSE' } },
       }),
       numero({
         destacado: true,
         etiqueta: 'Por reponer',
         valor: valor(criticos.length),
         ayuda: 'Productos en o por debajo de su stock minimo. Click para verlos.',
+        destino: { vista: 'stock' },
       }),
     );
 
@@ -280,6 +265,7 @@ export function vistaInicio({ permisos = [] } = {}) {
         etiqueta: 'Instalados',
         valor: valor(kpis.instalados),
         ayuda: 'Working en sitio del cliente.',
+        destino: { vista: 'inventario', filtros: { estado: 'INSTALLED' } },
       }),
       numero({
         etiqueta: 'En transito',
@@ -287,11 +273,13 @@ export function vistaInicio({ permisos = [] } = {}) {
         // `undefined` y el numero salia como un guion.
         valor: valor(kpis.en_transito),
         ayuda: 'Salieron del deposito, todavia no instalados.',
+        destino: { vista: 'inventario', filtros: { estado: 'IN_TRANSIT' } },
       }),
       numero({
         etiqueta: 'Movimientos (30 d)',
         valor: valor(kpis.movimientos_30d),
         ayuda: 'Escaneos y traslados registrados en el ultimo mes.',
+        destino: { vista: 'movimientos' },
       }),
     );
 
@@ -313,7 +301,7 @@ export function vistaInicio({ permisos = [] } = {}) {
         subtitulo: 'Productos en o por debajo de su stock minimo.',
         elementos: paraReponer,
         verTodos: 'Ver el stock',
-        alVerTodos: () => irA('inventario'),
+        alVerTodos: () => irA('stock'),
       }),
     );
 
@@ -380,36 +368,52 @@ export function vistaInicio({ permisos = [] } = {}) {
         etiqueta: 'Abiertas',
         valor: valor(m.abiertas),
         ayuda: 'Casos sin resolver, en cualquiera de sus estados.',
+        destino: { vista: 'incidencias', filtros: { solo_abiertas: true } },
       }),
       numero({
         destacado: true,
         etiqueta: 'Vencidas',
         valor: valor(m.vencidas),
         ayuda: 'Ya pasaron su plazo de resolucion y siguen abiertas. Es lo primero que hay que atacar.',
+        destino: { vista: 'incidencias', filtros: { solo_vencidas: true } },
       }),
       numero({
         destacado: true,
         etiqueta: 'MTTR',
         valor: m.mttr_horas !== null && m.mttr_horas !== undefined ? `${m.mttr_horas} h` : '—',
         ayuda: 'Horas promedio entre el reporte y la resolucion. El numero que le importa al responsable del taller.',
+        // Un objeto vacio de filtros: la vista abre en "Todas" y no en la
+        // bandeja. Sin esto, el clic en un numero general caeria en la lista
+        // de trabajo pendiente, que es otra cosa.
+        destino: { vista: 'incidencias', filtros: {} },
       }),
     );
 
     zonaSecundarios.append(
       numero({
+        etiqueta: 'Sin atender',
+        valor: valor(m.sin_atender),
+        ayuda:
+          'Casos abiertos que NADIE respondio todavia: el trabajo sin dueno. Es lo primero que hay que tomar.',
+        destino: { vista: 'incidencias', filtros: { sin_atender: true } },
+      }),
+      numero({
         etiqueta: 'Criticas (S1)',
         valor: valor(m.criticas_abiertas),
         ayuda: 'Sin servicio: son las que no pueden esperar.',
+        destino: { vista: 'incidencias', filtros: { severidad: 'S1' } },
       }),
       numero({
         etiqueta: 'Sin asignar',
         valor: valor(m.sin_asignar),
         ayuda: 'Nadie las todavia: son las que se van a perder.',
+        destino: { vista: 'incidencias', filtros: { solo_sin_asignar: true } },
       }),
       numero({
         etiqueta: 'Fuera de SLA',
         valor: valor(m.fuera_de_sla),
         ayuda: 'Se resolvieron despues del plazo: el SLA incumplido.',
+        destino: { vista: 'incidencias', filtros: { fuera_de_sla: true } },
       }),
     );
 
@@ -431,6 +435,37 @@ export function vistaInicio({ permisos = [] } = {}) {
         ayudaInsignia: cuenta,
       });
     });
+
+    // BLOQUE 0: EL BACKLOG. Lo que nadie took.
+    //
+    // Va PRIMERO, antes que los casos que vencen: un caso sin dueno se pierde
+    // igual, y no por falta de tiempo, sino porque nadie lo vio. Es el
+    // bloque que se mira al empezar el turno.
+    const sinAtender = casosSinAtender.map((c) => {
+      const horas = Math.max(
+        0,
+        Math.round((Date.now() - new Date(c.created_at).getTime()) / 3600000),
+      );
+
+      return fila({
+        titulo: c.title,
+        meta: `${c.code} · ${c.severity}`,
+        descripcion: `Sin responder desde hace ${horas} h`,
+        insignia: `${horas} h`,
+        claseInsignia: horas > 24 ? 'insignia--peligro' : 'insignia--alerta',
+        ayudaInsignia: 'Nadie todavia respondio este caso.',
+      });
+    });
+
+    zonaContenido.appendChild(
+      tarjetaLista({
+        titulo: 'Sin atender',
+        subtitulo: 'Reportados y sin responder. El trabajo que se pierde si no se toma.',
+        elementos: sinAtender,
+        verTodos: 'Ver la bandeja',
+        alVerTodos: () => irA('incidencias', { sin_atender: true }),
+      }),
+    );
 
     zonaContenido.appendChild(
       tarjetaLista({
@@ -516,26 +551,100 @@ export function vistaInicio({ permisos = [] } = {}) {
    * de `navegacion.js`: importarla desde aca crearia un ciclo (navegacion
    * importa las vistas, y las vistas importan navegacion).
    */
-  function irA(vista) {
-    document.dispatchEvent(new CustomEvent('app:ir-a', { detail: { vista } }));
+  function irA(vista, filtros) {
+    // "stock" no es una vista: es un MODAL con los productos por reponer. El
+    // stock bajo es de PRODUCTOS, y la vista de inventario lista EQUIPOS: no
+    // son la misma cosa, asi que abrir el inventario con otro filtro
+    // mentiria.
+    if (vista === 'stock') {
+      abrirStockBajo();
+      return;
+    }
+    document.dispatchEvent(new CustomEvent('app:ir-a', { detail: { vista, filtros } }));
+  }
+
+  /**
+   * El modal de "por reponer": los productos bajo su stock minimo.
+   */
+  async function abrirStockBajo() {
+    // EL CONTENEDOR NO LLEVA LA CLASE "CARGANDO"
+    //
+    // La clase `cargando` pone un spinner con un `::before`. Si el
+    // contenedor la tiene, el spinner se queda girando PARA SIEMPRE: la
+    // lista llega abajo y el operador ve un circulo que no para, al lado de
+    // datos que ya estan cargados. Es la clase la que hay que quitar, no el
+    // texto: por eso el estado de carga es un HIJO que se reemplaza, y el
+    // contenedor queda limpio.
+    const cuerpo = crear('div');
+    cuerpo.append(crear('div', { clase: 'cargando', texto: 'Consultando el stock…' }));
+
+    const btnCerrar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cerrar',
+      atributos: { type: 'button' },
+    });
+
+    abrirDialogo({
+      titulo: 'Por reponer',
+      nota: 'Productos en o por debajo de su stock minimo, con el faltante y el lead time del proveedor.',
+      cuerpo: [cuerpo],
+      clase: 'modal--formulario',
+      acciones: [btnCerrar],
+      alAbrir: (_modal, cerrar) => {
+        btnCerrar.addEventListener('click', cerrar);
+      },
+    });
+
+    try {
+      const datos = await api.pedir('/stock/low');
+      const items = datos?.items ?? datos ?? [];
+
+      if (!items.length) {
+        const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
+        vacio.append(
+          icono(ICONOS.ok, { tamano: 28 }),
+          crear('p', { texto: 'Todos los productos estan por encima de su minimo.' }),
+        );
+        cuerpo.replaceChildren(vacio);
+        return;
+      }
+
+      const lista = crear('ul', { clase: 'lista' });
+      for (const item of items) {
+        const cuerpoFila = crear('div', { clase: 'lista__cuerpo' });
+        cuerpoFila.append(
+          crear('div', { clase: 'lista__titulo', texto: `${item.brand ?? ''} ${item.model_name ?? item.model ?? ''}`.trim() }),
+          crear('div', { clase: 'lista__meta mono', texto: item.sku ?? '' }),
+          crear('div', {
+            clase: 'lista__meta',
+            texto: `Disponible ${item.available_count ?? item.disponibles ?? 0} · Minimo ${item.min_stock ?? 0} · ${item.location_name ?? item.ubicacion ?? ''}`,
+          }),
+        );
+        const insignia = crear('span', {
+          clase: 'insignia insignia--peligro',
+          texto: `Faltan ${item.deficit ?? item.faltante ?? 0}`,
+        });
+        const item_ = crear('li', { clase: 'lista__item' });
+        item_.append(cuerpoFila, insignia);
+        lista.appendChild(item_);
+      }
+
+      cuerpo.replaceChildren(lista);
+    } catch (error) {
+      cuerpo.replaceChildren(
+        crear('p', { clase: 'campo__error', texto: `No se pudo consultar el stock: ${error.message}` }),
+      );
+    }
   }
 
   // --- Arranque -------------------------------------------------------------
-  // La solucion guardada: si el operador trabaja en Helpdesk, el tablero abre
-  // en Helpdesk.
-  let guardada = null;
-  try {
-    guardada = localStorage.getItem(CLAVE_SOLUCION);
-  } catch {
-    guardada = null;
+  // Si el modulo es Helpdesk y el usuario no puede ver incidencias (un rol
+  // nuevo, un permiso cambiado), se cae al de inventario: es mejor un tablero
+  // que no sea el suyo que una pantalla vacia.
+  if (solucionActual === 'helpdesk' && !puedeVerIncidencias) {
+    solucionActual = 'inventario';
   }
 
-  const disponible = (clave) => clave !== 'helpdesk' || puedeVerIncidencias;
-  solucionActual = guardada && disponible(guardada)
-    ? guardada
-    : Object.keys(SOLUCIONES).find(disponible);
-
-  marcarSelector();
   cargar();
   return { elemento: raiz };
 }

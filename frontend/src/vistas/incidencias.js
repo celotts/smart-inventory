@@ -28,7 +28,7 @@ import { api } from '../api.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
-import { campoTexto, campoSelect, resumenDeErrores } from '../formulario.js';
+import { campoTexto, campoSelect, campoArea, resumenDeErrores } from '../formulario.js';
 import { conTooltip } from '../tooltip.js';
 
 const SEVERIDADES = [
@@ -88,7 +88,7 @@ function restante(incidencia) {
   return horas > 0 ? `faltan ${horas}h ${mins}m` : `faltan ${mins}m`;
 }
 
-export function vistaIncidencias({ permisos = [] } = {}) {
+export function vistaIncidencias({ permisos = [], filtros } = {}) {
   const raiz = crear('div');
 
   const puedeCrear = permisos.includes('incidents:create');
@@ -123,6 +123,65 @@ export function vistaIncidencias({ permisos = [] } = {}) {
 
   // Los KPIs: lo que hay que mirar primero.
   const zonaKpis = crear('div', { clase: 'rejilla-kpi' });
+
+  // --- La bandeja: el trabajo sin dueno -------------------------------------
+  //
+  // QUE ES LA BANDEJA
+  // ------------------
+  // Los casos reportados que NADIE TOMO todavia. No es un filtro mas: es el
+  // trabajo que se pierde. Por eso es la vista con la que arranca la
+  // pantalla: el tecnico tiene que ver primero lo que nobody esta atendiendo.
+  //
+  // LAS TRES VISTAS
+  // ---------------
+  // - Bandeja: lo que nadie tomo. Se vacia con "Tomar el caso".
+  // - Mis casos: lo que ya tengo asignado y sigue abierto.
+  // - Todas: todo, para el supervisor.
+  const VISTAS_CASOS = [
+    { clave: 'bandeja', texto: 'Bandeja' },
+    { clave: 'mias', texto: 'Mis casos' },
+    { clave: 'todas', texto: 'Todas' },
+  ];
+  // La vista con la que se llega desde el tablero decide el segmento.
+  //
+  // - Si se pidio la BANDEJA, se cae en la bandeja.
+  // - Si se pidio "mis casos", se cae en mis casos.
+  // - Con CUALQUIER otro filtro (las vencidas, las criticas, las abiertas),
+  //   se cae en "todas": la lista tiene que ser EXACTAMENTE la que se pidio.
+  //   Filtrar la bandeja con "vencidas" daria una lista vacia, y el operador
+  //   pensaria que no hay casos.
+  let vistaCasos = 'bandeja';
+  if (filtros?.mias) vistaCasos = 'mias';
+  else if (filtros?.sin_atender) vistaCasos = 'bandeja';
+  else if (filtros) vistaCasos = 'todas';
+
+  // EL FILTRO DE LLEGADA SOLO APLICA A LA PRIMERA CARGA
+  //
+  // Si el filtro del tablero (por ejemplo "sin atender") se quedara pegado
+  // para siempre, cambiar de vista a "Mis casos" daria la interseccion de los
+  // dos filtros: casi siempre, una lista vacia. El filtro con el que se llega
+  // es para la primera pantalla; despues, manda el segmento.
+  let primerCarga = true;
+
+  const segmentado = crear('div', { clase: 'segmented-control' });
+  const botonesSegmento = [];
+  for (const v of VISTAS_CASOS) {
+    const boton = crear('button', {
+      clase: `segmento${v.clave === vistaCasos ? ' segmento--activo' : ''}`,
+      texto: v.texto,
+      atributos: { type: 'button' },
+    });
+    boton.addEventListener('click', () => {
+      vistaCasos = v.clave;
+      for (const b of botonesSegmento) {
+        b.classList.toggle('segmento--activo', b.dataset.vista === vistaCasos);
+      }
+      cargar();
+    });
+    boton.dataset.vista = v.clave;
+    botonesSegmento.push(boton);
+    segmentado.append(boton);
+  }
 
   // --- Filtros --------------------------------------------------------------
   const inputBuscar = crear('input', {
@@ -178,7 +237,7 @@ export function vistaIncidencias({ permisos = [] } = {}) {
   const rejillaFiltros = crear('div', { clase: 'rejilla-filtros' });
   rejillaFiltros.append(etiquetaBusqueda, etiquetaEstado, etiquetaSeveridad, etiquetaVencidas);
 
-  tarjetaCabecera.append(encabezado, zonaKpis, rejillaFiltros);
+  tarjetaCabecera.append(encabezado, segmentado, zonaKpis, rejillaFiltros);
 
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
@@ -199,6 +258,15 @@ export function vistaIncidencias({ permisos = [] } = {}) {
           estado: selectEstado.value || undefined,
           severidad: selectSeveridad.value || undefined,
           solo_vencidas: chkVencidas.checked || undefined,
+          // Los filtros que solo se aplican al llegar desde el tablero (no
+          // tienen un control en la pantalla). SOLO en la primera carga: si
+          // se quedaran, cambiar de vista daria una lista vacia.
+          solo_abiertas: (primerCarga ? filtros?.solo_abiertas : undefined) || undefined,
+          solo_sin_asignar: (primerCarga ? filtros?.solo_sin_asignar : undefined) || undefined,
+          fuera_de_sla: (primerCarga ? filtros?.fuera_de_sla : undefined) || undefined,
+          sin_atender: (primerCarga ? filtros?.sin_atender : undefined) || undefined,
+          // La vista activa decide el filtro de la lista.
+          ...filtrosDeVista(),
           limite: 50,
         }),
         api.metricasIncidencias().catch(() => null),
@@ -206,6 +274,7 @@ export function vistaIncidencias({ permisos = [] } = {}) {
 
       if (numero !== peticionEnCurso) return;
 
+      primerCarga = false;
       pintarKpis(metricas);
       pintarLista(datos.items);
     } catch (error) {
@@ -216,17 +285,71 @@ export function vistaIncidencias({ permisos = [] } = {}) {
     }
   }
 
+  /**
+   * Los filtros que imponen la vista activa.
+   *
+   * La bandeja son los casos ABIERTOS que NADIE RESPONDIO todavia. No es lo
+   * mismo que "sin asignar": un caso asignado a alguien que lo tiene
+   * abandonado sigue sin atendido, y es el que de verdad se pierde.
+   */
+  function filtrosDeVista() {
+    if (vistaCasos === 'bandeja') return { sin_atender: true, solo_abiertas: true };
+    if (vistaCasos === 'mias') return { solo_mias: true };
+    return {};
+  }
+
   function pintarKpis(metricas) {
     zonaKpis.replaceChildren();
     if (!metricas) return;
 
     const r = metricas.resumen ?? {};
+
+    // Un KPI que NO lleva a ningun lado es decoracion. Cada uno que se puede
+    // filtrar, filtra: y el que trae la bandeja, deja la pantalla en la
+    // bandeja.
     const tarjetas = [
-      { etiqueta: 'Abiertas', valor: r.abiertas ?? 0, ayuda: 'Casos sin resolver, en cualquiera de sus estados.' },
-      { etiqueta: 'Vencidas', valor: r.vencidas ?? 0, ayuda: 'Ya pasaron su plazo de resolucion y siguen abiertas.' },
-      { etiqueta: 'Criticas', valor: r.criticas_abiertas ?? 0, ayuda: 'Severidad S1 abiertas: sin servicio.' },
-      { etiqueta: 'Sin asignar', valor: r.sin_asignar ?? 0, ayuda: 'Nadie las tomo todavia.' },
-      { etiqueta: 'Fuera de SLA', valor: r.fuera_de_sla ?? 0, ayuda: 'Se resolvieron despues del plazo.' },
+      {
+        etiqueta: 'Sin atender',
+        valor: r.sin_atender ?? 0,
+        ayuda: 'Casos abiertos que NADIE respondio todavia. Es el trabajo sin dueno: se van a perder si no se toman.',
+        ir: () => irAVista('bandeja'),
+      },
+      {
+        etiqueta: 'Abiertas',
+        valor: r.abiertas ?? 0,
+        ayuda: 'Casos sin resolver, en cualquiera de sus estados.',
+        ir: () => irAVista('todas'),
+      },
+      {
+        etiqueta: 'Vencidas',
+        valor: r.vencidas ?? 0,
+        ayuda: 'Ya pasaron su plazo de resolucion y siguen abiertas.',
+        ir: () => {
+          chkVencidas.checked = true;
+          irAVista('todas');
+        },
+      },
+      {
+        etiqueta: 'Criticas',
+        valor: r.criticas_abiertas ?? 0,
+        ayuda: 'Severidad S1 abiertas: sin servicio.',
+        ir: () => {
+          selectSeveridad.value = 'S1';
+          irAVista('todas');
+        },
+      },
+      {
+        etiqueta: 'Sin asignar',
+        valor: r.sin_asignar ?? 0,
+        ayuda: 'Nadie las tomo todavia.',
+        ir: () => irAVista('bandeja'),
+      },
+      {
+        etiqueta: 'Fuera de SLA',
+        valor: r.fuera_de_sla ?? 0,
+        ayuda: 'Se resolvieron despues del plazo.',
+        ir: () => irAVista('todas'),
+      },
       {
         etiqueta: 'MTTR',
         valor: r.mttr_horas !== null && r.mttr_horas !== undefined ? `${r.mttr_horas} h` : '—',
@@ -235,22 +358,53 @@ export function vistaIncidencias({ permisos = [] } = {}) {
     ];
 
     for (const t of tarjetas) {
-      const caja = crear('div', { clase: 'kpi', atributos: { tabindex: '0' } });
+      const caja = crear(t.ir ? 'button' : 'div', {
+        clase: t.ir ? 'kpi kpi--accion' : 'kpi',
+        atributos: t.ir
+          ? { type: 'button', 'aria-label': `${t.etiqueta}: ${t.valor}. Ver el detalle.` }
+          : { tabindex: '0' },
+      });
       caja.append(
         crear('div', { clase: 'kpi__valor', texto: String(t.valor) }),
         crear('div', { clase: 'kpi__etiqueta', texto: t.etiqueta }),
       );
       conTooltip(caja, t.ayuda);
+      if (t.ir) caja.addEventListener('click', t.ir);
       zonaKpis.append(caja);
     }
   }
 
+  /**
+   * Cambia de vista y recarga la lista.
+   *
+   * Los botones del segmentado se actualizan tambien: si el KPI te deja en
+   * "Bandeja", el segmentado tiene que decir "Bandeja", o el operador no sabe
+   * donde esta parado.
+   */
+  function irAVista(clave) {
+    vistaCasos = clave;
+    for (const b of botonesSegmento) {
+      b.classList.toggle('segmento--activo', b.dataset.vista === clave);
+    }
+    cargar();
+  }
+
   function pintarLista(incidencias) {
     if (!incidencias.length) {
+      // El estado vacio dice QUE no hay. "No hay incidencias con esos filtros"
+      // es un mensaje de error de filtros: el operador no sabe si la bandeja
+      // esta vacia de verdad o si el filtro esta mal.
       const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
       vacio.append(
         icono(ICONOS.ok, { tamano: 28 }),
-        crear('p', { texto: 'No hay incidencias con esos filtros.' }),
+        crear('p', {
+          texto:
+            vistaCasos === 'bandeja'
+              ? 'No hay casos sin atender: todo lo que se reporto tiene a alguien.'
+              : vistaCasos === 'mias'
+                ? 'No tenes casos asignados.'
+                : 'No hay incidencias con esos filtros.',
+        }),
       );
       zonaLista.replaceChildren(vacio);
       return;
@@ -289,16 +443,40 @@ export function vistaIncidencias({ permisos = [] } = {}) {
       const insignia = crear('span', { clase: `insignia ${estadoInfo.clase}`, texto: estadoInfo.texto });
       conTooltip(insignia, `Estado: ${estadoInfo.texto}`);
 
-      // La marca de SLA vencido: lo que hay que ver primero.
+      // La marca de SLA: lo que hay que ver primero.
+      //
+      // UN CASO YA RESUELTO NO ESTA "EN PLAZO": el plazo dejo de correr
+      // cuando se resolvio. Decirle "En plazo, faltan 2 dias" a un caso
+      // cerrado hace pensar al operador que todavia falta trabajo, y lo
+      // lleva a buscar por algo que ya esta hecho.
+      const resuelto = i.status === 'RESOLVED' || i.status === 'CLOSED';
       const vencida = crear('span', {
-        clase: `insignia ${i.vencido ? 'insignia--peligro' : 'insignia--transito'}`,
-        texto: i.vencido ? 'Vencida' : 'En plazo',
+        clase: `insignia ${
+          resuelto
+            ? i.fuera_de_sla
+              ? 'insignia--peligro'
+              : 'insignia--instalado'
+            : i.vencido
+              ? 'insignia--peligro'
+              : 'insignia--transito'
+        }`,
+        texto: resuelto
+          ? i.fuera_de_sla
+            ? 'Fuera de SLA'
+            : 'Resuelta'
+          : i.vencido
+            ? 'Vencida'
+            : 'En plazo',
       });
       conTooltip(
         vencida,
-        i.vencido
-          ? 'Paso su plazo de resolucion y sigue sin resolverse.'
-          : `Dentro del plazo: ${restanteTexto || 'sin plazo calculado'}.`,
+        resuelto
+          ? i.fuera_de_sla
+            ? 'Se resolvio despues de su plazo.'
+            : 'Resuelta dentro del plazo.'
+          : i.vencido
+            ? 'Paso su plazo de resolucion y sigue sin resolverse.'
+            : `Dentro del plazo: ${restanteTexto || 'sin plazo calculado'}.`,
       );
 
       const btnVer = crear('button', {
@@ -307,8 +485,38 @@ export function vistaIncidencias({ permisos = [] } = {}) {
         atributos: { type: 'button', onclick: () => abrirDetalle(i) },
       });
       conTooltip(btnVer, 'Abre el caso con su linea de tiempo.');
-
       item.append(cuerpo, insignia, vencida, btnVer);
+
+      // TOMAR EL CASO
+      //
+      // El caso sin dueno se toma con un clic, sin abrir el detalle primero:
+      // el tecnico que arranca el turno recorre la bandeja y toma lo que
+      // puede, y abrir cada caso para leerlo antes seria un paso de mas.
+      if (puedeGestionar && !i.assigned_to && i.status === 'OPEN') {
+        const btnTomar = crear('button', {
+          clase: 'boton boton--chico',
+          texto: 'Tomar',
+          atributos: { type: 'button' },
+        });
+        conTooltip(
+          btnTomar,
+          'Toma el caso: queda asignado a vos, arranca el reloj de respuesta y se avisa al que lo reporto.',
+        );
+        btnTomar.addEventListener('click', async () => {
+          btnTomar.disabled = true;
+          btnTomar.textContent = 'Tomando…';
+          try {
+            await api.tomarCasoIncidencia(i.id);
+            avisar(`Caso ${i.code} tomado.`, 'exito', 2500);
+            cargar();
+          } catch (error) {
+            avisar(error.message, 'error');
+            btnTomar.disabled = false;
+            btnTomar.textContent = 'Tomar';
+          }
+        });
+        item.append(btnTomar);
+      }
       lista.append(item);
     }
 
@@ -436,6 +644,11 @@ export function vistaIncidencias({ permisos = [] } = {}) {
     });
   }
 
+  // El filtro con el que se llega desde el tablero del Helpdesk.
+  if (filtros?.estado) selectEstado.value = filtros.estado;
+  if (filtros?.severidad) selectSeveridad.value = filtros.severidad;
+  if (filtros?.solo_vencidas) chkVencidas.checked = true;
+
   inputBuscar.addEventListener('input', () => cargar());
   selectEstado.addEventListener('change', () => cargar());
   selectSeveridad.addEventListener('change', () => cargar());
@@ -530,17 +743,56 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
     datos.append(crear('p', { clase: 'incidencia__descripcion', texto: detalle.description }));
   }
 
+  // LA RESOLUCION
+  //
+  // Si el caso ya se resolvio, el texto de la resolucion es lo primero que
+  // tiene que ver quien lo abre: dice que se hizo. Sin esto, el caso
+  // resuelto se ve como un caso mas, y hay que ir a la linea de tiempo a
+  // buscarlo.
+  if (detalle.resolution) {
+    const resolucion = crear('div', { clase: 'incidencia__resolucion' });
+    resolucion.append(
+      crear('div', { clase: 'incidencia__resolucion-titulo', texto: 'Resolucion' }),
+      crear('p', { clase: 'incidencia__descripcion', texto: detalle.resolution }),
+    );
+    datos.append(resolucion);
+  }
+
   // El SLA, con lo que falta.
   const sla = crear('div', { clase: 'incidencia__sla' });
   const restanteTexto = restante(detalle);
+  const resuelto = detalle.status === 'RESOLVED' || detalle.status === 'CLOSED';
+
+  // Un caso cerrado no tiene "plazo que falta": tiene una fecha de
+  // resolucion. La insignia dice lo que corresponde a cada situacion.
   sla.append(
     crear('div', {
-      clase: `insignia ${detalle.vencido ? 'insignia--peligro' : 'insignia--deposito'}`,
-      texto: detalle.vencido ? 'Fuera de SLA' : 'En plazo',
+      clase: `insignia ${
+        resuelto
+          ? detalle.fuera_de_sla
+            ? 'insignia--peligro'
+            : 'insignia--instalado'
+          : detalle.vencido
+            ? 'insignia--peligro'
+            : 'insignia--deposito'
+      }`,
+      texto: resuelto
+        ? detalle.fuera_de_sla
+          ? 'Resuelta fuera de SLA'
+          : 'Resuelta'
+        : detalle.vencido
+          ? 'Fuera de SLA'
+          : 'En plazo',
     }),
     crear('span', {
       clase: 'mono pequeno',
-      texto: restanteTexto ? `Resolucion: ${restanteTexto}` : '',
+      texto: resuelto
+        ? detalle.resolved_at
+          ? `Resuelta: ${new Date(detalle.resolved_at).toLocaleString('es-AR')}`
+          : ''
+        : restanteTexto
+          ? `Resolucion: ${restanteTexto}`
+          : '',
     }),
   );
   if (detalle.first_response_at) {
@@ -654,6 +906,17 @@ function accionesDe(detalle, alCambiar) {
     zona.append(btnCambiar);
   }
 
+  // EL CIERRE DEL CASO
+  // ------------------
+  // Resolver un caso de este Service Desk NO es poner un texto y listo: es
+  // decir que paso con el EQUIPO. El equipo roto tiene que salir del stock
+  // (taller), el reparado vuelve al deposito, y el danado de forma total se
+  // desincorpora. Sin esto, el inventario no se entera y el KPI de "en
+  // deposito" cuenta equipos que estan rotos.
+  if (detalle.device_id && transiciones.some((t) => t.valor === 'RESOLVED')) {
+    zona.append(cierreDe(detalle, alCambiar));
+  }
+
   // Comentar.
   const campoNota = campoTexto('Ej: Se cambio el disco y quedo funcionando.', 'Nota', {
     type: 'text',
@@ -681,6 +944,125 @@ function accionesDe(detalle, alCambiar) {
   });
 
   zona.append(campoNota.campo, btnComentar);
+  return zona;
+}
+
+/**
+ * EL DESTINO DEL EQUIPO AL CERRAR EL CASO
+ * ---------------------------------------
+ * Las tres salidas posibles, en el lenguaje del deposito:
+ *
+ * - TALLER: el equipo esta roto y va al taller. Deja de contar como
+ *   disponible (eso es lo que hace que el "en deposito" sea verdad).
+ * - REPARADO: se arreglo y vuelve al deposito.
+ * - DANO_TOTAL: no se arregla. El equipo sale del stock con su certificado
+ *   de baja: es la unica forma de que un equipo inservible no siga
+ *   contando como disponible para siempre.
+ *
+ * Y una cuarta, "sin cambios": cuando el caso no tiene equipo, o cuando el
+ * equipo no se toco (por ejemplo, se resolvio reinstalando el sistema).
+ */
+const DESTINOS_EQUIPO = [
+  {
+    valor: 'NINGUNO',
+    texto: 'El equipo no cambia de estado',
+    ayuda: 'El caso se resuelve, pero el equipo sigue donde estaba.',
+  },
+  {
+    valor: 'TALLER',
+    texto: 'Quedo roto: va al taller',
+    ayuda: 'El equipo pasa a "en taller" y deja de contar como disponible.',
+  },
+  {
+    valor: 'REPARADO',
+    texto: 'Se reparo: vuelve al deposito',
+    ayuda: 'El equipo vuelve al deposito y vuelve a estar disponible.',
+  },
+  {
+    valor: 'DANO_TOTAL',
+    texto: 'Dano total: sale del stock',
+    ayuda: 'El equipo no se arregla: se da de baja y sale del inventario, con su certificado.',
+  },
+];
+
+/**
+ * El formulario de cierre del caso.
+ *
+ * @param {object} detalle   La incidencia.
+ * @param {Function} alCambiar  Se llama despues de cerrar, para refrescar.
+ */
+function cierreDe(detalle, alCambiar) {
+  const zona = crear('div', { clase: 'apilado incidencia__cierre' });
+
+  zona.append(
+    crear('h3', { clase: 'tarjeta__titulo', texto: 'Resolver el caso' }),
+  );
+
+  const campoResolucion = campoArea({
+    etiqueta: 'Como se resolvio *',
+    placeholder: 'Ej: Se cambio la placa madre y el equipo quedo funcionando.',
+    requerido: true,
+    filas: 3,
+    descripcion: 'Lo que se hizo. Es lo que lee el que reporto el problema.',
+  });
+
+  const selectDestino = crear('select', { clase: 'campo__control' });
+  for (const d of DESTINOS_EQUIPO) {
+    selectDestino.append(crear('option', { texto: d.texto, atributos: { value: d.valor } }));
+  }
+
+  const zonaDestino = crear('label', { clase: 'campo' });
+  const textoDestino = crear('span', { clase: 'campo__etiqueta', texto: 'Que paso con el equipo' });
+  zonaDestino.append(textoDestino, selectDestino);
+  conTooltip(
+    textoDestino,
+    'El caso no se cierra solo: el equipo tiene que reflejar lo que paso, o el inventario miente.',
+  );
+
+  zona.append(campoResolucion.campo, zonaDestino);
+
+  const btnResolver = crear('button', {
+    clase: 'boton boton--bloque',
+    texto: 'Resolver el caso',
+    atributos: { type: 'button' },
+  });
+
+  btnResolver.addEventListener('click', async () => {
+    const resolucion = campoResolucion.control.value.trim();
+    campoResolucion.limpiar();
+
+    if (resolucion.length < 3) {
+      campoResolucion.marcar('Conta como se resolvio el caso.');
+      return;
+    }
+
+    btnResolver.disabled = true;
+    btnResolver.textContent = 'Resolviendo…';
+    try {
+      const actualizado = await api.cerrarIncidencia(detalle.id, {
+        resolution: resolucion,
+        estado: 'RESOLVED',
+        destino_equipo: selectDestino.value,
+      });
+      // El backend devuelve que paso con el EQUIPO ("quedo en el taller con la
+      // orden #12"). Se muestra: el tecnico tiene que ver que el equipo se
+      // movio de verdad, no solo que el caso se cerro.
+      avisar(
+        actualizado.mensaje_equipo
+          ? `Caso resuelto. ${actualizado.mensaje_equipo} Se aviso al que lo reporto.`
+          : 'Caso resuelto. Se aviso al que lo reporto.',
+        'exito',
+        4500,
+      );
+      cerrarYReabrir(actualizado, alCambiar);
+    } catch (error) {
+      avisar(error.message, 'error');
+      btnResolver.disabled = false;
+      btnResolver.textContent = 'Resolver el caso';
+    }
+  });
+
+  zona.append(btnResolver);
   return zona;
 }
 

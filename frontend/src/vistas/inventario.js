@@ -64,7 +64,7 @@ function campoTexto(placeholder, etiqueta, { type = 'text', valor = '', mono = f
   return { campo, input };
 }
 
-export function vistaInventario({ alAbrirDispositivo }) {
+export function vistaInventario({ alAbrirDispositivo, filtros }) {
   const raiz = crear('div');
 
   // --- Filtros --------------------------------------------------------------
@@ -298,6 +298,10 @@ export function vistaInventario({ alAbrirDispositivo }) {
   // Cada `input` dispara una busqueda. Con `limite: 25` y una consulta que usa
   // indice, no es caro; y una busqueda instantanea se siente mucho mas rapida
   // que una que espera medio segundo.
+  // El filtro con el que se llega desde el tablero: el select queda puesto
+  // ANTES de la primera carga, para que la lista abra filtrada.
+  if (filtros?.estado) selectEstado.value = filtros.estado;
+
   inputBuscar.addEventListener('input', () => {
     pagina = 0;
     cargar();

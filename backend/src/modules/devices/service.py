@@ -693,7 +693,11 @@ def actualizar_dispositivo(device_id: int, datos: dict[str, Any]) -> dict[str, A
 
 
 def dar_de_baja(
-    device_id: int, *, usuario_id: str, motivo: str | None = None
+    device_id: int,
+    *,
+    usuario_id: str,
+    motivo: str | None = None,
+    repair_id: int | None = None,
 ) -> dict[str, Any]:
     """
     Borrado LOGICO de un componente.
@@ -746,18 +750,24 @@ def dar_de_baja(
             text(
                 """
                 INSERT INTO disposal_certificates
-                    (device_id, disposal_date, disposal_reason, authorized_by)
-                VALUES (:id, NOW(), :motivo, :autorizado_por)
+                    (device_id, disposal_date, disposal_reason, authorized_by, repair_id)
+                VALUES (:id, NOW(), :motivo, :autorizado_por, :repair_id)
                 ON CONFLICT (device_id) DO UPDATE
                 SET disposal_date = NOW(),
                     disposal_reason = EXCLUDED.disposal_reason,
-                    authorized_by = EXCLUDED.authorized_by
+                    authorized_by = EXCLUDED.authorized_by,
+                    repair_id = EXCLUDED.repair_id
                 """
             ),
             {
                 "id": device_id,
                 "motivo": (motivo or "Baja desde el panel de inventario")[:500],
                 "autorizado_por": usuario_id,
+                # La orden de trabajo que justifico la baja: sin esto, el
+                # certificado dice "se dio de baja" pero no dice POR QUE. Con
+                # el vinculo, el certificado apunta a la reparacion que
+                # demostro que no se podia arreglar.
+                "repair_id": repair_id,
             },
         )
 

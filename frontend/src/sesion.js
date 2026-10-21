@@ -25,6 +25,9 @@ import { iniciarCampana } from './campana.js';
 import { crear, reemplazar } from './dom.js';
 import { estado, setUsuario } from './estado.js';
 import { mostrarVista } from './navegacion.js';
+import { moduloGuardado, pantallaDeEntrada, guardarModulo } from './vistas/lanzador.js';
+import { moduloPorDefecto } from './modulos.js';
+import { setModulo } from './estado.js';
 import { abrirDialogo } from './dialogo.js';
 import { avisar } from './avisos.js';
 import { vistaLogin } from './vistas/login.js';
@@ -48,23 +51,39 @@ export function pintarLogin() {
   // detecta ningun test de unidad: solo se ve corriendo la app.
   const login = vistaLogin({
     alEntrar: async (datos) => {
-      setUsuario(datos.usuario ?? { role_name: datos.role_name });
-      // Se leen los permisos reales del servidor, no los del rol del JWT: el
-      // backend decide, y una copia aca se desincroniza en el primer cambio de
-      // permisos.
-      await cargarUsuario();
-      cabecera.hidden = false;
-      // La pantalla de inicio es el tablero: el operador ve el estado del
-      // inventario antes de hacer nada. El escaner queda a un toque, en la
-      // primera pestana de la izquierda.
-      mostrarVista('inicio');
+      try {
+        setUsuario(datos.usuario ?? { role_name: datos.role_name });
+        // Se leen los permisos reales del servidor, no los del rol del JWT: el
+        // backend decide, y una copia aca se desincroniza en el primer cambio
+        // de permisos.
+        await cargarUsuario();
+        cabecera.hidden = false;
+      // LA PANTALLA DE ENTRADA: se elige con que modulo se trabaja.
+      //
+      // Con un solo modulo (operador o tecnico) no hay nada que elegir y se
+      // entra directo. Con dos (admin) se elige, y la eleccion se recuerda.
+      const guardado = moduloGuardado(estado.usuario);
+      if (guardado) {
+        setModulo(guardado);
+        mostrarVista('inicio');
+      } else {
+        mostrarPantallaDeEntrada();
+      }
       // La campana de avisos de SLA arranca con la sesion: sin ella, el
       // pedido de conteo seria un 401 en cada arranque de la app.
       iniciarCampana();
       actualizarEstadoIA();
       avisar(`Hola, ${estado.usuario.full_name ?? estado.usuario.email ?? ''}`.trim(), 'exito', 2500);
-      // Reanudar operación pendiente (si venía de expiración con refresh token válido)
-      await reanudarOperacionPendiente();
+        // Reanudar operación pendiente (si venía de expiración con refresh token válido)
+        await reanudarOperacionPendiente();
+      } catch (error) {
+        // Si algo falla DESPUES de autenticarse, el operador se queda en la
+        // pantalla de login sin saber por que: la sesion esta bien, pero la
+        // app no entra. Sin este mensaje, el unico sintoma es "no me deja
+        // entrar" y el operador piensa que la clave esta mal.
+        console.error('No se pudo completar el ingreso:', error);
+        mostrarErrorFalloIngreso(error);
+      }
     },
   });
 
@@ -74,6 +93,50 @@ export function pintarLogin() {
   // Tambien es una app arrancada: el login ES la pantalla. Sin esta marca, un
   // arranque lento que pasa los 12 segundos del vigilante reemplaza el login
   // por "La app no pudo arrancar".
+  document.body.dataset.appLista = '1';
+}
+
+/**
+ * El error de un ingreso que se autentico pero no pudo completar.
+ *
+ * Se muestra en la PANTALLA DE LOGIN, que es donde esta el operador: si el
+ * error aparece en un toast que se va solo a los 4 segundos, no sirve de nada.
+ */
+function mostrarErrorFalloIngreso(error) {
+  const caja = crear('p', {
+    clase: 'campo__error',
+    texto: `Se hizo el ingreso, pero la app no pudo abrir: ${error.message ?? error}`,
+  });
+  caja.setAttribute('role', 'alert');
+  const zona = document.getElementById('contenido');
+  if (zona) zona.prepend(caja);
+}
+
+/**
+ * La pantalla de entrada: elegir modulo.
+ *
+ * Se muestra DESPUES de autenticarse y ANTES de entrar a la app. Es la
+ * separacion entre las dos soluciones: cada persona entra a la suya, y la
+ * app se le abre coherente con su rol.
+ */
+function mostrarPantallaDeEntrada() {
+  const pantalla = pantallaDeEntrada({
+    usuario: estado.usuario,
+    alEntrar: (modulo) => {
+      setModulo(modulo);
+      guardarModulo(modulo);
+      // Las pestanas dependen del modulo: se repintan antes de mostrar la
+      // vista, o la app queda con las del modulo anterior.
+      actualizarCabeceraUsuario();
+      mostrarVista('inicio');
+    },
+  });
+
+  reemplazar(contenido, pantalla);
+  // La navegacion y el selector de modulo se ocultan durante el lanzador: la
+  // app todavia no empezo, y ver las pestanas de un modulo que todavia no se
+  // eligio confunde.
+  cabecera.classList.add('cabecera--lanzador');
   document.body.dataset.appLista = '1';
 }
 
@@ -301,9 +364,16 @@ export async function arrancar() {
     setUsuario(restaurada.usuario ?? { role_name: restaurada.role_name });
     await cargarUsuario();
     cabecera.hidden = false;
+
+    // El modulo: el guardado si el usuario puede usarlo, y si no, el que le
+    // corresponde por rol.
+    const guardado = moduloGuardado(estado.usuario);
+    setModulo(guardado ?? moduloPorDefecto(estado.usuario));
+
     const destino = window.location.hash.replace('#', '');
     mostrarVista(destino && VISTAS_POR_NOMBRE[destino] ? destino : 'inicio');
     iniciarCampana();
+    document.dispatchEvent(new CustomEvent('sesion:cambio'));
   } else {
     pintarLogin();
   }

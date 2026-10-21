@@ -25,7 +25,23 @@ import { etiquetaConDescripcion, leerAtributos, pintarAtributos } from './atribu
 import { botonEscanear } from '../escaner-campo.js';
 
   // --- Alta de producto -----------------------------------------------------
-  async function abrirAlta() {
+  /**
+   * El alta de un producto, opcionalmente a partir de otro.
+   *
+   * POR QUE DUPLICAR
+   * ----------------
+   * Cargar el catalogo de un deposito es veinte productos que se parecen:
+   * la misma marca, la misma linea, distinto modelo o distinto tamano. Sin
+   * duplicar, el operador tiene que copiar campo por campo desde el
+   * producto anterior, y termina dejando un valor mal copiado (el costo del
+   * modelo pasado, que es el error mas caro del maestro).
+   *
+   * El SKU NO se copia: es UNIQUE, y tiene que ser distinto. Es lo unico que
+   * el operador tiene que escribir.
+   *
+   * @param {object} [base]  El producto a partir del cual se copia.
+   */
+  async function abrirAlta(base = null) {
     let categorias = [];
     try {
       categorias = await api.categorias();
@@ -73,6 +89,26 @@ import { botonEscanear } from '../escaner-campo.js';
     const campoCosto = campoTexto({ etiqueta: 'Costo unitario (USD)', placeholder: 'Ej: 850.00', type: 'number', paso: '0.01', descripcion: 'Lo que costo una unidad. Con esto se calcula el valor del inventario.' });
     const campoMin = campoTexto({ etiqueta: 'Stock minimo', placeholder: 'Ej: 3', type: 'number', valor: '0', descripcion: 'Por debajo de este numero, el producto aparece para reponer.' });
     const campoMax = campoTexto({ etiqueta: 'Stock maximo', placeholder: 'Ej: 20', type: 'number', valor: '100', descripcion: 'El tope de stock: arriba de este numero, el producto esta por sobre stockeado.' });
+
+    // EL PRELLENADO (cuando se duplica un producto)
+    //
+    // Se copian los campos que describen la LINEA del producto: la marca, el
+    // modelo, la variante, la categoria, el costo y los puntos de stock.
+    //
+    // NO se copian el SKU, el QR ni el codigo de barras:
+    //   - El SKU es UNIQUE: tiene que ser distinto, y es lo unico que el
+    //     operador tiene que escribir.
+    //   - El QR (`PRD-<sku>`) y el codigo de barras se derivan del SKU, y
+    //     copiarlos seria un conflicto de unicidad.
+    if (base) {
+      campoMarca.control.value = base.brand ?? '';
+      campoModelo.control.value = base.model ?? '';
+      campoVariante.control.value = base.variant ?? '';
+      campoCosto.control.value = base.unit_cost ?? '';
+      campoMin.control.value = base.min_stock ?? 0;
+      campoMax.control.value = base.max_stock ?? 100;
+      if (base.category_id) selectCategoria.value = String(base.category_id);
+    }
 
     const form = crear('form', {
       clase: 'apilado',

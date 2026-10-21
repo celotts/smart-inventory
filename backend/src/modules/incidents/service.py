@@ -83,7 +83,11 @@ def listar_incidencias(
     location_id: int | None = None,
     solo_vencidas: bool = False,
     solo_abiertas: bool = False,
+    solo_sin_asignar: bool = False,
+    fuera_de_sla: bool = False,
     solo_mias: bool = False,
+    sin_atender: bool = False,
+    mi_usuario: str | None = None,
     busqueda: str | None = None,
     limite: int = 50,
     offset: int = 0,
@@ -126,6 +130,30 @@ def listar_incidencias(
         # Las que siguen vivas: las tres del ciclo de trabajo. Es el filtro que
         # usa el tablero del Helpdesk para mostrar "los casos que vencen".
         condiciones.append("i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')")
+    if solo_sin_asignar:
+        # Nadie las todavia: son las que se van a perder, porque un caso sin
+        # responsable no lo mira nadie.
+        condiciones.append("i.assigned_to IS NULL AND i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')")
+    if fuera_de_sla:
+        # Se resolvieron despues del plazo: el SLA incumplido, que es lo que se
+        # mide despues para evaluar al taller.
+        condiciones.append("i.resolved_at IS NOT NULL AND i.resolved_at > i.resolution_due_at")
+    if sin_atender:
+        # EL BACKLOG: los casos que NADIE TOMO. No es lo mismo que "sin
+        # asignar": un caso asignado a alguien que lo tiene abandonado sigue
+        # sin atendido, y es el que de verdad se pierde. El backlog mira la
+        # PRIMERA RESPUESTA, no la asignacion.
+        condiciones.append(
+            "i.first_response_at IS NULL AND i.status IN ('OPEN', 'IN_PROGRESS', 'WAITING')"
+        )
+    if solo_mias:
+        # "MIS CASOS": los que tiene asignados el usuario, sin importar el
+        # estado. Sin el id del usuario no se puede filtrar, y un filtro que
+        # se ignora en silencio es peor que no tenerlo.
+        if not mi_usuario:
+            raise IncidenciaInvalida("No se puede filtrar por mis casos sin saber quien pregunta.")
+        condiciones.append("i.assigned_to = :mi_usuario")
+        parametros["mi_usuario"] = mi_usuario
     if busqueda:
         condiciones.append(
             "(i.title ILIKE :busqueda OR i.description ILIKE :busqueda OR i.code ILIKE :busqueda "
@@ -489,7 +517,458 @@ def comentar(incidencia_id: UUID, nota: str, *, user_id: UUID) -> dict[str, Any]
     return obtener_incidencia(incidencia_id)
 
 
-def metricas() -> dict[str, Any]:
+# ===========================================================================
+# EL FLUJO DEL CASO: BANDEJA, TOMA Y CIERRE
+# ===========================================================================
+#
+# QUE ES UNA BANDEJA
+# ------------------
+# Los casos reportados que NADIE TOMO. No es un filtro cosmetico: es el
+# trabajo sin dueño, que es lo unico que se pierde. La bandeja se mira al
+# empezar el turno y se vacia con un clic ("Tomar el caso").
+#
+# POR QUE "TOMAR" Y NO "ASIGNAR"
+# ------------------------------
+# Asignar es una decision del supervisor: "este caso es de Juan". Tomar es
+# una decision del tecnico: "este caso es mio". Con las dos, el supervisor
+# puede repartir el trabajo Y el tecnico puede trabajar sin pedir permiso.
+#
+# EL AVISO AL QUE REPORTO
+# -----------------------
+# El que reporto el caso quiere saber que paso con el. Si nadie le dice
+# nada, deja de reportar (o reporta por telefono). Por eso, cuando el caso
+# se toma y cuando se resuelve, el reportador recibe un aviso en su campana.
+
+
+# Los destinos posibles del EQUIPO al cerrar el caso. Son los del inventario:
+# el caso no inventa estados, usa los del stock.
+DESTINOS_EQUIPO = ("NINGUNO", "TALLER", "REPARADO", "DANO_TOTAL")
+
+
+def _notificar_reportador(
+    conexion,
+    *,
+    incidencia: dict[str, Any],
+    user_id: UUID,
+    tipo: str,
+    titulo: str,
+    mensaje: str,
+    clave: str,
+) -> int:
+    """
+    Avisa al que reporto el caso.
+
+    Si el que reporto es el mismo que esta operando, no se avisa: uno no se
+    notifica a si mismo.
+    """
+    reportador = incidencia.get("reported_by")
+    if not reportador or str(reportador) == str(user_id):
+        return 0
+
+    return _crear_notificaciones(
+        conexion,
+        incidencia_id=incidencia["id"],
+        tipo=tipo,
+        titulo=titulo,
+        mensaje=mensaje,
+        destinatarios=[UUID(str(reportador))],
+        clave=clave,
+    )
+
+
+def tomar_caso(incidencia_id: UUID, *, user_id: UUID) -> dict[str, Any]:
+    """
+    Toma un caso de la bandeja: queda asignado a quien lo toma.
+
+    QUE HACE
+    --------
+    1. Lo asigna al usuario.
+    2. Arranca el reloj de respuesta (`first_response_at`), si no habia
+       arrancado: el SLA se mide desde la PRIMERA RESPUESTA, y el momento de
+       tomar el caso es la respuesta.
+    3. Lo pasa a "en curso" (de la bandeja no se queda parado en "abierta").
+    4. Avisa al que lo reporto.
+
+    LA CONCURRENCIA
+    ---------------
+    Dos tecnicos pueden tocar el mismo caso en el mismo segundo. El `FOR
+    UPDATE` serializa: el segundo ve que ya esta asignado y recibe un 409
+    con un mensaje claro, en vez de stealearle el caso.
+    """
+    engine = get_ai_engine()
+    with engine.begin() as conexion:
+        conexion.execute(
+            text("SELECT set_config('app.actor_id', :actor, true)"),
+            {"actor": str(user_id)},
+        )
+
+        fila = conexion.execute(
+            text(
+                """
+                SELECT id, code, title, severity, status, assigned_to, reported_by
+                FROM incidents
+                WHERE id = :id AND deleted_at IS NULL
+                FOR UPDATE
+                """
+            ),
+            {"id": str(incidencia_id)},
+        ).mappings().first()
+
+        if not fila:
+            raise IncidenciaNoEncontrada("No existe esa incidencia.")
+
+        caso = dict(fila)
+
+        if caso["status"] in ("RESOLVED", "CLOSED", "CANCELLED"):
+            raise IncidenciaInvalida("Ese caso ya esta cerrado: no se puede tomar.")
+
+        if caso["assigned_to"] and str(caso["assigned_to"]) != str(user_id):
+            raise IncidenciaInvalida(
+                "Otro tecnico ya tomo este caso. Recargá la bandeja para ver el estado real."
+            )
+
+        conexion.execute(
+            text(
+                """
+                UPDATE incidents
+                SET assigned_to = :usuario,
+                    first_response_at = COALESCE(first_response_at, NOW()),
+                    status = CASE WHEN status = 'OPEN' THEN 'IN_PROGRESS' ELSE status END,
+                    version = version + 1
+                WHERE id = :id
+                """
+            ),
+            {"usuario": str(user_id), "id": str(incidencia_id)},
+        )
+
+        conexion.execute(
+            text(
+                """
+                INSERT INTO incident_events (incident_id, event_type, actor_id, note, payload)
+                VALUES (:id, 'CLAIMED', :actor, :nota, :payload)
+                """
+            ),
+            {
+                "id": str(incidencia_id),
+                "actor": str(user_id),
+                "nota": "El caso se tomo de la bandeja.",
+                "payload": json.dumps({"responsable": str(user_id)}),
+            },
+        )
+
+        _notificar_reportador(
+            conexion,
+            incidencia=caso,
+            user_id=user_id,
+            tipo="CASE_CLAIMED",
+            titulo=f"{caso['code']} fue tomado por un tecnico",
+            mensaje=(
+                f"'{caso['title']}' ya esta en manos del taller. "
+                "Te avisamos cuando se resuelva."
+            ),
+            clave=f"CASE_CLAIMED:{caso['id']}",
+        )
+
+    return obtener_incidencia(incidencia_id)
+
+
+def _validar_destino_equipo(device_id: int, destino: str) -> str:
+    """
+    Revisa que el destino sea posible para el estado ACTUAL del equipo.
+
+    Devuelve el estado actual del equipo (o None si el equipo no existe).
+    """
+    from src.modules.devices import service as devices_service
+
+    try:
+        equipo = devices_service.obtener_dispositivo(device_id)
+    except devices_service.DispositivoNoEncontrado as exc:
+        raise IncidenciaInvalida(
+            "El equipo del caso no existe: no se puede aplicarle el destino."
+        ) from exc
+
+    estado_actual = equipo.get("current_status")
+
+    if destino == "TALLER" and estado_actual not in ("IN_WAREHOUSE", "IN_TRANSIT", "INSTALLED", "IN_REPAIR"):
+        raise IncidenciaInvalida(
+            f"El equipo esta en {estado_actual}: no se puede enviar al taller desde ahi."
+        )
+
+    if destino == "REPARADO" and estado_actual not in ("IN_REPAIR", "IN_TRANSIT"):
+        raise IncidenciaInvalida(
+            "Solo un equipo en taller o en transito puede volver al deposito. "
+            "Un equipo instalado en el cliente vuelve por escaneo, no por el caso."
+        )
+
+    return estado_actual
+
+
+def _aplicar_destino_equipo(
+    device_id: int,
+    destino: str,
+    *,
+    user_id: UUID,
+    codigo: str,
+    motivo: str,
+    incidencia_id: UUID | None = None,
+) -> str:
+    """
+    Mueve el equipo del caso segun como termino.
+
+    QUE SIGNIFICA CADA DESTINO
+    --------------------------
+    - TALLER: el equipo esta roto y va al taller. Sale del servicio: pasa a
+      `IN_REPAIR` y deja de contar como disponible.
+    - REPARADO: se arreglo y vuelve al deposito. Pasa a `IN_WAREHOUSE` y
+      vuelve a contar como stock.
+    - DANO_TOTAL: no se arregla. El equipo se desincorpora del stock (baja
+      logica con certificado, como cualquier baja) y desaparece de los KPIs
+      de stock.
+
+    POR QUE NO SE TOCA EL INVENTARIO "A MANO"
+    ----------------------------------------
+    El estado del equipo se cambia con el service de dispositivos, que es el
+    que valida la transicion contra la matriz de estados y el que deja el
+    rastro. Si el Service Desk escribiera en la tabla `devices` por su
+    cuenta, un caso podria dejar el equipo en un estado que el inventario no
+    acepta, y los dos modulos contarian historias distintas.
+    """
+    from src.modules.devices import service as devices_service
+    from src.modules.repairs import service as repairs_service
+
+    if destino == "TALLER":
+        # EL INGRESO AL TALLER
+        #
+        # No alcanza con cambiar el estado del equipo: la base exige que haya
+        # una orden de trabajo ABIERTA para ponerlo en `IN_REPAIR` (un equipo
+        # "en el taller" sin orden es un equipo que el taller no sabe que
+        # tiene). La orden se abre ACÁ, ligada a este caso: asi se puede
+        # responder "de que se estaba quejar este equipo" con un JOIN.
+        orden = repairs_service.ingreso_taller(
+            device_id,
+            technician_id=user_id,
+            diagnostico=motivo or f"{codigo}: ingreso al taller.",
+            incident_id=incidencia_id,
+        )
+        return (
+            "El equipo quedo en el taller (IN_REPAIR) "
+            f"con la orden de trabajo #{orden.get('id')}."
+        )
+
+    if destino == "REPARADO":
+        # Se cierra la orden de trabajo (si habia una) y el equipo vuelve al
+        # deposito.
+        repairs_service.cerrar_reparacion(
+            device_id,
+            technician_id=user_id,
+            trabajo=motivo or "Reparado.",
+            reparado=True,
+        )
+        devices_service.actualizar_dispositivo(
+            device_id, {"current_status": "IN_WAREHOUSE"}
+        )
+        return "El equipo se reparo y volvio al deposito (IN_WAREHOUSE)."
+
+    if destino == "DANO_TOTAL":
+        # El taller deja la orden como "no reparable" y el equipo sale del
+        # stock con su certificado de baja.
+        orden = repairs_service.cerrar_reparacion(
+            device_id,
+            technician_id=user_id,
+            trabajo=motivo or "Dano total: no reparable.",
+            reparado=False,
+        )
+
+        if not orden:
+            # El equipo NUNCA entro al taller (se reporto roto y ya no hadia
+            # caso). Se registra igual la orden, cerrada como no reparable:
+            # el certificado de baja tiene que apuntar a la reparacion que
+            # demostro que no se podia arreglar. Un certificado que dice "se
+            # dio de baja" sin decir por que no es una prueba.
+            abierta = repairs_service.ingreso_taller(
+                device_id,
+                technician_id=user_id,
+                diagnostico=motivo or "Dano total.",
+                incident_id=incidencia_id,
+            )
+            orden = repairs_service.cerrar_reparacion(
+                device_id,
+                technician_id=user_id,
+                trabajo=motivo or "Dano total: no reparable.",
+                reparado=False,
+            ) or abierta
+        devices_service.dar_de_baja(
+            device_id,
+            usuario_id=str(user_id),
+            motivo=motivo or f"{codigo}: dano total.",
+            repair_id=(orden or {}).get("id"),
+        )
+        return "El equipo fue dado de baja por dano total y salio del stock."
+
+    return "El equipo no cambio de estado."
+
+
+def cerrar_caso(
+    incidencia_id: UUID,
+    datos: dict[str, Any],
+    *,
+    user_id: UUID,
+) -> dict[str, Any]:
+    """
+    Resuelve un caso, y dice que paso con el EQUIPO.
+
+    POR QUE EL CIERRE LLEVA EL DESTINO DEL EQUIPO
+    ---------------------------------------------
+    Este no es un help desk de software: es el control de los equipos danados.
+    Un caso de "la notebook no prende" no se cierra con un texto: se cierra
+    con el equipo en el taller, reparado, o dado de baja por dano total. Sin
+    eso, el inventario no sabe que el equipo salio del stock y el KPI de
+    "en deposito" miente.
+
+    EL AVISO AL QUE REPORTO
+    -----------------------
+    Al resolver, el reportador recibe el aviso: por eso puede dejar de
+    preguntar por telefono "ya esta?".
+    """
+    resolucion = (datos.get("resolution") or "").strip()
+    if not resolucion:
+        raise IncidenciaInvalida("Escribi como se resolvio el caso.")
+
+    destino = (datos.get("destino_equipo") or "NINGUNO").upper()
+    if destino not in DESTINOS_EQUIPO:
+        raise IncidenciaInvalida(
+            f"Destino de equipo invalido. Validos: {', '.join(DESTINOS_EQUIPO)}."
+        )
+
+    estado = (datos.get("estado") or "RESOLVED").upper()
+
+    engine = get_ai_engine()
+    with engine.begin() as conexion:
+        conexion.execute(
+            text("SELECT set_config('app.actor_id', :actor, true)"),
+            {"actor": str(user_id)},
+        )
+
+        fila = conexion.execute(
+            text(
+                """
+                SELECT id, code, title, status, device_id, reported_by, assigned_to
+                FROM incidents
+                WHERE id = :id AND deleted_at IS NULL
+                FOR UPDATE
+                """
+            ),
+            {"id": str(incidencia_id)},
+        ).mappings().first()
+
+        if not fila:
+            raise IncidenciaNoEncontrada("No existe esa incidencia.")
+
+        caso = dict(fila)
+
+        if destino != "NINGUNO" and not caso["device_id"]:
+            raise IncidenciaInvalida(
+                "El caso no tiene ningun equipo asociado: no hay a que aplicarle el destino."
+            )
+
+        # EL DESTINO SE VALIDA ANTES DE RESOLVER EL CASO
+        #
+        # Si el destino es invalido para el estado actual del equipo (por
+        # ejemplo, "reparado" de un equipo que esta INSTALLED en el cliente: no
+        # puede volver solo al deposito), el caso NO se resuelve. Resolver
+        # primero y fallar despues deja el caso cerrado y el equipo donde
+        # estaba: dos verdades sobre lo mismo, que es justo lo que este
+        # Service Desk existe para evitar.
+        if destino != "NINGUNO":
+            _validar_destino_equipo(caso["device_id"], destino)
+
+        try:
+            conexion.execute(
+                text(
+                    """
+                    UPDATE incidents
+                    SET status = :estado,
+                        resolution = :resolucion,
+                        version = version + 1
+                    WHERE id = :id
+                    """
+                ),
+                {"estado": estado, "resolucion": resolucion, "id": str(incidencia_id)},
+            )
+        except Exception as exc:  # noqa: BLE001 - se re-traslata abajo
+            mensaje = str(getattr(exc, "orig", exc))
+            if "Transicion de incidencia no valida" in mensaje:
+                raise IncidenciaInvalida(
+                    "Ese cambio de estado no esta permitido. "
+                    "Revisá el estado actual de la incidencia."
+                ) from exc
+            raise
+
+        conexion.execute(
+            text(
+                """
+                INSERT INTO incident_events (incident_id, event_type, actor_id, note, payload)
+                VALUES (:id, 'RESOLVED', :actor, :nota, :payload)
+                """
+            ),
+            {
+                "id": str(incidencia_id),
+                "actor": str(user_id),
+                "nota": resolucion,
+                "payload": json.dumps({"destino_equipo": destino}),
+            },
+        )
+
+        _notificar_reportador(
+            conexion,
+            incidencia=caso,
+            user_id=user_id,
+            tipo="CASE_RESOLVED",
+            titulo=f"{caso['code']} fue resuelta",
+            mensaje=(
+                f"'{caso['title']}' quedo resuelta. {resolucion}"
+            ),
+            clave=f"CASE_RESOLVED:{caso['id']}",
+        )
+
+    # El destino del equipo se aplica FUERA de la transaccion del caso: el
+    # service de dispositivos abre su propia conexion, y anidar dos
+    # transacciones sobre las mismas filas es como se produce un deadlock.
+    mensaje_equipo = "El equipo no cambio de estado."
+    if destino != "NINGUNO" and caso["device_id"]:
+        mensaje_equipo = _aplicar_destino_equipo(
+            caso["device_id"],
+            destino,
+            user_id=user_id,
+            codigo=caso["code"],
+            motivo=resolucion,
+            incidencia_id=incidencia_id,
+        )
+        engine = get_ai_engine()
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    """
+                    INSERT INTO incident_events (incident_id, event_type, actor_id, note, payload)
+                    VALUES (:id, 'DEVICE_DISPOSITION', :actor, :nota, :payload)
+                    """
+                ),
+                {
+                    "id": str(incidencia_id),
+                    "actor": str(user_id),
+                    "nota": mensaje_equipo,
+                    "payload": json.dumps(
+                        {"destino_equipo": destino, "device_id": caso["device_id"]}
+                    ),
+                },
+            )
+
+    detalle = obtener_incidencia(incidencia_id)
+    detalle["mensaje_equipo"] = mensaje_equipo
+    return detalle
+
+
+def metricas(user_id: UUID | None = None) -> dict[str, Any]:
     """
     El resumen para el tablero: cuantas hay abiertas, cuantas vencidas, y
     cuanto se demora el taller.
@@ -510,7 +989,31 @@ def metricas() -> dict[str, Any]:
                     COUNT(*) FILTER (WHERE severity = 'S1' AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING')) AS criticas_abiertas,
                     ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600.0)
                         FILTER (WHERE resolved_at IS NOT NULL)::NUMERIC, 1) AS mttr_horas,
-                    COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS creadas_30d
+                    COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS creadas_30d,
+
+                    -- EL BACKLOG
+                    --
+                    -- "Sin atender" son los casos ABIERTOS que nadie respondio
+                    -- todavia (primera respuesta vacia). No es lo mismo que
+                    -- "sin asignar": un caso asignado a alguien que lo tiene
+                    -- abandonado sigue sin atendido, y es el que de verdad se
+                    -- pierde. El backlog mira la primera respuesta, no la
+                    -- asignacion.
+                    COUNT(*) FILTER (
+                        WHERE first_response_at IS NULL
+                          AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING')
+                    ) AS sin_atender,
+
+                    -- La antiguedad del caso sin atender MAS VIEJO: el numero
+                    -- que dice quantas horas lleva esperando el taller.
+                    ROUND(MAX(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0)
+                        FILTER (
+                            WHERE first_response_at IS NULL
+                              AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING')
+                        )::NUMERIC, 1) AS sin_atender_antiguedad_h,
+
+                    -- Los que estan esperando algo (repuesto, aprobacion).
+                    COUNT(*) FILTER (WHERE status = 'WAITING') AS en_espera
                 FROM v_incident_sla
                 """
             )
@@ -528,9 +1031,34 @@ def metricas() -> dict[str, Any]:
             )
         ).mappings().all()
 
+    # "MIS CASOS": los que tiene asignados el usuario y siguen abiertos. Es
+    # el segundo tablero del tecnico: no solo lo que hay que tomar, sino lo
+    # que ya esta en sus manos.
+    mias = 0
+    if user_id:
+        with engine.connect() as conexion:
+            mias = int(
+                conexion.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM incidents
+                        WHERE deleted_at IS NULL
+                          AND assigned_to = :usuario
+                          AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING')
+                        """
+                    ),
+                    {"usuario": str(user_id)},
+                ).scalar_one()
+                or 0
+            )
+
     datos = dict(resumen)
     if datos.get("mttr_horas") is not None:
         datos["mttr_horas"] = float(datos["mttr_horas"])
+    if datos.get("sin_atender_antiguedad_h") is not None:
+        datos["sin_atender_antiguedad_h"] = float(datos["sin_atender_antiguedad_h"])
+    datos["mias"] = mias
     return {"resumen": datos, "por_severidad": [dict(f) for f in por_severidad]}
 
 
@@ -811,6 +1339,76 @@ def barrer_sla(*, minutos_aviso: int = MINUTOS_AVISO_POR_DEFECTO) -> dict[str, A
                     f"{incidencia['resolution_due_at'].isoformat()}"
                 ),
             )
+
+            # EL PLAZO YA PASO: el supervisor tiene que enterarse.
+            #
+            # El escalamiento por "nadie respondio" (arriba) cubre el caso de
+            # un caso que nadie tomo. Este cubre el otro: alguien lo tomo, pero
+            # no lo resuelve, y el plazo vencio. Sin este aviso, un caso
+            # abandonado con un responsable asignado no escala nunca, y el
+            # backlog crece sin que nadie lo note.
+            if ahora >= incidencia["resolution_due_at"]:
+                politica = conexion.execute(
+                    text(
+                        """
+                        SELECT escalate_after_minutes, escalate_to_role, escalate_to_user
+                        FROM incident_escalation_policies
+                        WHERE severity = :severidad AND is_active = TRUE
+                        """
+                    ),
+                    {"severidad": incidencia["severity"]},
+                ).mappings().first()
+
+                supervisor = (
+                    _destinatario_de_escalamiento(conexion, politica) if politica else None
+                )
+
+                if supervisor:
+                    ya_escalado = conexion.execute(
+                        text(
+                            """
+                            SELECT COUNT(*) FROM incident_events
+                            WHERE incident_id = :id AND event_type = 'ESCALATED'
+                            """
+                        ),
+                        {"id": str(incidencia["id"])},
+                    ).scalar_one()
+
+                    avisos += _crear_notificaciones(
+                        conexion,
+                        incidencia_id=incidencia["id"],
+                        tipo="SLA_RESOLUTION_BREACHED",
+                        titulo=f"{incidencia['code']} paso su plazo de resolucion",
+                        mensaje=(
+                            f"'{incidencia['title']}' ({incidencia['severity']}) "
+                            "vencio su plazo de resolucion y sigue sin resolverse. "
+                            "Requiere intervencion del supervisor."
+                        ),
+                        destinatarios=[supervisor],
+                        clave=(
+                            f"SLA_RESOLUTION_BREACHED:{incidencia['id']}:"
+                            f"{incidencia['resolution_due_at'].isoformat()}"
+                        ),
+                    )
+
+                    if ya_escalado == 0:
+                        conexion.execute(
+                            text(
+                                """
+                                INSERT INTO incident_events (
+                                    incident_id, event_type, actor_id, note, payload
+                                )
+                                VALUES (:id, 'ESCALATED', :actor, :nota, :payload)
+                                """
+                            ),
+                            {
+                                "id": str(incidencia["id"]),
+                                "actor": str(supervisor),
+                                "nota": "Se paso el plazo de resolucion: se escala al supervisor.",
+                                "payload": json.dumps({"escalado_a": str(supervisor)}),
+                            },
+                        )
+                        escalados += 1
 
     return {
         "avisos_creados": avisos,

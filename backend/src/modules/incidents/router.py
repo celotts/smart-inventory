@@ -38,6 +38,7 @@ from src.modules.incidents import service
 from src.modules.incidents.schemas import (
     ActualizarIncidenciaRequest,
     CambiarEstadoRequest,
+    CerrarIncidenciaRequest,
     ComentarRequest,
     CrearIncidenciaRequest,
     IncidenciaDetalle,
@@ -83,10 +84,14 @@ def listar(
     location_id: int | None = Query(None, gt=0),
     solo_vencidas: bool = Query(False, description="Solo las que ya pasaron su plazo de resolucion."),
     solo_abiertas: bool = Query(False, description="Solo las que siguen abiertas (OPEN, IN_PROGRESS, WAITING)."),
+    solo_sin_asignar: bool = Query(False, description="Solo las abiertas y sin responsable asignado."),
+    sin_atender: bool = Query(False, description="Solo las abiertas que nadie respondio todavia (el backlog)."),
+    solo_mias: bool = Query(False, description="Solo las asignadas al usuario que pregunta."),
+    fuera_de_sla: bool = Query(False, description="Solo las que se resolvieron despues del plazo."),
     busqueda: str | None = Query(None, max_length=100, description="Texto libre: codigo, titulo o descripcion."),
     limite: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
 ) -> ListaIncidenciasResponse:
     """
     Listado paginado, con filtros combinables.
@@ -104,6 +109,11 @@ def listar(
         location_id=location_id,
         solo_vencidas=solo_vencidas,
         solo_abiertas=solo_abiertas,
+        solo_sin_asignar=solo_sin_asignar,
+        sin_atender=sin_atender,
+        solo_mias=solo_mias,
+        mi_usuario=str(usuario.id) if solo_mias else None,
+        fuera_de_sla=fuera_de_sla,
         busqueda=busqueda,
         limite=limite,
         offset=offset,
@@ -115,7 +125,7 @@ def listar(
     summary="Resumen de incidencias para el tablero",
 )
 def metricas(
-    _usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_VER)),
 ) -> dict:
     """
     Cuantas abiertas, cuantas vencidas, y cuanto se demora el taller (MTTR).
@@ -123,7 +133,7 @@ def metricas(
     El MTTR es el numero que le importa al responsable: no como hay many
     tickets, sino cuanto tarda el taller en resolverlos.
     """
-    return service.metricas()
+    return service.metricas(user_id=usuario.id)
 
 
 
@@ -344,6 +354,56 @@ def cambiar_estado(
             pedido.estado,
             user_id=usuario.id,
             nota=pedido.nota,
+        )
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "/{incidencia_id}/claim",
+    response_model=IncidenciaDetalle,
+    summary="Tomar un caso de la bandeja",
+)
+def tomar_caso(
+    incidencia_id: UUID,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_GESTIONAR)),
+) -> IncidenciaDetalle:
+    """
+    Toma un caso de la bandeja: queda asignado a quien lo toma.
+
+    Es la accion del tecnico al empezar el turno: un clic y el caso es suyo,
+    con su plazo de respuesta ya arrancando y el que lo reporto avisado.
+    """
+    try:
+        return service.tomar_caso(incidencia_id, user_id=usuario.id)
+    except Exception as exc:
+        raise _errores(exc) from exc
+
+
+@router.post(
+    "/{incidencia_id}/cierre",
+    response_model=IncidenciaDetalle,
+    summary="Resolver un caso y definir el destino del equipo",
+)
+def cerrar_caso(
+    incidencia_id: UUID,
+    pedido: CerrarIncidenciaRequest,
+    usuario: UsuarioActual = Depends(exigir(Permiso.INCIDENCIAS_GESTIONAR)),
+) -> IncidenciaDetalle:
+    """
+    Cierra el caso y dice que paso con el EQUIPO.
+
+    - TALLER: el equipo quedo roto, en el taller (`IN_REPAIR`).
+    - REPARADO: se reparo y volvio al deposito (`IN_WAREHOUSE`).
+    - DANO_TOTAL: no se arregla; sale del stock con su certificado de baja.
+
+    El que reporto el caso recibe el aviso del cierre.
+    """
+    try:
+        return service.cerrar_caso(
+            incidencia_id,
+            pedido.model_dump(),
+            user_id=usuario.id,
         )
     except Exception as exc:
         raise _errores(exc) from exc

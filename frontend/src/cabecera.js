@@ -19,7 +19,10 @@
  */
 
 import { api, haySesion } from './api.js';
+import { crear } from './dom.js';
+import { conTooltip } from './tooltip.js';
 import { estado } from './estado.js';
+import { MODULOS, modulosDe, pestanasDelModulo } from './modulos.js';
 
 /** El sello manual de build, como fallback del hash real. */
 const SELLO_BUILD = '2619-1';
@@ -60,25 +63,32 @@ export function actualizarCabeceraUsuario() {
     contenedor.hidden = false;
 
     const perms = usuario.permisos ?? [];
+    // Las pestanas que se ven: las del modulo en el que se esta trabajando.
+    const permitidas = pestanasDelModulo(estado.modulo);
     // "Nuevo" (alta de equipo) y "Productos" (maestro) piden devices:edit.
-    if (pestanaNuevo) pestanaNuevo.hidden = !perms.includes('devices:edit');
+    if (pestanaNuevo) pestanaNuevo.hidden = !perms.includes('devices:edit') || !permitidas.has('nuevo');
     // Productos se ve con permiso de lectura de inventario (lo tiene el tecnico:
     // necesita ver el catalogo aunque no lo edite).
-    if (pestanaProductos) pestanaProductos.hidden = !perms.includes('devices:read');
+    if (pestanaProductos) pestanaProductos.hidden = !perms.includes('devices:read') || !permitidas.has('productos');
     // Compras pide ver movimientos (ADMIN y OPERATOR).
-    if (pestanaCompras) pestanaCompras.hidden = !perms.includes('movements:read');
+    if (pestanaCompras) pestanaCompras.hidden = !perms.includes('movements:read') || !permitidas.has('compras');
     // Movimientos pide CREAR movimientos: quien solo puede leer (un tecnico) no
     // tiene por que ver una pestana llena de botones que le van a dar 403.
-    if (pestanaMovimientos) pestanaMovimientos.hidden = !perms.includes('movements:create');
+    if (pestanaMovimientos) pestanaMovimientos.hidden = !perms.includes('movements:create') || !permitidas.has('movimientos');
     // Auditoría es de ADMIN: muestra lo que hizo cada usuario.
-    if (pestanaAuditoria) pestanaAuditoria.hidden = !perms.includes('audit:read');
+    if (pestanaAuditoria) pestanaAuditoria.hidden = !perms.includes('audit:read') || !permitidas.has('auditoria');
     // Incidencias: verlas es de cualquiera (el operador ve los problemas que
     // reporta), gestionarlas es del taller.
-    if (pestanaIncidencias) pestanaIncidencias.hidden = !perms.includes('incidents:read');
+    if (pestanaIncidencias) pestanaIncidencias.hidden = !perms.includes('incidents:read') || !permitidas.has('incidencias');
     // Usuarios es de ADMIN: la lista de quien entra es informacion que un
     // tecnico no necesita para trabajar, y el que la tiene puede cambiar el
     // rol de cualquiera.
-    if (pestanaUsuarios) pestanaUsuarios.hidden = !perms.includes('users:read');
+    if (pestanaUsuarios) pestanaUsuarios.hidden = !perms.includes('users:read') || !permitidas.has('usuarios');
+
+    // El selector de modulo se repinta aca: las pestanas y el selector tienen
+    // que contar la misma historia, y si cada uno se dibuja por su lado
+    // terminan mostrando cosas distintas.
+    pintarSelectorModulo();
   } else {
     contenedor.hidden = true;
     if (pestanaNuevo) pestanaNuevo.hidden = true;
@@ -89,6 +99,91 @@ export function actualizarCabeceraUsuario() {
     if (pestanaIncidencias) pestanaIncidencias.hidden = true;
     if (pestanaUsuarios) pestanaUsuarios.hidden = true;
   }
+}
+
+/**
+ * El selector de modulo, en la cabecera.
+ *
+ * SOLO PARA QUIEN PUEDE CAMBIAR
+ * ----------------------------
+ * El modulo es la decision operativa de la persona ("yo trabajo el deposito"
+ * o "yo trabajo el taller"). Un operador con un solo modulo no tiene nada
+ * que elegir: el selector no aparece.
+ */
+/**
+ * El selector de modulo de la cabecera.
+ *
+ * LOS BOTONES SIEMPRE ESTAN EN EL MISMO LUGAR
+ * -------------------------------------------
+ * Se pintan TODOS los modulos, en el mismo orden, y los que el usuario no
+ * puede usar quedan ocultos. Asi:
+ *
+ *   - El diseño de la cabecera no cambia nunca: el boton de Inventario esta
+ *     siempre en el mismo pixel, este o no este disponible.
+ *   - Un tecnico ve UN boton (Service Desk) y el de Inventario esta oculto.
+ *   - Un admin ve LOS DOS.
+ *
+ * Ocultar el selector entero cuando hay un solo modulo (que es lo que hacia
+ * antes) movia el resto de la cabecera: el boton de salir y la campana
+ * cambiaban de lugar segun el rol. Eso se nota, y hace que la app se vea
+ * distinta en cada pantalla.
+ */
+export function pintarSelectorModulo() {
+  const zona = document.getElementById('cabecera-modulo');
+  if (!zona) return;
+
+  zona.replaceChildren();
+  zona.hidden = false;
+
+  const disponibles = modulosDe(estado.usuario);
+
+  for (const clave of Object.keys(MODULOS)) {
+    const modulo = MODULOS[clave];
+    const permitido = disponibles.includes(clave);
+    const activo = estado.modulo === clave;
+
+    const boton = crear('button', {
+      clase:
+        `cabecera__modulo${activo ? ' cabecera__modulo--activo' : ''}` +
+        (permitido ? '' : ' cabecera__modulo--no-disponible'),
+      atributos: {
+        type: 'button',
+        'aria-pressed': activo ? 'true' : 'false',
+        'data-modulo': clave,
+      },
+      texto: modulo.etiqueta,
+    });
+
+    if (permitido) {
+      conTooltip(boton, modulo.descripcion);
+      boton.addEventListener('click', async () => {
+        if (activo) return;
+        const { cambiarModulo } = await import('./navegacion.js');
+        const { guardarModulo } = await import('./vistas/lanzador.js');
+        cambiarModulo(clave, estado.usuario);
+        guardarModulo(clave);
+      });
+    } else {
+      // El que no se puede usar no es un boton: es un hueco. Con
+      // `visibility: hidden` (y no `hidden`), el hueco OCUPA SU LUGAR: los
+      // botones no se mueven de posicion segun el rol, y la cabecera se ve
+      // igual para todos.
+      boton.setAttribute('aria-hidden', 'true');
+      boton.tabIndex = -1;
+      boton.disabled = true;
+    }
+
+    zona.appendChild(boton);
+  }
+}
+
+/**
+ * Deja el selector listo. Se pinta de verdad cuando hay sesion.
+ */
+export function iniciarSelectorModulo() {
+  pintarSelectorModulo();
+  // Se vuelve a pintar cuando cambia la sesion (el usuario puede ser otro).
+  document.addEventListener('sesion:cambio', pintarSelectorModulo);
 }
 
 /**
