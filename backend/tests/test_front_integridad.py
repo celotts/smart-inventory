@@ -313,29 +313,28 @@ class TestCabecera:
         )
         assert "grid-area: nav" in regla, "El menu tiene que tener su area."
 
-    def test_el_selector_de_modulo_esta_centrado_en_la_pagina(self):
+    def test_el_selector_de_modulo_esta_en_la_fila_de_arriba(self):
         """
-        El selector de modulo va CENTRADO respecto de la pagina.
+        El selector de modulo va en la FILA DE ARRIBA, al lado del menu.
 
-        Con una grilla, "centrar la celda" deja los botones corrida hacia un
-        lado: el centro de una celda no es el centro de la pantalla. Por eso
-        va con posicion absoluta al 50% con la traslacion: el centro es el
-        centro de la pagina, se llame como se llame el rol.
+        Es una eleccion operativa del dia a dia ("hoy trabajo el deposito"),
+        y tiene que estar a la vista sin bajar a otra fila.
         """
         css = self._css()
 
         bloque = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
         assert bloque, "No se encuentra la regla del selector de modulo."
-        regla = bloque.group(0)
-
-        assert "position: absolute" in regla, (
-            "El selector de modulo tiene que estar posicionado en absoluto: "
-            "en una grilla, el centro de la celda no es el centro de la pagina."
+        assert "grid-area: modulos" in bloque.group(0), (
+            "El selector de modulo tiene que tener area propia en la fila de "
+            "arriba: es la eleccion operativa del dia a dia."
         )
-        assert "left: 50%" in regla, "El selector de modulo tiene que estar al 50%."
-        assert "translateX(-50%)" in regla, (
-            "El selector de modulo tiene que corregirse con la traslacion "
-            "para quedar CENTRADO en la pagina."
+
+        areas = re.search(r"grid-template-areas:\s*([^;]+);", css, re.S)
+        assert areas, "No se encuentra el grid-template-areas de la cabecera."
+        primera_fila = areas.group(1).strip().split("\n")[0]
+        assert "modulos" in primera_fila, (
+            "El selector de modulo tiene que estar en la PRIMERA fila de la "
+            "cabecera, no en la segunda."
         )
 
     def test_la_segunda_fila_de_la_cabecera_existe(self):
