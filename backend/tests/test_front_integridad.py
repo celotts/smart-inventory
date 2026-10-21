@@ -243,6 +243,74 @@ def _claves_de_crear(texto: str) -> set[str]:
     return claves
 
 
+class TestCabecera:
+    """
+    La cabecera no se puede mover.
+
+    QUE PASÓ
+    ---------
+    La cabecera era un `flex` con `margin-inline: auto` en el menu: el menu se
+    centraba repartiendo el espacio sobrante. Al cambiar de modulo cambian
+    las pestanas, cambia el ancho del menu, y con el se movia TODO lo que
+    estaba alrededor: el selector de modulo (que es la unica cosa que
+    cambia de verdad) salia de un lado y volvia al otro.
+
+    El operador veia el menu y las pestanas cambiar, y el selector de modulo
+    moverse. Se lee como "la app se rompió".
+
+    QUE CHEQUEA
+    -----------
+    1. Que la cabecera sea una GRID con areas: es lo que fija las columnas.
+    2. Que el menu NO se centre con margenes automaticos: eso es lo que
+       hace que todo se mueva cuando el menu cambia de ancho.
+    3. Que el selector de modulo tenga area propia: asi puede bajar a su
+       propia fila en el celular sin depender de donde este en el HTML.
+    """
+
+    def _css(self) -> str:
+        raiz = _raiz_del_front()
+        for ruta in (raiz / "styles.css", raiz.parent / "styles.css"):
+            if ruta.exists():
+                return ruta.read_text(encoding="utf-8")
+        pytest.skip("No se encuentra styles.css.")
+
+    def test_la_cabecera_es_una_grid_con_areas(self):
+        css = self._css()
+
+        bloque = re.search(r"\.cabecera\s*\{[^}]*\}", css, re.S)
+        assert bloque, "No se encuentra la regla de la cabecera."
+
+        regla = bloque.group(0)
+        assert "display: grid" in regla, "La cabecera tiene que ser una grid."
+        assert "grid-template-areas" in regla, (
+            "La cabecera tiene que tener areas: sin ellas, el contenido se "
+            "acomoda solo y se mueve cuando cambia el ancho del menu."
+        )
+
+    def test_el_menu_no_se_centra_con_margenes_automaticos(self):
+        css = self._css()
+
+        bloque = re.search(r"\.cabecera__nav\s*\{[^}]*\}", css, re.S)
+        assert bloque, "No se encuentra la regla del menu."
+
+        regla = bloque.group(0)
+        assert "margin-inline: auto" not in regla, (
+            "El menu no se puede centrar con margenes automaticos: al cambiar "
+            "de modulo cambia su ancho, y con el se mueve toda la cabecera."
+        )
+        assert "grid-area: nav" in regla, "El menu tiene que tener su area."
+
+    def test_el_selector_de_modulo_tiene_area_propia(self):
+        css = self._css()
+
+        bloque = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
+        assert bloque, "No se encuentra la regla del selector de modulo."
+        assert "grid-area: modulos" in bloque.group(0), (
+            "El selector de modulo tiene que tener area propia: es lo que "
+            "permite que baje a su propia fila en el celular."
+        )
+
+
 class TestModales:
     """
     Un modal sin boton de cerrar es un modal TRABADO.

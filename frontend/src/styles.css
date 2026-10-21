@@ -411,11 +411,34 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 /* ---------------------------------------------------------------------------
    Cabecera
    --------------------------------------------------------------------------- */
+/* LA CABECERA ES UNA GRID DE TRES COLUMNAS
+ *
+ *   [ marca + usuario ] [ menu de secciones ] [ modulo + campana + salir ]
+ *        (fija)              (centrado)                (fija)
+ *
+ * POR QUE UNA GRID Y NO UN FLEX CON MARGENES AUTOMATICOS
+ * ------------------------------------------------------
+ * Con `margin-inline: auto` en el menu, el menu se centra repartiendo el
+ * espacio sobrante. Al cambiar de modulo cambian las pestanas, cambia el
+ * ancho del menu, y con el cambia TODO lo que esta alrededor: el selector
+ * de modulo se iba de un lado y volvia al otro.
+ *
+ * El operador ve el cambio de modulo y el menu de secciones, y el selector
+ * de modulo (que es la unica pieza que cambia de verdad) se movia. Eso se
+ * lee como "la app se rompio" y hace que el operador busque el selector
+ * otra vez con la mirada.
+ *
+ * Con la grid, cada columna tiene su lugar: cambiar de modulo cambia el
+ * menu (que es lo que tiene que cambiar) y NADA mas. El selector de
+ * modulo, la campana y el boton de salir estan siempre en el mismo pixel.
+ */
 .cabecera {
   position: sticky;
   top: 0;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'izquierda nav modulos acciones';
   align-items: center;
   gap: 1rem;
   padding: calc(0.75rem + var(--safe-top)) 1rem 0.75rem;
@@ -423,6 +446,31 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--borde);
+}
+
+.cabecera__izquierda {
+  grid-area: izquierda;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  /* La marca y el nombre del usuario no se encogen: si no, en una pantalla
+   * chica el nombre queda en "Ad...". */
+  flex-shrink: 0;
+}
+
+.cabecera__acciones {
+  grid-area: acciones;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cabecera__modulos {
+  grid-area: modulos;
+  flex-shrink: 0;
 }
 
 .cabecera__marca {
@@ -437,9 +485,18 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .cabecera__logo { display: grid; place-items: center; color: var(--primario); }
 
 .cabecera__nav {
+  grid-area: nav;
   display: flex;
   gap: 0.25rem;
-  margin-inline: auto;
+  /* Ocupa SU columna, sin desbordarla: con `center` y contenido mas ancho
+   * que la columna, el menu se sale por los dos lados y pisa al logo y a
+   * los botones de la derecha. */
+  justify-self: stretch;
+  /* `safe center` centra el menu mientras hay lugar, y cuando no hay
+   * (celular con muchas pestanas) deja que scrollee desde el inicio: con
+   * `center` a secas, la parte de la izquierda queda inalcanzable al
+   * scrollear. */
+  justify-content: safe center;
 }
 
 .cabecera__salir:hover { color: var(--error); border-color: var(--error); }
@@ -531,6 +588,48 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .pestana__texto { display: none; }
   .pestana { padding: 0 0.7rem; }
   .cabecera { padding-inline: 0.75rem; gap: 0.5rem; }
+}
+
+/* EN EL CELULAR, LA CABECERA TIENE DOS FILAS
+ *
+ * En 390 px no entran el menu, los dos modulos, la campana y el boton de
+ * salir en una sola linea: si se apilan, el menu queda con dos pixeles de
+ * ancho y los pestanas se meten debajo de los botones.
+ *
+ * Con dos filas: arriba, la marca, el usuario y los botones de la derecha;
+ * abajo, el selector de modulo y el menu (que scrollea).
+ *
+ * El selector de modulo SIGUE EN EL MISMO LUGAR RELATIVO: a la derecha de
+ * la fila de arriba, y con la misma separacion. Lo que cambia es la fila,
+ * no la posicion dentro de ella.
+ */
+@media (max-width: 760px) {
+  .cabecera {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'izquierda acciones'
+      'modulos nav';
+    row-gap: 0.4rem;
+    column-gap: 0.75rem;
+  }
+
+  .cabecera__nav {
+    justify-content: flex-start;
+    padding-inline: 0.25rem;
+  }
+
+  .cabecera__modulos {
+    justify-self: start;
+  }
+}
+
+/* En una pantalla mediana, el usuario es solo el avatar.
+ *
+ * El menu de secciones necesita el espacio mas que el nombre del usuario:
+ * con el nombre visible, el menu scrollea y la ultima pestana queda
+ * escondida. El nombre y el rol quedan en el `title` del avatar. */
+@media (max-width: 1400px) {
+  .cabecera__usuario-info { display: none; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -2265,30 +2364,6 @@ body[data-modulo="helpdesk"] {
 }
 
 /* El selector de la cabecera, con el color del modulo. */
-.cabecera__modulo[data-modulo="inventario"] {
-  --modulo-color: var(--primary);
-}
-
-.cabecera__modulo[data-modulo="helpdesk"] {
-  --modulo-color: var(--warning);
-}
-
-.cabecera__modulo--activo {
-  color: var(--modulo-color, var(--texto));
-}
-
-/* El modulo que el usuario NO puede usar.
- *
- * `visibility: hidden` y NO `hidden`: con `hidden` el elemento sale del
- * flujo y el boton que queda se corre hacia un lado, segun el rol. Con
- * `visibility` el hueco ocupa su lugar, y la cabecera se ve EXACTAMENTE IGUAL
- * para el operador, para el tecnico y para el admin: los botones no se
- * mueven nunca. */
-.cabecera__modulo--no-disponible {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 /* ---------------------------------------------------------------------------
    PANTALLA DE ENTRADA: ELEGIR MODULO
    ---------------------------------------------------------------------------
@@ -2403,6 +2478,31 @@ body[data-modulo="helpdesk"] {
   border: 1px solid var(--borde);
   border-radius: var(--radio-sm, 8px);
   background: var(--superficie-2);
+
+  /* EL ANCHO MINIMO
+   *
+   * La zona del selector ocupa SIEMPRE el mismo lugar, este o no este
+   * disponible el modulo que le corresponde: con dos botones (admin) o con
+   * una etiqueta (operador y tecnico).
+   *
+   * Sin esto, la cabecera se armaba sola: el nav tiene `margin-inline: auto`
+   * (se centra), asi que al cambiar el ancho de la zona cambiaba el
+   * centrando del nav y la campana y el boton de salir cambiaban de
+   * posicion segun el rol. La misma app, distinta disposicion.
+   *
+   * Con el ancho minimo, la campana y el salir estan siempre en el mismo
+   * pixel, y el contenido del selector se alinea a la derecha.
+   */
+  min-width: 11.5rem;
+  justify-content: flex-end;
+}
+
+/* Con un solo modulo, la zona no necesita el marco de un grupo de botones:
+   es una etiqueta, no un selector. */
+.cabecera__modulos:has(.cabecera__modulo--fijo) {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
 }
 
 .cabecera__modulo {
@@ -2417,10 +2517,48 @@ body[data-modulo="helpdesk"] {
   cursor: pointer;
 }
 
+/* El color de cada modulo. El token vive en el elemento, asi que el
+ * selector y la etiqueta fija lo heredan sin repetir reglas. */
+.cabecera__modulo[data-modulo="inventario"] {
+  --modulo-color: var(--primary);
+}
+
+.cabecera__modulo[data-modulo="helpdesk"] {
+  --modulo-color: var(--warning);
+}
+
 .cabecera__modulo--activo {
   background: var(--color-surface);
-  color: var(--texto);
+  color: var(--modulo-color, var(--texto));
   box-shadow: var(--shadow-xs, 0 1px 2px rgb(15 23 42 / 0.04));
+}
+
+/* EL MODULO FIJO: la etiqueta de quien tiene un solo modulo.
+ *
+ * No es un boton: es un cartel que dice en que modulo se esta trabajando.
+ * Se ve con el color del modulo, con el mismo formato que el boton activo,
+ * para que el operador lea "Service Desk" y entienda donde esta.
+ *
+ * El cursor es el de una etiqueta (no el de un boton): si se parece a un
+ * boton, el operador lo pulsa esperando un cambio, y no lo hay. */
+.cabecera__modulo--fijo {
+  cursor: default;
+  color: var(--modulo-color, var(--texto));
+  background: color-mix(in srgb, var(--modulo-color, var(--primary)) 10%, transparent);
+  font-weight: 600;
+  user-select: none;
+}
+
+/* El modulo que el usuario NO puede usar.
+ *
+ * `visibility: hidden` y NO `hidden`: con `hidden` el elemento sale del
+ * flujo y el boton que queda se corre hacia un lado, segun el rol. Con
+ * `visibility` el hueco ocupa su lugar, y la cabecera se ve EXACTAMENTE IGUAL
+ * para el operador, para el tecnico y para el admin: los botones no se
+ * mueven nunca. */
+.cabecera__modulo--no-disponible {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Un KPI QUE LLEVA A OTRO LADO TIENE QUE PARECER UN BOTON
@@ -2663,6 +2801,28 @@ body.modal-abierto {
   flex-wrap: wrap;
   min-width: 0; /* Permite que hijos flex se encojan */
 }
+
+/* La cabecera ya es una grid: el nav es su columna y puede encojerse con
+   scroll sin que las otras dos se muevan. */
+.cabecera__nav {
+  /* Las pestañas NO se parten en dos lineas: si el menu es mas ancho que
+     su columna, scrollea en horizontal. Partirse en dos lineas hace que la
+     cabecera crezca y que el contenido de abajo salte. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* El desvanecido del borde: sin el, un menu que scrollea parece un menu
+     CORTADO, y el operador no sabe que hay pestanas escondidas. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent 100%);
+}
+.cabecera__nav::-webkit-scrollbar { display: none; }
+
+/* CUANDO NO HAY QUE SCROLLEAR, NO HAY DESVANECIDO
+ *
+ * Con el desvanecido siempre puesto, el ultimo boton del menu se ve
+ * apagado aunque no haya nada escondida. */
+.cabecera__nav:not(:hover) { scroll-behavior: smooth; }
 
 /* Inputs y textareas nunca salen de su contenedor */
 .campo__control,

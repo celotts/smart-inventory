@@ -50,6 +50,24 @@
   <a href="#contenido" class="saltar-al-contenido">Saltar al contenido</a>
 
   <header class="cabecera" id="cabecera" hidden>
+    <!--
+      Las dos zonas fijas de la cabecera.
+
+      La cabecera es una GRID de tres columnas: lo de la izquierda (marca y
+      usuario), el menu de secciones en el medio, y lo de la derecha (modulo,
+      campana y salir).
+
+      Por que en GRID y no en flex con margenes automaticos: con margenes
+      automaticos, el menu se centra repartiendo el espacio sobrante, asi que
+      al cambiar de modulo (que cambia las pestanas y su ancho) TODO lo que
+      esta a su alrededor se movia. El selector de modulo salia de un lado y
+      volvia al otro, y el operador tenia que volver a buscarlo con la
+      mirada.
+
+      Con la grid, las tres columnas tienen su ancho y su lugar: cambiar de
+      modulo cambia el menu (que es lo que tiene que cambiar) y NADA mas.
+    -->
+    <div class="cabecera__izquierda">
     <div class="cabecera__marca">
       <span class="cabecera__logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
@@ -71,6 +89,8 @@
         <span class="cabecera__usuario-nombre" id="cabecera-usuario-nombre"></span>
         <span class="cabecera__usuario-rol" id="cabecera-usuario-rol"></span>
       </div>
+    </div>
+
     </div>
 
     <nav class="cabecera__nav" aria-label="Secciones">
@@ -184,7 +204,22 @@
       </button>
     </nav>
 
-    <!-- Botón modo exterior / alto contraste -->
+    <!--
+      El selector de modulo. Es hijo DIRECTO de la cabecera (no del grupo de
+      la derecha) para que, en el celular, pueda bajar a su propia fila: en
+      390 px no entran el menu, los dos modulos, la campana y el boton de
+      salir en una sola linea.
+    -->
+    <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
+
+    <div class="cabecera__acciones">
+    <!--
+      El modo exterior (alto contraste para trabajar al sol).
+
+      Va DENTRO del grupo de la derecha: si queda fuera, la cabecera (que es
+      una grid de tres columnas) lo manda a una fila de mas y el boton queda
+      flotando solo, abajo de todo.
+    -->
     <button class="cabecera__exterior" id="btn-exterior" 
             aria-pressed="false" 
             aria-label="Alternar modo exterior (alto contraste)"
@@ -196,15 +231,9 @@
     </button>
 
     <!--
-      El selector de modulo.
-
-      Solo aparece para quien puede usar los dos modulos (el ADMIN). El
-      operador y el tecnico tienen uno solo: no hay nada que elegir, y un
-      selector con una sola opcion es ruido.
-
-      Lo arma `cabecera.js`: depende de los permisos, que son del servidor.
+      (El selector de modulo va antes, como hijo directo de la cabecera: en
+      el celular baja a su propia fila.)
     -->
-    <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
 
     <!--
       La campana de avisos de SLA.
@@ -228,6 +257,7 @@
         <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
+    </div>
   </header>
 
   <main id="contenido" class="contenido">

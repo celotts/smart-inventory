@@ -305,10 +305,20 @@ async function renovar() {
   // Ya hay una renovacion en curso: se ESPERA a esa, no se abandona.
   if (promesaRenovacion) return promesaRenovacion;
 
-  const refresh = await leerRefreshToken();
-  if (!refresh) return false;
-
+  // LA PROMESA SE ARMA ANTES DE CUALQUIER `await`
+  //
+  // Si el `await` del token estuviera antes de armar la promesa, dos
+  // peticiones que llegan en el mismo tick pasarian las dos por el chequeo y
+  // cada una frenaria su propia renovacion. Y con dos canjes del MISMO
+  // refresh token, el backend (que lo rota y toma un token repetido como
+  // un token clonado) cierra TODAS las sesiones del usuario.
+  //
+  // Armarla de entrada, sin `await` en el medio, hace que la segunda
+  // peticion encuentre la promesa y la espere.
   promesaRenovacion = (async () => {
+    const refresh = await leerRefreshToken();
+    if (!refresh) return false;
+
     try {
       const r = await fetchConTimeout(`${BASE}/auth/refresh`, {
         method: 'POST',

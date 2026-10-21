@@ -61,6 +61,9 @@ export function actualizarCabeceraUsuario() {
     const rol = usuario.role_name || '—';
     rolEl.textContent = rol.charAt(0) + rol.slice(1).toLowerCase();
     contenedor.hidden = false;
+    // En pantallas medianas el nombre se oculta (el avatar solo): el
+    // `title` lo deja a un clic de distancia, para que no se pierda.
+    contenedor.title = `${nombreEl.textContent} · ${rolEl.textContent}`;
 
     const perms = usuario.permisos ?? [];
     // Las pestanas que se ven: las del modulo en el que se esta trabajando.
@@ -111,22 +114,34 @@ export function actualizarCabeceraUsuario() {
  * que elegir: el selector no aparece.
  */
 /**
- * El selector de modulo de la cabecera.
+ * El selector de modulo, en la cabecera.
  *
- * LOS BOTONES SIEMPRE ESTAN EN EL MISMO LUGAR
- * -------------------------------------------
+ * UN CONTROL CON UNA SOLA OPCION ES RUIDO
+ * ---------------------------------------
+ * El modulo se elige en el lanzador, DESPUES de loguearse: es la decision
+ * operativa del dia ("hoy trabajo el deposito" / "hoy trabajo el taller").
+ * La cabecera solo lo muestra.
+ *
+ *   - Con UN solo modulo (operador, tecnico), la cabecera muestra una
+ *     ETIQUETA con el nombre del modulo. No es un boton porque no hay nada
+ *     que pulsar: si lo fuera, el operador lo probaria y no pasaria nada.
+ *     Antes se veia un recuadro gris vacio en su lugar, que parece un
+ *     error de render.
+ *   - Con DOS modulos (admin), la cabecera muestra los dos botones, porque
+ *     el admin SI alterna entre el deposito y el taller, y un viaje en
+ *     busca y sustitucion por el lanzador cada vez seria absurdo.
+ *
+ * LA POSICION NO CAMBIA
+ * ---------------------
+ * La zona del selector esta siempre en el mismo lugar de la cabecera, sea
+ * una etiqueta o sean dos botones. Lo que se mueve al cambiar de rol es el
+ * ancho del contenido, no la posicion de la campana ni del boton de salir.
+ *
+ * LOS BOTONES, CUANDO HAY DOS
+ * ---------------------------
  * Se pintan TODOS los modulos, en el mismo orden, y los que el usuario no
- * puede usar quedan ocultos. Asi:
- *
- *   - El diseño de la cabecera no cambia nunca: el boton de Inventario esta
- *     siempre en el mismo pixel, este o no este disponible.
- *   - Un tecnico ve UN boton (Service Desk) y el de Inventario esta oculto.
- *   - Un admin ve LOS DOS.
- *
- * Ocultar el selector entero cuando hay un solo modulo (que es lo que hacia
- * antes) movia el resto de la cabecera: el boton de salir y la campana
- * cambiaban de lugar segun el rol. Eso se nota, y hace que la app se vea
- * distinta en cada pantalla.
+ * puede usar quedan ocultos con `visibility: hidden`: el hueco ocupa su
+ * lugar, asi los botones no se mueven de posicion.
  */
 export function pintarSelectorModulo() {
   const zona = document.getElementById('cabecera-modulo');
@@ -136,6 +151,27 @@ export function pintarSelectorModulo() {
   zona.hidden = false;
 
   const disponibles = modulosDe(estado.usuario);
+
+  // UN SOLO MODULO: una etiqueta, no un control.
+  //
+  // Un boton que no lleva a ningun lado es peor que no tener nada: el
+  // operador lo pulsa, no pasa nada, y la app parece rota. Con una
+  // etiqueta se ve que el modulo YA esta elegido y que no hay nada mas que
+  // decidir.
+  if (disponibles.length < 2) {
+    const clave = disponibles[0] ?? estado.modulo;
+    const modulo = MODULOS[clave];
+    if (!modulo) return;
+
+    const etiqueta = crear('span', {
+      clase: 'cabecera__modulo cabecera__modulo--fijo',
+      texto: modulo.etiqueta,
+      atributos: { 'data-modulo': clave },
+    });
+    conTooltip(etiqueta, modulo.descripcion);
+    zona.append(etiqueta);
+    return;
+  }
 
   for (const clave of Object.keys(MODULOS)) {
     const modulo = MODULOS[clave];
