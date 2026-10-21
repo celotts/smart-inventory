@@ -13,6 +13,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { ESTADOS, ICONOS, MOVIMIENTOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -151,17 +152,29 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
     atributos: { 'aria-live': 'polite', 'aria-label': 'Resultados de la busqueda' },
   });
   const contadorResultados = crear('p', { clase: 'tenue pequeno' });
-  const zonaPaginacion = crear('div', {
-    clase: 'fila-botones',
-    estilo: 'margin-top:1rem',
-  });
-
-  raiz.append(tarjetaFiltros, contadorResultados, zonaLista, zonaPaginacion);
-
+  // LA PAGINACION (el componente compartido)
   let pagina = 0;
-  const POR_PAGINA = 25;
+  let POR_PAGINA = 25;
   let total = 0;
   let peticionEnCurso = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite: POR_PAGINA,
+    pagina,
+    etiqueta: 'componentes',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      POR_PAGINA = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaFiltros, contadorResultados, zonaLista, paginacion.elemento);
 
   /**
    * Se pide por parametro y no por `debounce` con `setTimeout`.
@@ -255,44 +268,15 @@ export function vistaInventario({ alAbrirDispositivo, filtros }) {
     zonaLista.replaceChildren(lista);
   }
 
+  /**
+   * La barra de paginacion.
+   *
+   * Es el COMPONENTE compartido, no una copia: asi todas las tablas de la
+   * app tienen el mismo comportamiento (los botones, el "pagina 3 de 15" y la
+   * cantidad por pagina).
+   */
   function pintarPaginacion() {
-    zonaPaginacion.replaceChildren();
-
-    const totalPaginas = Math.ceil(total / POR_PAGINA);
-    if (totalPaginas <= 1) return;
-
-    const contador = crear('span', {
-      clase: 'tenue pequeno centro',
-      texto: `${pagina + 1} de ${totalPaginas} · ${total} componentes`,
-    });
-
-    const anterior = crear('button', {
-      clase: 'boton boton--suave',
-      texto: 'Anterior',
-      atributos: {
-        type: 'button',
-        disabled: pagina === 0,
-        onclick: () => {
-          pagina -= 1;
-          cargar();
-        },
-      },
-    });
-
-    const siguiente = crear('button', {
-      clase: 'boton boton--suave',
-      texto: 'Siguiente',
-      atributos: {
-        type: 'button',
-        disabled: pagina >= totalPaginas - 1,
-        onclick: () => {
-          pagina += 1;
-          cargar();
-        },
-      },
-    });
-
-    zonaPaginacion.append(anterior, contador, siguiente);
+    paginacion.actualizar({ total, limite: POR_PAGINA, pagina });
   }
 
   // Cada `input` dispara una busqueda. Con `limite: 25` y una consulta que usa
@@ -475,7 +459,7 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     let ubicaciones = [];
     try {
       [productos, ubicaciones] = await Promise.all([
-        api.productos(),
+        api.productos().then((r) => r.items ?? r),
         api.ubicaciones(),
       ]);
     } catch (error) {

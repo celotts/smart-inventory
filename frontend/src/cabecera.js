@@ -19,6 +19,7 @@
  */
 
 import { api, haySesion } from './api.js';
+import { etiquetaDeRol, prefijoDeRol } from './i18n.js';
 import { crear } from './dom.js';
 import { conTooltip } from './tooltip.js';
 import { estado } from './estado.js';
@@ -50,20 +51,29 @@ export function actualizarCabeceraUsuario() {
   const pestanaAuditoria = document.getElementById('pestana-auditoria');
   const pestanaIncidencias = document.getElementById('pestana-incidencias');
   const pestanaUsuarios = document.getElementById('pestana-usuarios');
+  const pestanaExistencia = document.getElementById('pestana-existencia');
 
   if (!contenedor || !nombreEl || !rolEl) return;
 
   const usuario = estado.usuario;
 
   if (usuario && (usuario.full_name || usuario.email)) {
-    nombreEl.textContent = usuario.full_name || usuario.email;
+    // El NOMBRE no se muestra: el bloque dice "Rol: Admin" y el nombre de la
+    // persona esta en "Mi cuenta". Poner las dos cosas en 24 pixeles de alto
+    // hace que se lean como un solo texto largo.
+    const nombre = usuario.full_name || usuario.email;
+    nombreEl.textContent = '';
+    nombreEl.hidden = true;
     // El rol viene del backend como role_name (ADMIN, TECHNICIAN, OPERATOR)
+    // La linea del rol: "Rol: Admin". Con el prefijo se sabe que es el rol
+    // y no un segundo nombre; y la etiqueta esta en el idioma de la app
+    // ("Tecnico", no "Technician").
     const rol = usuario.role_name || '—';
-    rolEl.textContent = rol.charAt(0) + rol.slice(1).toLowerCase();
+    rolEl.textContent = `${prefijoDeRol()}${etiquetaDeRol(rol)}`;
     contenedor.hidden = false;
     // En pantallas medianas el nombre se oculta (el avatar solo): el
     // `title` lo deja a un clic de distancia, para que no se pierda.
-    contenedor.title = `${nombreEl.textContent} · ${rolEl.textContent}`;
+    contenedor.title = `${nombre} · ${rolEl.textContent}`;
 
     const perms = usuario.permisos ?? [];
     // Las pestanas que se ven: las del modulo en el que se esta trabajando.
@@ -87,11 +97,25 @@ export function actualizarCabeceraUsuario() {
     // tecnico no necesita para trabajar, y el que la tiene puede cambiar el
     // rol de cualquiera.
     if (pestanaUsuarios) pestanaUsuarios.hidden = !perms.includes('users:read') || !permitidas.has('usuarios');
+    // Existencia: el stock por rubro. Se ve con permiso de LECTURA de
+    // inventario: el depositero necesita saber cuanto hay de cada cosa, y
+    // para eso no hace falta permiso de escritura.
+    if (pestanaExistencia) pestanaExistencia.hidden = !perms.includes('devices:read') || !permitidas.has('existencia');
 
     // El selector de modulo se repinta aca: las pestanas y el selector tienen
     // que contar la misma historia, y si cada uno se dibuja por su lado
     // terminan mostrando cosas distintas.
     pintarSelectorModulo();
+
+    // Si el menu no entra en su columna, se avisa con el desvanecido del
+    // borde: sin el, un menu que scrollea parece un menu CORTADO. La medicion
+    // se hace despues de pintar las pestanas, porque antes el ancho es el
+    // viejo.
+    requestAnimationFrame(() => {
+      const nav = document.querySelector('.cabecera__nav');
+      if (!nav) return;
+      nav.classList.toggle('cabecera__nav--desbordado', nav.scrollWidth > nav.clientWidth + 2);
+    });
   } else {
     contenedor.hidden = true;
     if (pestanaNuevo) pestanaNuevo.hidden = true;
@@ -101,6 +125,7 @@ export function actualizarCabeceraUsuario() {
     if (pestanaAuditoria) pestanaAuditoria.hidden = true;
     if (pestanaIncidencias) pestanaIncidencias.hidden = true;
     if (pestanaUsuarios) pestanaUsuarios.hidden = true;
+    if (pestanaExistencia) pestanaExistencia.hidden = true;
   }
 }
 

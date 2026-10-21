@@ -30,6 +30,7 @@ import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { descargarCsv } from '../descargas.js';
 import { conTooltip } from '../tooltip.js';
+import { crearPaginacion } from '../paginacion.js';
 
 /**
  * Las operaciones de movimiento, con todo lo que la UI necesita para ofrecerlas.
@@ -145,10 +146,108 @@ export function vistaMovimientos({ permisos = [] } = {}) {
 
   tarjetaCabecera.append(encabezado);
 
+  // LA PAGINACION DEL STOCK
+  //
+  // El stock es un producto por ubicacion: con 800 productos en 6 sedes son
+  // 4800 filas. La pantalla las pide de a paginas.
+  let paginaStock = 0;
+  let limiteStock = 50;
+  let totalStock = 0;
+
+  const paginacionStock = crearPaginacion({
+    total: 0,
+    limite: limiteStock,
+    pagina: paginaStock,
+    etiqueta: 'existencias',
+    alCambiarPagina: (nueva) => {
+      paginaStock = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limiteStock = nuevo;
+      paginaStock = 0;
+      cargar();
+    },
+  });
+
+  // --- El historial de movimientos -------------------------------------------
+  //
+  // LA PANTALLA QUE FALTA
+  // ---------------------
+  // Esta pantalla mostraba el STOCK POR PRODUCTO (para mover mercaderia), y
+  // no el HISTORIAL: quien movio que, cuando y de donde a donde. Con 5000
+  // movimientos, el historial sin buscador ni paginacion es lo unico que no
+  // se puede usar: se ven los ultimos 50 y no hay como llegar a los de ayer.
+  //
+  // El buscador va al SERVIDOR (el backend filtra y pagina): filtrar en el
+  // navegador solo miraria las 50 filas de la pagina.
+  const tarjetaHistorial = crear('div', { clase: 'tarjeta' });
+
+  const cabeceraHistorial = crear('div', { clase: 'flex-entre' });
+  cabeceraHistorial.append(
+    crear('div', {
+      hijos: [
+        crear('h3', { clase: 'tarjeta__titulo', texto: 'Historial de movimientos' }),
+        crear('p', {
+          clase: 'tarjeta__subtitulo',
+          estilo: 'margin:0',
+          texto: 'Quien movio cada equipo, cuando y de donde a donde.',
+        }),
+      ],
+    }),
+  );
+
+  const inputHistorial = crear('input', {
+    clase: 'campo__control',
+    atributos: {
+      type: 'search',
+      placeholder: 'Buscar por serial, SKU, modelo o ubicacion',
+      autocomplete: 'off',
+      spellcheck: 'false',
+    },
+  });
+
+  const etiquetaHistorial = crear('label', { clase: 'campo' });
+  const textoHistorial = crear('span', { clase: 'campo__etiqueta', texto: 'Buscar' });
+  etiquetaHistorial.append(textoHistorial, inputHistorial);
+  conTooltip(textoHistorial, 'Busca en el historial por serial, QR, SKU, marca, modelo o ubicacion.');
+
+  const filtrosHistorial = crear('div', { clase: 'rejilla-filtros' });
+  filtrosHistorial.append(etiquetaHistorial);
+
+  const zonaHistorial = crear('div');
+  tarjetaHistorial.append(cabeceraHistorial, filtrosHistorial, zonaHistorial);
+
+  let paginaHistorial = 0;
+  let limiteHistorial = 50;
+  let totalHistorial = 0;
+
+  const paginacionHistorial = crearPaginacion({
+    total: 0,
+    limite: limiteHistorial,
+    pagina: paginaHistorial,
+    etiqueta: 'movimientos',
+    alCambiarPagina: (nueva) => {
+      paginaHistorial = Math.max(0, nueva);
+      cargarHistorial();
+    },
+    alCambiarLimite: (nuevo) => {
+      limiteHistorial = nuevo;
+      paginaHistorial = 0;
+      cargarHistorial();
+    },
+  });
+
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  raiz.append(tarjetaCabecera, zonaLista);
+  raiz.append(
+    tarjetaCabecera,
+    zonaLista,
+    paginacionStock.elemento,
+    tarjetaHistorial,
+    paginacionHistorial.elemento,
+  );
 
   let peticionEnCurso = 0;
   // El stock se guarda para que el modal calcule disponibilidad sin volver a
@@ -162,16 +261,100 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando stock…' }));
 
     try {
-      const filas = await api.resumenStock();
+      const respuesta = await api.resumenStock({
+        limite: limiteStock,
+        offset: paginaStock * limiteStock,
+      });
       if (numero !== peticionEnCurso) return;
+      const filas = respuesta.items ?? respuesta;
+      totalStock = respuesta.total ?? filas.length;
       filasStock = filas;
       pintarStock(filas);
+      paginacionStock.actualizar({ total: totalStock, limite: limiteStock, pagina: paginaStock });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(
         crear('div', { clase: 'resultado resultado--error', texto: error.message }),
       );
     }
+  }
+
+  /**
+   * Carga el historial de movimientos (con buscador y paginacion).
+   */
+  async function cargarHistorial() {
+    zonaHistorial.replaceChildren(
+      crear('div', { clase: 'cargando', texto: 'Cargando movimientos…' }),
+    );
+
+    try {
+      const respuesta = await api.pedir('/movements', {
+        params: {
+          busqueda: inputHistorial.value.trim() || undefined,
+          limite: limiteHistorial,
+          offset: paginaHistorial * limiteHistorial,
+        },
+      });
+      const movimientos = respuesta.items ?? respuesta;
+      totalHistorial = respuesta.total ?? movimientos.length;
+      pintarHistorial(movimientos);
+      paginacionHistorial.actualizar({
+        total: totalHistorial,
+        limite: limiteHistorial,
+        pagina: paginaHistorial,
+      });
+    } catch (error) {
+      zonaHistorial.replaceChildren(
+        crear('div', { clase: 'resultado resultado--error', texto: error.message }),
+      );
+    }
+  }
+
+  /**
+   * Pinta el historial: una fila por movimiento.
+   */
+  function pintarHistorial(movimientos) {
+    if (!movimientos.length) {
+      const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
+      vacio.append(crear('p', { texto: 'No hay movimientos con esa busqueda.' }));
+      zonaHistorial.replaceChildren(vacio);
+      return;
+    }
+
+    const lista = crear('ul', { clase: 'lista' });
+
+    for (const m of movimientos) {
+      const item = crear('li', { clase: 'lista__item' });
+
+      const cuerpo = crear('div', { clase: 'lista__cuerpo' });
+      const titulo = crear('div', { clase: 'lista__titulo' });
+      titulo.append(
+        crear('span', { clase: 'mono tenue pequeno', texto: `${m.serial_number ?? ''} · ` }),
+        crear('span', { texto: m.movement_type ?? 'Movimiento' }),
+      );
+
+      const meta = crear('div', { clase: 'lista__meta' });
+      const partes = [];
+      if (m.sku) partes.push(m.sku);
+      if (m.brand || m.model) partes.push(`${m.brand ?? ''} ${m.model ?? ''}`.trim());
+      if (m.origen) partes.push(`desde ${m.origen}`);
+      if (m.destino) partes.push(`hacia ${m.destino}`);
+      if (m.registrado_por) partes.push(`por ${m.registrado_por}`);
+      meta.append(crear('span', { texto: partes.filter(Boolean).join(' · ') }));
+
+      const fecha = crear('div', {
+        clase: 'lista__meta mono',
+        texto: m.movement_date
+          ? new Date(m.movement_date).toLocaleString('es-AR')
+          : '',
+      });
+
+      cuerpo.append(titulo, meta, fecha);
+      item.append(cuerpo);
+      lista.append(item);
+    }
+
+    zonaHistorial.replaceChildren(lista);
   }
 
   /**
@@ -501,6 +684,13 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     });
   }
 
+  // El buscador del historial: al escribir, se vuelve a la primera pagina.
+  inputHistorial.addEventListener('input', () => {
+    paginaHistorial = 0;
+    cargarHistorial();
+  });
+
   cargar();
+  cargarHistorial();
   return { elemento: raiz };
 }

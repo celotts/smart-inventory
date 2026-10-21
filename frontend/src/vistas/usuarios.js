@@ -30,6 +30,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -141,7 +142,32 @@ export function vistaUsuarios({ permisos = [] } = {}) {
 
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
-  raiz.append(tarjetaCabecera, zonaLista);
+
+  // LA PAGINACION
+  //
+  // La lista venia con un tope de 100 usuarios: con mas de 100, el
+  // administrador veia 100 y no podia llegar a los demas.
+  let pagina = 0;
+  let limite = 50;
+  let total = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite,
+    pagina,
+    etiqueta: 'usuarios',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limite = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaCabecera, zonaLista, paginacion.elemento);
 
   let peticionEnCurso = 0;
 
@@ -154,11 +180,15 @@ export function vistaUsuarios({ permisos = [] } = {}) {
         busqueda: inputBuscar.value.trim() || undefined,
         rol: selectRol.value || undefined,
         solo_activos: !chkInactivos.checked || undefined,
-        limite: 100,
+        limite,
+        offset: pagina * limite,
       });
 
       if (numero !== peticionEnCurso) return;
-      pintarLista(datos.usuarios ?? []);
+      const usuarios = datos.usuarios ?? [];
+      total = datos.total ?? usuarios.length;
+      pintarLista(usuarios);
+      paginacion.actualizar({ total, limite, pagina });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(

@@ -16,6 +16,7 @@
  */
 
 import { api } from '../api.js';
+import { imagenBarcodeProducto, imagenQrProducto } from '../etiqueta.js';
 import { crear, etiquetaProducto } from '../dom.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { avisar } from '../avisos.js';
@@ -336,6 +337,34 @@ import { botonEscanear } from '../escaner-campo.js';
     // final del formulario.
     const zonaResumen = crear('div');
 
+    // LA VISTA PREVIA DE LOS CODIGOS
+    //
+    // En la edicion del producto, el QR y el codigo de barras se VEN: el
+    // campo de texto dice QUE codigo tiene, pero el operador necesita ver
+    // COMO se ve la etiqueta (si el QR esta borroso, si las barras se
+    // leen) antes de imprimirla.
+    const zonaCodigos = crear('div', { clase: 'etiqueta__vista-previa' });
+    if (p.id) {
+      const codigoQr = p.qr_code || p.sku || '';
+      const codigoBarras = p.barcode || p.sku || '';
+      zonaCodigos.append(
+        crear('h4', { clase: 'etiqueta__vista-previa-titulo', texto: 'La etiqueta de este producto' }),
+      );
+      const fila = crear('div', { clase: 'etiqueta__vista-previa-fila' });
+      fila.append(
+        imagenQrProducto(p.id, codigoQr, 120),
+        imagenBarcodeProducto(p.id, codigoBarras, 240),
+      );
+      zonaCodigos.append(fila);
+      zonaCodigos.append(
+        crear('p', {
+          clase: 'pequeno tenue',
+          estilo: 'margin:0.4rem 0 0',
+          texto: `QR: ${codigoQr || '—'} · Barras: ${codigoBarras || '—'}`,
+        }),
+      );
+    }
+
     form.append(
       zonaResumen,
       campoMarca.campo,
@@ -349,6 +378,7 @@ import { botonEscanear } from '../escaner-campo.js';
       campoMax.campo,
       campoQR.campo,
       filaBarras,
+      zonaCodigos,
     );
 
     selectCategoria.addEventListener('change', () => {

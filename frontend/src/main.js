@@ -30,6 +30,7 @@
 import { verificarVersionDelServidor } from './build.js';
 import { iniciarChipUsuario, iniciarModoExterior, iniciarSelectorModulo, inicializarFooter } from './cabecera.js';
 import { iniciarCampana } from './campana.js';
+import { aplicarIdiomaGuardado, iniciarSelectorIdioma } from './idioma.js';
 import { mostrarVista } from './navegacion.js';
 import { arrancar, cerrar } from './sesion.js';
 
@@ -105,6 +106,18 @@ document.getElementById('btn-salir')?.addEventListener('click', cerrar);
 // las dos capas sin que la vista conozca la navegación.
 document.addEventListener('auditoria:abrir-equipo', (evento) => {
   mostrarVista('dispositivo', { deviceId: evento.detail });
+});
+
+// EL IDIOMA
+// ---------
+// Se aplica ANTES de arrancar: si se hiciera despues, la primera pantalla
+// (el login) apareceria en espanol y saltaria al ingles un segundo despues.
+//
+// El boton recarga la app: las vistas ya pintadas tendrian textos en el
+// idioma viejo, y traducirlos "en vivo" seria recorrer la pantalla entera.
+aplicarIdiomaGuardado();
+iniciarSelectorIdioma(() => {
+  window.location.reload();
 });
 
 // Botón modo exterior / alto contraste (para sol directo, guantes, accesibilidad)

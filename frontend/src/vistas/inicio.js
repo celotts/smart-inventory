@@ -38,6 +38,7 @@ import { ESTADOS, crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo } from '../dialogo.js';
 import { conTooltip } from '../tooltip.js';
+import { crearPaginacion } from '../paginacion.js';
 
 const SOLUCIONES = {
   inventario: {
@@ -254,7 +255,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
         destacado: true,
         etiqueta: 'Por reponer',
         valor: valor(criticos.length),
-        ayuda: 'Productos en o por debajo de su stock minimo. Click para verlos.',
+        ayuda: 'Productos con el stock igual o por debajo del minimo. Click para verlos.',
         destino: { vista: 'stock' },
       }),
     );
@@ -298,7 +299,7 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
     zonaContenido.appendChild(
       tarjetaLista({
         titulo: 'Por reponer',
-        subtitulo: 'Productos en o por debajo de su stock minimo.',
+        subtitulo: 'Productos con el stock igual o por debajo del minimo.',
         elementos: paraReponer,
         verTodos: 'Ver el stock',
         alVerTodos: () => irA('stock'),
@@ -578,6 +579,25 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
     const cuerpo = crear('div');
     cuerpo.append(crear('div', { clase: 'cargando', texto: 'Consultando el stock…' }));
 
+    // LA PAGINACION DEL MODAL
+    //
+    // El stock bajo son TODOS los productos por debajo del minimo: con 200
+    // tipos de producto, el modal traia 200 filas de golpe y la pantalla se
+    // congela. El modal pagina igual que las pantallas, con la misma barra.
+    let pagina = 0;
+    const limite = 25;
+
+    const paginacion = crearPaginacion({
+      total: 0,
+      limite,
+      pagina,
+      etiqueta: 'productos',
+      alCambiarPagina: (nueva) => {
+        pagina = Math.max(0, nueva);
+        cargar();
+      },
+    });
+
     const btnCerrar = crear('button', {
       clase: 'boton boton--suave',
       texto: 'Cerrar',
@@ -586,8 +606,8 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
 
     abrirDialogo({
       titulo: 'Por reponer',
-      nota: 'Productos en o por debajo de su stock minimo, con el faltante y el lead time del proveedor.',
-      cuerpo: [cuerpo],
+      nota: 'Productos con el stock igual o por debajo del minimo, con el faltante y el lead time del proveedor.',
+      cuerpo: [cuerpo, paginacion.elemento],
       clase: 'modal--formulario',
       acciones: [btnCerrar],
       alAbrir: (_modal, cerrar) => {
@@ -595,46 +615,60 @@ export function vistaInicio({ permisos = [], modulo = 'inventario' } = {}) {
       },
     });
 
-    try {
-      const datos = await api.pedir('/stock/low');
-      const items = datos?.items ?? datos ?? [];
+    async function cargar() {
+      cuerpo.replaceChildren(crear('div', { clase: 'cargando', texto: 'Consultando el stock…' }));
 
-      if (!items.length) {
-        const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
-        vacio.append(
-          icono(ICONOS.ok, { tamano: 28 }),
-          crear('p', { texto: 'Todos los productos estan por encima de su minimo.' }),
+      try {
+        const datos = await api.pedir('/stock/low');
+        const todos = datos?.items ?? datos ?? [];
+        const total = datos?.total ?? todos.length;
+
+        // La pagina se arma sobre la lista completa: el endpoint de stock
+        // bajo no pagina (es el detalle de una consulta puntual), asi que el
+        // corte se hace aca y la barra dice cuantos hay en total.
+        const items = todos.slice(pagina * limite, pagina * limite + limite);
+
+        if (!items.length) {
+          const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
+          vacio.append(
+            icono(ICONOS.ok, { tamano: 28 }),
+            crear('p', { texto: 'Todos los productos estan por encima de su minimo.' }),
+          );
+          cuerpo.replaceChildren(vacio);
+          paginacion.actualizar({ total: 0, limite, pagina: 0 });
+          return;
+        }
+
+        const lista = crear('ul', { clase: 'lista' });
+        for (const item of items) {
+          const cuerpoFila = crear('div', { clase: 'lista__cuerpo' });
+          cuerpoFila.append(
+            crear('div', { clase: 'lista__titulo', texto: `${item.brand ?? ''} ${item.model_name ?? item.model ?? ''}`.trim() }),
+            crear('div', { clase: 'lista__meta mono', texto: item.sku ?? '' }),
+            crear('div', {
+              clase: 'lista__meta',
+              texto: `Disponible ${item.available_count ?? item.disponibles ?? 0} · Minimo ${item.min_stock ?? 0} · ${item.location_name ?? item.ubicacion ?? ''}`,
+            }),
+          );
+          const insignia = crear('span', {
+            clase: 'insignia insignia--peligro',
+            texto: `Faltan ${item.deficit ?? item.faltante ?? 0}`,
+          });
+          const item_ = crear('li', { clase: 'lista__item' });
+          item_.append(cuerpoFila, insignia);
+          lista.appendChild(item_);
+        }
+
+        cuerpo.replaceChildren(lista);
+        paginacion.actualizar({ total, limite, pagina });
+      } catch (error) {
+        cuerpo.replaceChildren(
+          crear('p', { clase: 'campo__error', texto: `No se pudo consultar el stock: ${error.message}` }),
         );
-        cuerpo.replaceChildren(vacio);
-        return;
       }
-
-      const lista = crear('ul', { clase: 'lista' });
-      for (const item of items) {
-        const cuerpoFila = crear('div', { clase: 'lista__cuerpo' });
-        cuerpoFila.append(
-          crear('div', { clase: 'lista__titulo', texto: `${item.brand ?? ''} ${item.model_name ?? item.model ?? ''}`.trim() }),
-          crear('div', { clase: 'lista__meta mono', texto: item.sku ?? '' }),
-          crear('div', {
-            clase: 'lista__meta',
-            texto: `Disponible ${item.available_count ?? item.disponibles ?? 0} · Minimo ${item.min_stock ?? 0} · ${item.location_name ?? item.ubicacion ?? ''}`,
-          }),
-        );
-        const insignia = crear('span', {
-          clase: 'insignia insignia--peligro',
-          texto: `Faltan ${item.deficit ?? item.faltante ?? 0}`,
-        });
-        const item_ = crear('li', { clase: 'lista__item' });
-        item_.append(cuerpoFila, insignia);
-        lista.appendChild(item_);
-      }
-
-      cuerpo.replaceChildren(lista);
-    } catch (error) {
-      cuerpo.replaceChildren(
-        crear('p', { clase: 'campo__error', texto: `No se pudo consultar el stock: ${error.message}` }),
-      );
     }
+
+    cargar();
   }
 
   // --- Arranque -------------------------------------------------------------

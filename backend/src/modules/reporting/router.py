@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 
 from src.core.deps import exigir
 from src.core.permissions import Permiso
-from src.modules.reporting import service
+from src.modules.reporting import service, valor_libro
 from src.modules.users.models import UsuarioActual
 
 router = APIRouter(prefix="/api/reports", tags=["reporting"])
@@ -75,3 +75,26 @@ def tiempo_instalacion(
     _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
 ) -> list[dict]:
     return service.tiempo_instalacion(model_id=model_id, cliente_id=cliente_id, dias=dias)
+
+
+@router.get(
+    "/valor-libro",
+    summary="Valor libro de los activos (depreciación lineal)",
+)
+def ver_valor_libro(
+    client_id: int | None = Query(None, gt=0, description="Solo los equipos del cliente."),
+    estado: str | None = Query(None, description="Filtra por estado del equipo."),
+    limite: int = Query(500, ge=1, le=2000),
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> dict:
+    """
+    Lo que el equipo vale HOY, no lo que costó.
+
+    Es el reporte que pide el cliente y la contabilidad: el valor de la flota
+    instalada, con la depreciación acumulada y el valor libro por equipo.
+
+    Sin `purchase_date` o sin `purchase_value` el equipo no entra en el
+    cálculo (y el resumen dice cuantos son): un valor libro estimado con una
+    fecha inventada es una mentira con formato de número.
+    """
+    return valor_libro.valor_libro(client_id=client_id, estado=estado, limite=limite)

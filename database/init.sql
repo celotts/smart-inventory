@@ -1322,7 +1322,10 @@ VALUES
     ('0016_incidencias', 'aplicado por init.sql (instalación nueva)'),
     -- 0017 (SLA en horario laboral, escalamiento y avisos) esta replicada mas
     -- abajo, al final del archivo.
-    ('0017_sla_operativo', 'aplicado por init.sql (instalación nueva)')
+    ('0017_sla_operativo', 'aplicado por init.sql (instalación nueva)'),
+    -- 0018 (alertas de stock bajo reales y valor libro) esta replicada mas
+    -- abajo, con su DDL.
+    ('0018_alertas_y_valor_libro', 'aplicado por init.sql (instalación nueva)')
 ON CONFLICT (version) DO NOTHING;
 
 
@@ -3100,3 +3103,47 @@ CREATE INDEX IF NOT EXISTS idx_incidents_sla_barrido
     WHERE deleted_at IS NULL
       AND first_response_at IS NULL
       AND status IN ('OPEN', 'IN_PROGRESS', 'WAITING');
+
+-- ===========================================================================
+-- 0018 - ALERTAS DE STOCK BAJO REALES Y VALOR LIBRO (migracion replicada aca)
+-- ===========================================================================
+--
+-- CONTENIDO DE 0018_alertas_y_valor_libro.sql
+
+-- La alerta de stock bajo: ahora sabe QUE producto, DONDE y DESDE CUANDO.
+-- Antes la tabla existia pero NADA la escribia, y el operador se enteraba
+-- del faltante al abrir el tablero.
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS model_id INT REFERENCES models(id) ON DELETE CASCADE;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS sku VARCHAR(50);
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS producto VARCHAR(200);
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS location_id INT REFERENCES locations(id) ON DELETE CASCADE;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS faltante INT NOT NULL DEFAULT 0;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS lead_time_days INT;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_alerts_modelo_ubicacion
+    ON stock_alerts(model_id, location_id)
+    WHERE resuelto = FALSE AND model_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_stock_alerts_modelo
+    ON stock_alerts(model_id)
+    WHERE resuelto = FALSE;
+
+-- El valor libro: lo que el equipo vale HOY, no lo que costo.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS purchase_date DATE;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS purchase_value NUMERIC(12, 2);
+
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS ck_devices_purchase_value;
+ALTER TABLE devices ADD CONSTRAINT ck_devices_purchase_value
+    CHECK (purchase_value IS NULL OR purchase_value >= 0);
+
+ALTER TABLE models ADD COLUMN IF NOT EXISTS useful_life_months INT;
+
+ALTER TABLE models DROP CONSTRAINT IF EXISTS ck_models_useful_life;
+ALTER TABLE models ADD CONSTRAINT ck_models_useful_life
+    CHECK (useful_life_months IS NULL OR useful_life_months > 0);
+
+CREATE INDEX IF NOT EXISTS idx_devices_purchase_date
+    ON devices(purchase_date)
+    WHERE purchase_date IS NOT NULL;

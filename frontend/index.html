@@ -51,11 +51,10 @@
 
   <header class="cabecera" id="cabecera" hidden>
     <!--
-      Las dos zonas fijas de la cabecera.
+      LA CABECERA ES UNA GRID DE DOS FILAS
 
-      La cabecera es una GRID de tres columnas: lo de la izquierda (marca y
-      usuario), el menu de secciones en el medio, y lo de la derecha (modulo,
-      campana y salir).
+        [ Smart Inventory ]  [ menu de secciones ]  [ sol · campana · salir ]
+        [ 👤 quien ][ Inventario | Service Desk ]
 
       Por que en GRID y no en flex con margenes automaticos: con margenes
       automaticos, el menu se centra repartiendo el espacio sobrante, asi que
@@ -64,10 +63,13 @@
       volvia al otro, y el operador tenia que volver a buscarlo con la
       mirada.
 
-      Con la grid, las tres columnas tienen su ancho y su lugar: cambiar de
-      modulo cambia el menu (que es lo que tiene que cambiar) y NADA mas.
+      Con la grid, cada area tiene su lugar: cambiar de modulo cambia el
+      menu (que es lo que tiene que cambiar) y NADA mas.
+
+      Y por que el usuario y el selector de modulo en la MISMA fila: son las
+      dos cosas de la segunda fila (quien esta y en que modulo esta), y
+      Smart Inventory solo, arriba, con su nombre entero.
     -->
-    <div class="cabecera__izquierda">
     <div class="cabecera__marca">
       <span class="cabecera__logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
@@ -78,6 +80,17 @@
       <span>Smart Inventory</span>
     </div>
 
+    <!--
+      LA SEGUNDA FILA DE LA CABECERA
+      --
+      El usuario (a la izquierda) y el selector de modulo (CENTRADO respecto
+      de la PAGINA, no de lo que queda a su derecha).
+
+      El selector va centrado con una posicion absoluta: en una grilla, el
+      centro de una celda no es el centro de la pagina, asi que "centrar la
+      celda" dejaria los botones corrida hacia un lado.
+    -->
+    <div class="cabecera__fila2">
     <div class="cabecera__usuario" id="cabecera-usuario" hidden>
       <div class="cabecera__usuario-avatar" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
@@ -89,8 +102,6 @@
         <span class="cabecera__usuario-nombre" id="cabecera-usuario-nombre"></span>
         <span class="cabecera__usuario-rol" id="cabecera-usuario-rol"></span>
       </div>
-    </div>
-
     </div>
 
     <nav class="cabecera__nav" aria-label="Secciones">
@@ -121,6 +132,21 @@
           </svg>
         </span>
         <span class="pestana__texto">Inventario</span>
+      </button>
+
+      <!--
+        La existencia: cuanto hay de cada rubro y donde. Es la pantalla que
+        responde "cuanto hay de cada cosa", que antes no existia en ninguna
+        parte de la app.
+      -->
+      <button class="pestana" data-vista="existencia" id="pestana-existencia" hidden>
+        <span class="pestana__icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/>
+            <path d="M7 4v4M14 10v4M20 16v4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="pestana__texto">Existencia</span>
       </button>
 
       <button class="pestana" data-vista="movimientos" id="pestana-movimientos" hidden>
@@ -194,14 +220,6 @@
         <span class="pestana__texto">Usuarios</span>
       </button>
 
-      <button class="pestana" data-vista="nuevo" id="pestana-nuevo" hidden>
-        <span class="pestana__icono" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-        <span class="pestana__texto">Nuevo</span>
-      </button>
     </nav>
 
     <!--
@@ -211,8 +229,34 @@
       salir en una sola linea.
     -->
     <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
+    </div>
 
     <div class="cabecera__acciones">
+    <!--
+      EL IDIOMA
+      --
+      El idioma de la INTERFAZ. Los datos (los SKUs, los nombres de los
+      equipos) no se tocan: son los que son.
+    -->
+    <button class="cabecera__idioma" id="btn-idioma" title="Idioma / Language" aria-label="Cambiar el idioma / Change language">
+      <span class="cabecera__idioma-texto" id="btn-idioma-texto">ES</span>
+    </button>
+    <!--
+      DAR DE ALTA UN EQUIPO: una ACCION, no una seccion.
+      --
+      Con "Nuevo" en el menu, el menu del admin era mas ancho que su
+      columna y la ultima pestana quedaba metida debajo de estos botones.
+      Ademas, "Nuevo" no es un lugar de la app: es HACER algo. Va aqui, con
+      la campana y el salir, que es donde estan las acciones.
+    -->
+    <button class="cabecera__nuevo" id="pestana-nuevo" data-vista="nuevo" hidden
+            title="Dar de alta un equipo (nuevo)"
+            aria-label="Dar de alta un equipo nuevo">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+      </svg>
+      <span class="cabecera__nuevo-texto">Nuevo</span>
+    </button>
     <!--
       El modo exterior (alto contraste para trabajar al sol).
 

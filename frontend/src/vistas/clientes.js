@@ -8,6 +8,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -68,8 +69,33 @@ export function vistaClientes({ permisos = [] }) {
 
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
+  // LA PAGINACION
+  //
+  // Con miles de registros, traerlos todos y pintarlos todos deja la app
+  // sin responder. La pantalla pide de a paginas y el operador ve cuantos
+  // hay en total.
+  let pagina = 0;
+  let limite = 50;
+  let total = 0;
 
-  raiz.append(tarjetaCabecera, tarjetaStats, zonaLista);
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite,
+    pagina,
+    etiqueta: 'clientes',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limite = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+
+  raiz.append(tarjetaCabecera, tarjetaStats, zonaLista, paginacion.elemento);
 
   let peticionEnCurso = 0;
   let todosLosClientes = [];
@@ -79,10 +105,17 @@ export function vistaClientes({ permisos = [] }) {
     zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando clientes…' }));
 
     try {
-      todosLosClientes = await api.clientes();
+      const respuesta = await api.clientes({
+        busqueda: inputBuscar.value.trim() || undefined,
+        limite,
+        offset: pagina * limite,
+      });
+      todosLosClientes = respuesta.items ?? respuesta;
+      total = respuesta.total ?? todosLosClientes.length;
       if (numero !== peticionEnCurso) return;
       pintarStats(todosLosClientes);
       pintarLista(todosLosClientes);
+      paginacion.actualizar({ total, limite, pagina });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(
@@ -104,13 +137,9 @@ export function vistaClientes({ permisos = [] }) {
   }
 
   function pintarLista(clientes) {
-    const filtro = inputBuscar.value.trim().toLowerCase();
-    const filtrados = filtro
-      ? clientes.filter(c =>
-          c.commercial_name?.toLowerCase().includes(filtro) ||
-          c.tax_id?.toLowerCase().includes(filtro)
-        )
-      : clientes;
+    // El filtro YA lo aplico el servidor: filtrar aca de nuevo, sobre los 50
+    // de la pagina, dejaria filas fuera de la respuesta del servidor.
+    const filtrados = clientes;
 
     if (!filtrados.length) {
       const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
@@ -388,7 +417,12 @@ export function vistaClientes({ permisos = [] }) {
     });
   }
 
-  inputBuscar.addEventListener('input', () => pintarLista(todosLosClientes));
+  // El buscador va al SERVIDOR: con la lista paginada, filtrar en el
+  // navegador solo miraria los 50 de la pagina.
+  inputBuscar.addEventListener('input', () => {
+    pagina = 0;
+    cargar();
+  });
 
   cargar();
   return { elemento: raiz };

@@ -30,6 +30,7 @@ import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
 import { campoTexto, campoSelect, campoArea, resumenDeErrores } from '../formulario.js';
 import { conTooltip } from '../tooltip.js';
+import { crearPaginacion } from '../paginacion.js';
 
 const SEVERIDADES = [
   { valor: 'S1', texto: 'S1 · Critico (sin servicio)' },
@@ -242,7 +243,33 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  raiz.append(tarjetaCabecera, zonaLista);
+  // LA PAGINACION
+  //
+  // El listado ya venia limitado a 50 casos del lado del servidor, pero sin
+  // paginacion el operador no podia llegar al caso 51: la lista terminaba y
+  // no habia como seguir. Con la barra, se ve cuantos hay y se llega a
+  // cualquiera.
+  let pagina = 0;
+  let limite = 50;
+  let total = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite,
+    pagina,
+    etiqueta: 'casos',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limite = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaCabecera, zonaLista, paginacion.elemento);
 
   let peticionEnCurso = 0;
 
@@ -267,7 +294,8 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
           sin_atender: (primerCarga ? filtros?.sin_atender : undefined) || undefined,
           // La vista activa decide el filtro de la lista.
           ...filtrosDeVista(),
-          limite: 50,
+          limite,
+          offset: pagina * limite,
         }),
         api.metricasIncidencias().catch(() => null),
       ]);
@@ -275,8 +303,10 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       if (numero !== peticionEnCurso) return;
 
       primerCarga = false;
+      total = datos.total ?? datos.items.length;
       pintarKpis(metricas);
       pintarLista(datos.items);
+      paginacion.actualizar({ total, limite, pagina });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(
@@ -662,10 +692,17 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   if (filtros?.severidad) selectSeveridad.value = filtros.severidad;
   if (filtros?.solo_vencidas) chkVencidas.checked = true;
 
-  inputBuscar.addEventListener('input', () => cargar());
-  selectEstado.addEventListener('change', () => cargar());
-  selectSeveridad.addEventListener('change', () => cargar());
-  chkVencidas.addEventListener('change', () => cargar());
+  // Al cambiar un filtro, se vuelve a la primera pagina: si no, el operador
+  // esta en la pagina 7 de un filtro que tiene 2 paginas, y ve una lista
+  // vacia sin entender por que.
+  const volverAPrimera = () => {
+    pagina = 0;
+    cargar();
+  };
+  inputBuscar.addEventListener('input', volverAPrimera);
+  selectEstado.addEventListener('change', volverAPrimera);
+  selectSeveridad.addEventListener('change', volverAPrimera);
+  chkVencidas.addEventListener('change', volverAPrimera);
 
   cargar();
   return { elemento: raiz };
@@ -825,6 +862,16 @@ export function abrirDetalleDe(detalle, { puedeGestionar = false, alCambiar } = 
 
   if (!detalle.eventos?.length) {
     linea.append(crear('p', { clase: 'tenue', texto: 'Sin movimientos.' }));
+  } else if (detalle.eventos_omitidos > 0) {
+    // La linea de tiempo viene acotada: si no, un caso con años de historia
+    // es una lista interminable. Se dice cuantos faltan, para que el
+    // operador sepa que el historial no termina abajo.
+    linea.append(
+      crear('p', {
+        clase: 'tenue pequeno',
+        texto: `Se muestran los ultimos ${detalle.eventos.length} de ${detalle.total_eventos} movimientos.`,
+      }),
+    );
   }
 
   for (const evento of detalle.eventos ?? []) {

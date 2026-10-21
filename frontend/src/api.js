@@ -602,6 +602,8 @@ export const api = {
 
   // --- Catalogo (maestro de productos) -------------------------------------
   categorias: () => pedir('/catalog/categories'),
+  // El maestro de productos: `{items, total}` desde la paginacion del
+  // backend. Los SELECTORES piden la lista entera (`limite` sin definir).
   productos: (params) => pedir('/catalog/products', { params }),
   crearProducto: (datos) => pedir('/catalog/products', { metodo: 'POST', cuerpo: datos }),
   actualizarProducto: (id, datos) => pedir(`/catalog/products/${id}`, { metodo: 'PUT', cuerpo: datos }),
@@ -614,6 +616,7 @@ export const api = {
   crearProveedor: (datos) => pedir('/catalog/vendors', { metodo: 'POST', cuerpo: datos }),
 
   // --- Stock agregado -------------------------------------------------------
+  // La existencia por producto y ubicacion: `{items, total}`.
   resumenStock: (params) => pedir('/stock/summary', { params }),
   stockBajo: () => pedir('/stock/low'),
 

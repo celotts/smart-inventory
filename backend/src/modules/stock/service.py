@@ -13,9 +13,30 @@ from sqlalchemy.orm import Session
 from src.db.session import get_db_session as db_session_factory
 
 
-def resumen_stock(solo_bajo: bool = False) -> list[dict[str, Any]]:
+def _escapar_like(texto: str) -> str:
+    r"""Escapa los comodines de LIKE: un "%" del operador es un "%"."""
+    return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def resumen_stock(
+    solo_bajo: bool = False,
+    *,
+    busqueda: str | None = None,
+    location_id: int | None = None,
+    limite: int | None = None,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
     """
     Vista v_stock_summary con filtro opcional.
+
+    LA EXISTENCIA POR PRODUCTO Y UBICACION
+    --------------------------------------
+    Esta lista crece con el PRODUCTO por la UBICACION: 800 productos en 6
+    ubicaciones son 4800 filas. Sin limite, la API las devuelve todas y el
+    navegador las pinta todas: con 5000 equipos la app deja de responder.
+
+    Por eso el `limite` y el `total`: la pantalla pagina, y el operador ve
+    cuantas hay en total.
     """
     db = db_session_factory()
     try:
@@ -48,13 +69,106 @@ def resumen_stock(solo_bajo: bool = False) -> list[dict[str, Any]]:
             JOIN categories c ON c.id = m.category_id
             JOIN locations l ON l.id = sl.location_id
         """
+        condiciones: list[str] = []
+        parametros: dict[str, Any] = {}
         if solo_bajo:
-            query += " WHERE sl.available_count <= m.min_stock"
+            condiciones.append("sl.available_count <= m.min_stock")
+        if location_id:
+            condiciones.append("sl.location_id = :location_id")
+            parametros["location_id"] = location_id
+        if busqueda:
+            # El filtro va en el SERVIDOR, no en el navegador: con la lista
+            # paginada, filtrar en el cliente solo mira las 50 filas de la
+            # pagina, y el operador ve "no hay" con 4800 existencias.
+            condiciones.append(
+                "(m.sku ILIKE :busqueda OR m.brand ILIKE :busqueda "
+                "OR m.model ILIKE :busqueda OR l.store_name ILIKE :busqueda)"
+            )
+            parametros["busqueda"] = f"%{_escapar_like(busqueda)}%"
+
+        where = " AND ".join(condiciones)
+        if where:
+            query += f" WHERE {where}"
         query += " ORDER BY m.brand, m.model, l.store_name"
 
-        result = db.execute(text(query))
+        # El total, con el MISMO filtro: si no, el "de 4800" no corresponde a
+        # lo que el operador esta viendo.
+        conteo = f"""
+            SELECT COUNT(*)
+            FROM stock_levels sl
+            JOIN models m ON m.id = sl.model_id AND m.is_active
+            JOIN categories c ON c.id = m.category_id
+            JOIN locations l ON l.id = sl.location_id
+            {where}
+        """
+
+        if limite is not None:
+            query += " LIMIT :limite OFFSET :offset"
+            parametros = {**parametros, "limite": limite, "offset": offset}
+
+        result = db.execute(text(query), parametros)
         rows = result.mappings().all()
-        return [dict(r) for r in rows]
+        total = db.execute(text(conteo), parametros).scalar_one()
+        return [dict(r) for r in rows], int(total or 0)
+    finally:
+        db.close()
+
+
+def productos_por_reponer(limite: int = 100) -> list[dict[str, Any]]:
+    """
+    Los productos POR REPONER, con el MISMO criterio que el tablero.
+
+    POR QUE UNA SOLA FUENTE
+    -----------------------
+    Antes, la tarjeta "Por reponer" del tablero y el modal que se abre al
+    pulsarla usaban DOS consultas distintas: una por MODELO (el total
+    disponible contra el minimo) y otra por MODELO Y UBICACION. El operador
+    pulsaba un producto del tablero y el modal decia "todos los productos
+    estan por encima de su minimo": la misma pantalla, dos verdades, y la
+    segunda con la informacion EQUIVOCADA.
+
+    Ahora las dos salen de aca: el criterio es el total disponible del
+    PRODUCTO (en todas las ubicaciones) contra su minimo. Es el que tiene
+    sentido para decidir una compra: si hay 4 unidades del producto
+    repartidas en dos depositos, el deposito puede estar por debajo de su
+    minimo, pero el PRODUCTO no esta por reponer.
+    """
+    db = db_session_factory()
+    try:
+        filas = db.execute(
+            text(
+                """
+                SELECT
+                    m.id AS model_id,
+                    m.sku,
+                    m.brand,
+                    m.model AS model_name,
+                    m.min_stock,
+                    m.max_stock,
+                    m.lead_time_days,
+                    COALESCE(SUM(sl.available_count), 0) AS disponibles,
+                    GREATEST(m.min_stock - COALESCE(SUM(sl.available_count), 0), 0) AS faltante,
+                    COALESCE(
+                        (SELECT l.store_name
+                         FROM stock_levels sl2
+                         JOIN locations l ON l.id = sl2.location_id
+                         WHERE sl2.model_id = m.id AND sl2.available_count > 0
+                         ORDER BY sl2.available_count DESC
+                         LIMIT 1),
+                        'Sin ubicacion'
+                    ) AS ubicacion
+                FROM models m
+                LEFT JOIN stock_levels sl ON sl.model_id = m.id
+                WHERE m.deleted_at IS NULL AND m.is_active
+                GROUP BY m.id
+                HAVING COALESCE(SUM(sl.available_count), 0) <= m.min_stock
+                ORDER BY COALESCE(SUM(sl.available_count), 0) ASC, m.brand
+                LIMIT :limite
+                """
+            ),
+            {"limite": limite},
+        ).mappings().all()
+        return [dict(f) for f in filas]
     finally:
         db.close()
 

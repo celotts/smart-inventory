@@ -248,7 +248,9 @@ class TestBusquedaDeTextoCompleto:
         )
 
         # El orden de las palabras es el del operador, no el del indice.
-        encontrados = service.listar_productos(busqueda=f"{modelo} {marca}")
+        # El service devuelve `(items, total)`: el total es lo que permite
+        # paginar el maestro sin traerlo entero.
+        encontrados, _total = service.listar_productos(busqueda=f"{modelo} {marca}")
         assert any(p["model"] == modelo for p in encontrados)
 
     def test_el_filtro_por_categoria_trae_las_subcategorias(self, catalogo):

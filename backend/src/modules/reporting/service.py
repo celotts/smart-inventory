@@ -212,9 +212,115 @@ def dashboard() -> dict[str, Any]:
             "movimientos_recientes": _get_ultimos_movimientos(db, limite=8),
             "productos_criticos": _get_productos_criticos(db, limite=8),
             "mantenimientos_overdue": _get_mantenimientos_overdue(db),
+            # Las alertas de stock bajo PERSISTIDAS: el producto bajo minimo,
+            # desde cuando, y si la reposicion llega a tiempo. El calculo
+            # (`productos_criticos`) dice QUE falta; esto dice desde CUANDO y
+            # si hay que correr.
+            "alertas_stock": _get_alertas_stock(db, limite=8),
+            # El valor libro de la flota: lo que vale HOY.
+            "valor_libro": _get_valor_libro(db),
         }
     finally:
         db.close()
+
+
+def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
+    """
+    Las alertas de stock bajo que estan ABIERTAS.
+
+    Que el producto este bajo el minimo ya lo dice `productos_criticos`. Lo
+    que NO decia es DESDE CUANDO: sin esa fecha, el operador ve "6 productos
+    por reponer" y no sabe si hay que comprar hoy o el jueves.
+    """
+    filas = db.execute(
+        text(
+            """
+            SELECT
+                a.id,
+                a.sku,
+                a.producto,
+                a.ubicacion,
+                a.minimo,
+                a.actual,
+                a.faltante,
+                a.lead_time_days,
+                a.created_at,
+                GREATEST(0, EXTRACT(DAYS FROM (NOW() - a.created_at))::INT) AS dias_bajo_minimo,
+                CASE
+                    WHEN a.lead_time_days IS NULL OR a.lead_time_days <= 0 THEN FALSE
+                    ELSE EXTRACT(DAYS FROM (NOW() - a.created_at))::INT > a.lead_time_days
+                END AS reposicion_tarde
+            FROM stock_alerts a
+            WHERE a.resuelto = FALSE AND a.model_id IS NOT NULL
+            ORDER BY reposicion_tarde DESC, dias_bajo_minimo DESC, a.faltante DESC
+            LIMIT :limite
+            """
+        ),
+        {"limite": limite},
+    ).mappings().all()
+    return [{**dict(f), "id": str(f["id"])} for f in filas]
+
+
+def _get_valor_libro(db: Session) -> dict:
+    """
+    El valor libro de la flota, en un solo numero.
+
+    Es la pregunta que hace el cliente: "cuanto vale mi flota hoy". Se
+    calcula con la misma formula del reporte (`reporting/valor_libro.py`),
+    pero aqui en SQL y sin el detalle, porque el tablero necesita el numero,
+    no la lista.
+    """
+    fila = db.execute(
+        text(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE d.purchase_value IS NOT NULL) AS equipos_con_precio,
+                COALESCE(SUM(d.purchase_value), 0) AS costo_total,
+                COALESCE(SUM(
+                    CASE
+                        WHEN d.purchase_value IS NULL OR m.useful_life_months IS NULL
+                             OR m.useful_life_months <= 0 THEN 0
+                        ELSE LEAST(
+                            d.purchase_value,
+                            GREATEST(0, (
+                                (EXTRACT(YEAR FROM AGE(CURRENT_DATE, d.purchase_date))::INT * 12)
+                                + EXTRACT(MONTH FROM AGE(CURRENT_DATE, d.purchase_date))::INT
+                            )) * (d.purchase_value / m.useful_life_months)
+                        )
+                    END
+                ), 0) AS depreciacion_acumulada,
+                COALESCE(SUM(
+                    CASE
+                        WHEN d.purchase_value IS NULL THEN 0
+                        WHEN m.useful_life_months IS NULL OR m.useful_life_months <= 0
+                            THEN d.purchase_value
+                        ELSE GREATEST(
+                            0,
+                            d.purchase_value - LEAST(
+                                d.purchase_value,
+                                GREATEST(0, (
+                                    (EXTRACT(YEAR FROM AGE(CURRENT_DATE, d.purchase_date))::INT * 12)
+                                    + EXTRACT(MONTH FROM AGE(CURRENT_DATE, d.purchase_date))::INT
+                                )) * (d.purchase_value / m.useful_life_months)
+                            )
+                        )
+                    END
+                ), 0) AS valor_libro_total
+            FROM devices d
+            JOIN models m ON m.id = d.model_id
+            WHERE d.deleted_at IS NULL AND m.deleted_at IS NULL
+            """
+        )
+    ).mappings().one()
+
+    datos = dict(fila)
+    costo = float(datos.get("costo_total") or 0)
+    depreciado = float(datos.get("depreciacion_acumulada") or 0)
+    datos["costo_total"] = round(costo, 2)
+    datos["depreciacion_acumulada"] = round(depreciado, 2)
+    datos["valor_libro_total"] = round(float(datos.get("valor_libro_total") or 0), 2)
+    datos["depreciacion_pct"] = round(100.0 * depreciado / costo, 1) if costo > 0 else None
+    return datos
 
 
 def _get_ultimos_movimientos(db: Session, limite: int = 8) -> list[dict]:
@@ -248,26 +354,15 @@ def _get_productos_criticos(db: Session, limite: int = 8) -> list[dict]:
     "Critico" es "por debajo del minimo" o "sin unidades en deposito": un
     producto con stock 0 en el deposito y 5 instalados no es un problema de
     reposicion, es un producto que no se puede entregar.
+
+    USA LA MISMA CONSULTA QUE EL MODAL (stock/productos_por_reponer): la
+    tarjeta del tablero y el detalle que se abre al pulsarla tienen que decir
+    LO MISMO. Con dos criterios distintos, el operador pulsaba un producto y
+    el modal le decia que no habia nada que reponer.
     """
-    query = """
-        SELECT
-            m.sku,
-            m.brand,
-            m.model,
-            m.min_stock,
-            m.max_stock,
-            COALESCE(SUM(sl.available_count), 0) AS disponibles,
-            GREATEST(m.min_stock - COALESCE(SUM(sl.available_count), 0), 0) AS faltante,
-            m.lead_time_days
-        FROM models m
-        LEFT JOIN stock_levels sl ON sl.model_id = m.id
-        WHERE m.deleted_at IS NULL AND m.is_active
-        GROUP BY m.id
-        HAVING COALESCE(SUM(sl.available_count), 0) <= m.min_stock
-        ORDER BY COALESCE(SUM(sl.available_count), 0) ASC
-        LIMIT :limite
-    """
-    return [dict(r) for r in db.execute(text(query), {"limite": limite}).mappings().all()]
+    from src.modules.stock import service as stock_service
+
+    return stock_service.productos_por_reponer(limite=limite)
 
 
 def estadisticas_inventario() -> dict[str, Any]:

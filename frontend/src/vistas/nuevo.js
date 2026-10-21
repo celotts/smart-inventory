@@ -125,7 +125,8 @@ export function vistaNuevo({ permisos = [] }) {
   // Cargar productos (maestro) y ubicaciones
   async function cargarProductos() {
     try {
-      const productos = await api.productos();
+      const catalogo = await api.productos();
+      const productos = catalogo.items ?? catalogo;
       campoProducto.control.replaceChildren();
       campoProducto.control.append(crear('option', { texto: 'Seleccionar…', atributos: { value: '', disabled: true, selected: true } }));
       if (!productos.length) {

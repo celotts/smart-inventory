@@ -19,6 +19,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -86,7 +87,32 @@ export function vistaCompras({ permisos = [] }) {
   tarjetaCabecera.append(encabezado, crear('div', { clase: 'fila-botones', estilo: 'margin-top:0.75rem', hijos: [btnRecargar] }));
 
   const zonaLista = crear('div');
-  raiz.append(tarjetaCabecera, zonaLista);
+  // LA PAGINACION
+  //
+  // Con miles de registros, traerlos todos y pintarlos todos deja la app
+  // sin responder. La pantalla pide de a paginas y el operador ve cuantos
+  // hay en total.
+  let pagina = 0;
+  let limite = 50;
+  let total = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite,
+    pagina,
+    etiqueta: 'ordenes',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limite = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaCabecera, zonaLista, paginacion.elemento);
 
   let peticionEnCurso = 0;
 
@@ -95,9 +121,12 @@ export function vistaCompras({ permisos = [] }) {
     zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando órdenes…' }));
 
     try {
-      const ordenes = await api.ordenesCompra();
+      const respuesta = await api.ordenesCompra({ limite, offset: pagina * limite });
+      const ordenes = respuesta.items ?? respuesta;
+      total = respuesta.total ?? ordenes.length;
       if (numero !== peticionEnCurso) return;
       pintarLista(ordenes);
+      paginacion.actualizar({ total, limite, pagina });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(
@@ -299,7 +328,10 @@ export function vistaCompras({ permisos = [] }) {
     let productos = [];
     let proveedores = [];
     try {
-      [productos, proveedores] = await Promise.all([api.productos(), api.proveedores()]);
+      // `api.productos()` devuelve `{items, total}`: los selectores piden la
+      // lista entera (sin `limite`) y usan `items`.
+      const [catalogo, proveedores] = await Promise.all([api.productos(), api.proveedores()]);
+      const productos = catalogo.items ?? catalogo;
     } catch (error) {
       avisar(`No se pudo cargar el catalogo: ${error.message}`, 'error');
       return;

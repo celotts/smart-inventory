@@ -71,7 +71,9 @@ def listar_ordenes(
     vendor_id: int | None = None,
     desde: str | None = None,
     hasta: str | None = None,
-) -> list[dict[str, Any]]:
+    limite: int | None = None,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
     db = get_db_session()
     try:
         query = """
@@ -97,11 +99,22 @@ def listar_ordenes(
         if hasta:
             query += " AND po.created_at <= :hasta"
             params["hasta"] = hasta
-        query += " ORDER BY po.created_at DESC LIMIT 100"
+        query += " ORDER BY po.created_at DESC"
+
+        # La paginacion: el `LIMIT 100` de antes recortaba sin avisar, y el
+        # operador creia que esas eran todas las ordenes.
+        if limite is not None:
+            query += " LIMIT :limite OFFSET :offset"
+            params["limite"] = limite
+            params["offset"] = offset
 
         result = db.execute(text(query), params)
         rows = result.mappings().all()
-        return [dict(r) for r in rows]
+
+        # El total, con el MISMO filtro.
+        conteo = query[: query.index(" ORDER BY")]
+        total = db.execute(text(conteo), params).scalar_one()
+        return [dict(r) for r in rows], int(total or 0)
     finally:
         db.close()
 

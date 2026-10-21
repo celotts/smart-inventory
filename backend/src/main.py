@@ -136,6 +136,36 @@ async def barrer_sla_en_segundo_plano(intervalo: int = 60) -> None:
             print(f"[sla] El barrido fallo: {error}", flush=True)
 
 
+async def barrer_alertas_en_segundo_plano(intervalo: int = 300) -> None:
+    """
+    Corre el barrido de alertas de stock bajo cada cinco minutos.
+
+    POR QUE CADA CINCO MINUTOS Y NO CADA UNO
+    ---------------------------------------
+    El barrido de SLA corre cada minuto porque un plazo de 15 minutos se
+    avisa con poco margen. Una alerta de stock bajo dura dias: el producto
+    no se repone de un minuto a otro. Correrlo cada cinco minutos alcanza y
+    no le pega a la base cada minuto.
+
+    Y POR QUE UN BARRIDO Y NO UN EVENTO AL MOVER
+    --------------------------------------------
+    El stock baja en un movimiento, pero tambien sube, y el estado depende
+    de MUCHO mas que de un movimiento (una compra que aun no llega, una
+    devolucion). Un barrido que mira el estado real no se olvida de ningun
+    caso, y se puede correr a mano cuando algo parece raro.
+    """
+    from src.modules.stock import alertas as stock_alertas
+
+    while True:
+        try:
+            await asyncio.sleep(intervalo)
+            await asyncio.to_thread(stock_alertas.barrer_alertas)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - el barrido no puede tumbar la API
+            print(f"[stock] El barrido de alertas fallo: {error}", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """
@@ -153,12 +183,15 @@ async def lifespan(_app: FastAPI):
     esperar_base()
 
     tarea_sla = asyncio.create_task(barrer_sla_en_segundo_plano())
+    tarea_alertas = asyncio.create_task(barrer_alertas_en_segundo_plano())
     try:
         yield
     finally:
-        tarea_sla.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await tarea_sla
+        for tarea in (tarea_sla, tarea_alertas):
+            tarea.cancel()
+        for tarea in (tarea_sla, tarea_alertas):
+            with contextlib.suppress(asyncio.CancelledError):
+                await tarea
 
 app = FastAPI(
     title="Smart Inventory B2B API — Activos e incidencias",

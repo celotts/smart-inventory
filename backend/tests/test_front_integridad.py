@@ -172,10 +172,23 @@ def _claves_de_crear(texto: str) -> set[str]:
     posicion = 0
 
     while True:
-        inicio = texto.find("crear(", posicion)
-        if inicio == -1:
+        # `(?<![\w.])` para que no tome "crearPaginacion(" por una llamada a
+        # `crear()`: las opciones del componente de paginacion tienen claves
+        # ("total", "alCambiarPagina") que `crear()` no acepta.
+        encontrado = re.search(r"(?<![\w.])crear\(", texto[posicion:])
+        if not encontrado:
             break
+        inicio = posicion + encontrado.start()
         posicion = inicio + 6
+
+        # Si la llamada NO lleva un objeto (`crear('div')`), el "{" que
+        # sigue es de OTRA llamada: tomarlo como si fuera suyo hace que las
+        # claves del objeto ajeno se lean como claves de `crear()`.
+        j = posicion
+        while j < len(texto) and texto[j] in " \n\t":
+            j += 1
+        if j >= len(texto) or texto[j] != "{":
+            continue
 
         llave = texto.find("{", inicio)
         if llave == -1:
@@ -300,16 +313,42 @@ class TestCabecera:
         )
         assert "grid-area: nav" in regla, "El menu tiene que tener su area."
 
-    def test_el_selector_de_modulo_tiene_area_propia(self):
+    def test_el_selector_de_modulo_esta_centrado_en_la_pagina(self):
+        """
+        El selector de modulo va CENTRADO respecto de la pagina.
+
+        Con una grilla, "centrar la celda" deja los botones corrida hacia un
+        lado: el centro de una celda no es el centro de la pantalla. Por eso
+        va con posicion absoluta al 50% con la traslacion: el centro es el
+        centro de la pagina, se llame como se llame el rol.
+        """
         css = self._css()
 
         bloque = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
         assert bloque, "No se encuentra la regla del selector de modulo."
-        assert "grid-area: modulos" in bloque.group(0), (
-            "El selector de modulo tiene que tener area propia: es lo que "
-            "permite que baje a su propia fila en el celular."
+        regla = bloque.group(0)
+
+        assert "position: absolute" in regla, (
+            "El selector de modulo tiene que estar posicionado en absoluto: "
+            "en una grilla, el centro de la celda no es el centro de la pagina."
+        )
+        assert "left: 50%" in regla, "El selector de modulo tiene que estar al 50%."
+        assert "translateX(-50%)" in regla, (
+            "El selector de modulo tiene que corregirse con la traslacion "
+            "para quedar CENTRADO en la pagina."
         )
 
+    def test_la_segunda_fila_de_la_cabecera_existe(self):
+        """El usuario y el selector de modulo comparten la segunda fila."""
+        html = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
+        if not html.exists():  # pragma: no cover
+            pytest.skip("No se encuentra el index.html.")
+        contenido = html.read_text(encoding="utf-8")
+
+        assert 'class="cabecera__fila2"' in contenido, (
+            "La segunda fila de la cabecera (el usuario y el selector de "
+            "modulo) tiene que existir."
+        )
 
 class TestModales:
     """

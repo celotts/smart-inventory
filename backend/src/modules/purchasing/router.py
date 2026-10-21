@@ -65,9 +65,20 @@ def listar_ordenes(
     vendor_id: int | None = Query(None, gt=0),
     desde: str | None = Query(None, description="Fecha desde (YYYY-MM-DD)"),
     hasta: str | None = Query(None, description="Fecha hasta (YYYY-MM-DD)"),
+    limite: int | None = Query(None, ge=1, le=5000, description="Cuantas se devuelven."),
+    offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
-) -> list[dict]:
-    return service.listar_ordenes(estado=estado, vendor_id=vendor_id, desde=desde, hasta=hasta)
+) -> dict:
+    """Las ordenes de compra, paginadas."""
+    items, total = service.listar_ordenes(
+        estado=estado,
+        vendor_id=vendor_id,
+        desde=desde,
+        hasta=hasta,
+        limite=limite,
+        offset=offset,
+    )
+    return {"items": items, "total": total, "limite": limite, "offset": offset}
 
 
 @router.get(

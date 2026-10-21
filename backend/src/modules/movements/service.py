@@ -890,10 +890,27 @@ def listar_movimientos(
     device_id: int | None = None,
     usuario_id: str | None = None,
     desde: datetime | None = None,
+    hasta: datetime | None = None,
+    busqueda: str | None = None,
+    tipo_movimiento: str | None = None,
     limite: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """Listado paginado de movimientos, para la pantalla de actividad."""
+    """
+    Listado paginado de movimientos, para la pantalla de actividad.
+
+    EL BUSCADOR
+    -----------
+    Sin busqueda, el historial es una lista infinita: con 5000 movimientos,
+    el operador ve los ultimos 50 y no llega a los de ayer. Con el buscador
+    (serial, SKU, modelo o ubicacion) encuentra el movimiento que necesita,
+    y con el rango de fechas acota el periodo.
+
+    La busqueda es por texto con `ILIKE` y no con el indice de texto completo
+    de `devices`: el historial se busca por un fragmento de serial ("SN-01")
+    que no es una palabra del diccionario, y el `ILIKE` con el prefijo
+    encuentra.
+    """
     condiciones: list[str] = ["1=1"]
     parametros: dict[str, Any] = {"limite": limite, "offset": offset}
 
@@ -906,6 +923,26 @@ def listar_movimientos(
     if desde:
         condiciones.append("mh.movement_date >= :desde")
         parametros["desde"] = desde
+    if hasta:
+        condiciones.append("mh.movement_date <= :hasta")
+        parametros["hasta"] = hasta
+    if tipo_movimiento:
+        condiciones.append("mt.code = :tipo_movimiento")
+        parametros["tipo_movimiento"] = tipo_movimiento
+    if busqueda:
+        # El `%` y el `_` del texto se escapan: si el operador escribe "50%",
+        # no es un comodin, es un 50 y un porcentaje.
+        texto = busqueda.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        condiciones.append(
+            "(d.serial_number ILIKE :busqueda "
+            " OR d.qr_code ILIKE :busqueda "
+            " OR mo.sku ILIKE :busqueda "
+            " OR mo.model ILIKE :busqueda "
+            " OR mo.brand ILIKE :busqueda "
+            " OR lo.store_name ILIKE :busqueda "
+            " OR ld.store_name ILIKE :busqueda)"
+        )
+        parametros["busqueda"] = f"%{texto}%"
 
     where = " AND ".join(condiciones)
 
@@ -917,11 +954,13 @@ def listar_movimientos(
                     mh.id, mt.name AS movement_type, mh.movement_date,
                     mh.is_valid_location,
                     d.serial_number, d.qr_code,
+                    mo.sku, mo.brand, mo.model,
                     lo.store_name AS origen, ld.store_name AS destino,
                     u.full_name AS registrado_por
                 FROM movement_history mh
                 JOIN movement_types mt ON mt.id = mh.movement_type_id
                 JOIN devices d ON d.id = mh.device_id
+                LEFT JOIN models mo ON mo.id = d.model_id
                 LEFT JOIN locations lo ON lo.id = mh.origin_location_id
                 LEFT JOIN locations ld ON ld.id = mh.destination_location_id
                 LEFT JOIN users u ON u.id = mh.user_id
@@ -938,7 +977,11 @@ def listar_movimientos(
                 f"""
                 SELECT COUNT(*) AS n
                 FROM movement_history mh
+                JOIN movement_types mt ON mt.id = mh.movement_type_id
                 JOIN devices d ON d.id = mh.device_id
+                LEFT JOIN models mo ON mo.id = d.model_id
+                LEFT JOIN locations lo ON lo.id = mh.origin_location_id
+                LEFT JOIN locations ld ON ld.id = mh.destination_location_id
                 WHERE {where}
                 """
             ),

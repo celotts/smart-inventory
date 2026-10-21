@@ -207,7 +207,9 @@ def listar_incidencias(
     }
 
 
-def obtener_incidencia(incidencia_id: UUID) -> dict[str, Any]:
+def obtener_incidencia(
+    incidencia_id: UUID, *, limite_eventos: int = 100
+) -> dict[str, Any]:
     """La incidencia con su linea de tiempo completa."""
     engine = get_ai_engine()
     with engine.connect() as conexion:
@@ -227,20 +229,43 @@ def obtener_incidencia(incidencia_id: UUID) -> dict[str, Any]:
         if not fila:
             raise IncidenciaNoEncontrada("No existe esa incidencia.")
 
+        # LA LINEA DE TIEMPO, ACOTADA
+        #
+        # Un caso abierto durante años tiene miles de eventos, y la pantalla
+        # los pinta TODOS: el modal se vuelve una lista interminable y el
+        # operador tiene que scrollear hasta el principio para ver el
+        # ultimo cambio (que es el que importa).
+        #
+        # Se traen los ULTIMOS y se dice cuantos hay en total: el que quiere
+        # el historial completo lo pide por la API.
         eventos = conexion.execute(
             text(
                 """
                 SELECT id, event_type, from_status, to_status, actor_id, note, payload, created_at
                 FROM incident_events
                 WHERE incident_id = :id
-                ORDER BY created_at ASC, id ASC
+                ORDER BY created_at DESC, id DESC
+                LIMIT :limite
+                """
+            ),
+            {"id": str(incidencia_id), "limite": limite_eventos},
+        ).mappings().all()
+
+        total_eventos = conexion.execute(
+            text(
+                """
+                SELECT COUNT(*) FROM incident_events WHERE incident_id = :id
                 """
             ),
             {"id": str(incidencia_id)},
-        ).mappings().all()
+        ).scalar_one()
 
     datos = _a_resumen(dict(fila))
+    # Del mas nuevo al mas viejo: lo que paso ultimo es lo que se mira
+    # primero. La linea de tiempo del modal ya la muestra asi.
     datos["eventos"] = [dict(e) for e in eventos]
+    datos["total_eventos"] = int(total_eventos or 0)
+    datos["eventos_omitidos"] = max(0, int(total_eventos or 0) - len(eventos))
     return datos
 
 

@@ -227,7 +227,11 @@ class TestHistorial:
         detalle = service.obtener_incidencia(incidencia["id"])
         tipos = [e["event_type"] for e in detalle["eventos"]]
 
-        assert tipos == ["CREATED", "STATUS_CHANGED"]
+        # El historial va del MAS NUEVO al mas viejo: lo que paso ultimo es
+        # lo que el operador mira primero, y con el caso abierto hacia abajo
+        # habia que scrollear hasta el final para ver el ultimo cambio.
+        assert set(tipos) == {"CREATED", "STATUS_CHANGED"}
+        assert tipos[0] == "STATUS_CHANGED"
         # El actor sale del CONTEXTO de la transaccion, no de lo que manda el
         # cliente: un historial de soporte es una prueba.
         for evento in detalle["eventos"]:
@@ -240,8 +244,9 @@ class TestHistorial:
         service.comentar(incidencia["id"], "El cliente dice que ayer funcionaba", user_id=admin)
 
         detalle = service.obtener_incidencia(incidencia["id"])
-        assert detalle["eventos"][-1]["event_type"] == "COMMENT"
-        assert "ayer funcionaba" in detalle["eventos"][-1]["note"]
+        # El comentario es lo ULTIMO que paso: va primero en la lista.
+        assert detalle["eventos"][0]["event_type"] == "COMMENT"
+        assert "ayer funcionaba" in detalle["eventos"][0]["note"]
 
     def test_el_historial_es_inmutable(self, base, admin, limpieza):
         from sqlalchemy import text

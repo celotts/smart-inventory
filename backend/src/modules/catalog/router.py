@@ -36,9 +36,12 @@ def _error_de_negocio(exc: service.ProductoInvalido) -> HTTPException:
     summary="Listar categorias de producto",
 )
 def listar_categorias(
+    limite: int | None = Query(
+        None, ge=1, le=5000, description="Tope de seguridad, no paginacion."
+    ),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> list[dict]:
-    return service.listar_categorias()
+    return service.listar_categorias(limite=limite)
 
 
 @router.get(
@@ -204,13 +207,36 @@ def listar_productos(
     busqueda: str | None = Query(None, max_length=100, description="Marca, modelo o SKU."),
     categoria_id: int | None = Query(None, gt=0),
     solo_activos: bool = Query(True),
+    limite: int | None = Query(
+        None,
+        ge=1,
+        le=5000,
+        description="Cuantos productos se devuelven. Sin limite, todos (para los selectores).",
+    ),
+    offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
-) -> list[dict]:
-    return service.listar_productos(
+) -> dict:
+    """
+    El maestro de productos, paginado.
+
+    `limite` es opcional a proposito: los SELECTORES (el de "nuevo equipo",
+    el filtro del inventario) necesitan la lista entera, y la PANTALLA del
+    maestro pagina. Con 5000 productos, traerlos todos y pintarlos todos
+    hace que la app se congele: por eso la pantalla pide de a paginas.
+    """
+    items, total = service.listar_productos(
         busqueda=busqueda,
         categoria_id=categoria_id,
         solo_activos=solo_activos,
+        limite=limite,
+        offset=offset,
     )
+    return {
+        "items": items,
+        "total": total,
+        "limite": limite,
+        "offset": offset,
+    }
 
 
 @router.post(
@@ -390,9 +416,16 @@ def barcode_de_producto(
     summary="Listar clientes",
 )
 def listar_clientes(
+    busqueda: str | None = Query(None, max_length=100, description="Nombre, tax id o contacto."),
+    limite: int | None = Query(
+        None, ge=1, le=5000, description="Cuantos se devuelven. Sin limite, todos."
+    ),
+    offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
-) -> list[dict]:
-    return service.listar_clientes()
+) -> dict:
+    """Los clientes, con buscador y paginacion."""
+    items, total = service.listar_clientes(busqueda=busqueda, limite=limite, offset=offset)
+    return {"items": items, "total": total, "limite": limite, "offset": offset}
 
 
 @router.post(

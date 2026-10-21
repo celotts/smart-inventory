@@ -22,6 +22,7 @@ import { vistaAuditoria } from './vistas/auditoria.js';
 import { vistaCompras } from './vistas/compras.js';
 import { vistaConsultas } from './vistas/consultas.js';
 import { vistaEscanear } from './vistas/escanear.js';
+import { vistaExistencia } from './vistas/existencia.js';
 import { vistaIncidencias } from './vistas/incidencias.js';
 import { vistaInicio } from './vistas/inicio.js';
 import { vistaInventario, vistaDispositivo } from './vistas/inventario.js';
@@ -39,6 +40,7 @@ export const VISTAS = {
   inicio: { etiqueta: 'Inicio', construir: vistaInicio },
   escanear: { etiqueta: 'Escanear', construir: vistaEscanear },
   inventario: { etiqueta: 'Inventario', construir: vistaInventario },
+  existencia: { etiqueta: 'Existencia', construir: vistaExistencia },
   movimientos: { etiqueta: 'Movimientos', construir: vistaMovimientos },
   incidencias: { etiqueta: 'Incidencias', construir: vistaIncidencias },
   consultas: { etiqueta: 'Consultas', construir: vistaConsultas },
@@ -74,7 +76,11 @@ export function mostrarVista(nombre, opciones = {}) {
   }
 
   if (nombre === 'dispositivo') {
-    const vista = vistaDispositivo(opciones.deviceId, {
+    // El id del equipo puede venir plano (`deviceId`) o dentro de los
+    // filtros (cuando el salto viene del tablero, que manda todo en
+    // `filtros`).
+    const deviceId = opciones.deviceId ?? opciones.filtros?.deviceId;
+    const vista = vistaDispositivo(deviceId, {
       alVolver: () => mostrarVista('inventario'),
       // Editar y dar de baja son acciones de `devices:edit`. La ficha decide si
       // muestra los botones con este dato; el backend los vuelve a exigir igual.

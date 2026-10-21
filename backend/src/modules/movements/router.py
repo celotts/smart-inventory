@@ -330,11 +330,32 @@ def listar(
         description="Fecha en ISO. Ej: 2026-01-01T00:00:00Z",
         max_length=40,
     ),
+    hasta: str | None = Query(
+        None,
+        description="Fecha final en ISO. Ej: 2026-12-31T23:59:59Z",
+        max_length=40,
+    ),
+    busqueda: str | None = Query(
+        None,
+        max_length=100,
+        description="Texto libre: serial, QR, SKU, marca, modelo o ubicacion.",
+    ),
+    tipo_movimiento: str | None = Query(
+        None,
+        max_length=40,
+        description="Codigo del tipo de movimiento (por ejemplo: ENTRADA).",
+    ),
     limite: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.MOVIMIENTOS_VER)),
 ) -> ListaMovimientosResponse:
-    """Actividad reciente. Requiere `movements:read`."""
+    """
+    La actividad, paginada y con buscador.
+
+    Sin buscador, con 5000 movimientos la pantalla muestra los ultimos 50 y
+    no hay forma de llegar a los de ayer: el historial deja de ser un
+    historial y pasa a ser las ultimas noticias.
+    """
     fecha_desde = None
     if desde:
         from datetime import datetime
@@ -347,9 +368,24 @@ def listar(
                 detail="La fecha no es valido. Usa ISO 8601: 2026-01-01T00:00:00Z",
             ) from exc
 
+    fecha_hasta = None
+    if hasta:
+        from datetime import datetime
+
+        try:
+            fecha_hasta = datetime.fromisoformat(hasta.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="La fecha no es valido. Usa ISO 8601: 2026-12-31T23:59:59Z",
+            ) from exc
+
     return service.listar_movimientos(
         device_id=device_id,
         desde=fecha_desde,
+        hasta=fecha_hasta,
+        busqueda=busqueda,
+        tipo_movimiento=tipo_movimiento,
         limite=limite,
         offset=offset,
     )

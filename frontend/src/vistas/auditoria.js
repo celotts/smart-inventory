@@ -24,6 +24,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { formatearFecha } from './inventario.js';
 
@@ -113,14 +114,30 @@ export function vistaAuditoria({ permisos = [] } = {}) {
 
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
-  const zonaPaginacion = crear('div', { clase: 'fila-botones', estilo: 'margin-top:1rem' });
 
-  raiz.append(tarjetaFiltros, zonaLista, zonaPaginacion);
-
+  // LA PAGINACION (el componente compartido)
   let pagina = 0;
-  const POR_PAGINA = 50;
+  let POR_PAGINA = 50;
   let total = 0;
   let peticionEnCurso = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite: POR_PAGINA,
+    pagina,
+    etiqueta: 'eventos',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      POR_PAGINA = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaFiltros, zonaLista, paginacion.elemento);
 
   async function cargar() {
     const numero = ++peticionEnCurso;
@@ -293,44 +310,13 @@ export function vistaAuditoria({ permisos = [] } = {}) {
     return item;
   }
 
+  /**
+   * La barra de paginacion: el COMPONENTE compartido, para que todas las
+   * tablas de la app se comporten igual (los botones, el "pagina 3 de 15" y
+   * la cantidad por pagina).
+   */
   function pintarPaginacion() {
-    zonaPaginacion.replaceChildren();
-
-    const totalPaginas = Math.ceil(total / POR_PAGINA);
-    if (totalPaginas <= 1) return;
-
-    const contador = crear('span', {
-      clase: 'tenue pequeno centro',
-      texto: `${pagina + 1} de ${totalPaginas} · ${total} eventos`,
-    });
-
-    const anterior = crear('button', {
-      clase: 'boton boton--suave',
-      texto: 'Anterior',
-      atributos: {
-        type: 'button',
-        disabled: pagina === 0,
-        onclick: () => {
-          pagina -= 1;
-          cargar();
-        },
-      },
-    });
-
-    const siguiente = crear('button', {
-      clase: 'boton boton--suave',
-      texto: 'Siguiente',
-      atributos: {
-        type: 'button',
-        disabled: pagina >= totalPaginas - 1,
-        onclick: () => {
-          pagina += 1;
-          cargar();
-        },
-      },
-    });
-
-    zonaPaginacion.append(anterior, contador, siguiente);
+    paginacion.actualizar({ total, limite: POR_PAGINA, pagina });
   }
 
   // La búsqueda y los selects reinician la página: si no, pedir la página 4 con

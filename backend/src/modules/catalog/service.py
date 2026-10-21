@@ -103,25 +103,32 @@ def obtener_codigos_producto(producto_id: int) -> dict[str, Any]:
         db.close()
 
 
-def listar_categorias() -> list[dict[str, Any]]:
+def listar_categorias(limite: int | None = None) -> list[dict[str, Any]]:
     """
     Categorias activas, con su codigo corto para armar SKUs y su RUTA.
 
     La ruta ("Portatiles > Notebooks") es lo que la interfaz muestra: un
     operador que tiene 40 equipos y 7 categorias necesita ver de que rama
     sale cada cosa, no un nombre suelto que se repite.
+
+    El `limite` es un TECHO de seguridad, no una paginacion: las categorias
+    son una taxonomia (decenas, no miles), pero un alta automatica que se
+    descontrola no debe colgar la pantalla.
     """
     db = get_db_session()
     try:
-        filas = db.execute(
-            text(
-                """
+        consulta = """
                 SELECT id, name, code, icon, color, sort_order, is_active, parent_id
                 FROM categories
                 WHERE deleted_at IS NULL
                 ORDER BY sort_order, name
-                """
-            )
+        """
+        if limite is not None:
+            consulta += " LIMIT :limite"
+
+        filas = db.execute(
+            text(consulta),
+            {"limite": limite} if limite is not None else {},
         ).mappings().all()
 
         datos = [dict(f) for f in filas]
@@ -582,12 +589,18 @@ def listar_productos(
     busqueda: str | None = None,
     categoria_id: int | None = None,
     solo_activos: bool = True,
+    limite: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """
     Maestro de productos.
 
     El `deleted_at IS NULL` es el borrado logico: un producto que se dejo de
     vender no se borra, porque los equipos historicos siguen apuntandole.
+
+    `limite=None` significa "todos": lo usan los SELECTS (el de "nuevo
+    equipo", el filtro del inventario), donde el operador busca en una lista
+    corta de productos. La PANTALLA del maestro pasa un limite y pagina.
     """
     condiciones = ["m.deleted_at IS NULL"]
     parametros: dict[str, Any] = {}
@@ -610,6 +623,15 @@ def listar_productos(
         parametros["busqueda"] = f"%{_escapar_like(busqueda)}%"
 
     where = " AND ".join(condiciones)
+
+    # `limite=None` = todos (lo que necesitan los SELECTS). Con limite, la
+    # pantalla del maestro pagina.
+    if limite is None:
+        limite_sql = ""
+    else:
+        parametros["limite"] = limite
+        parametros["offset"] = offset
+        limite_sql = "LIMIT :limite OFFSET :offset"
 
     db = get_db_session()
     try:
@@ -643,11 +665,26 @@ def listar_productos(
                 JOIN categories c ON c.id = m.category_id
                 WHERE {where}
                 ORDER BY m.brand, m.model
+                {limite_sql}
                 """
             ),
             parametros,
         ).mappings().all()
         datos = [dict(f) for f in filas]
+
+        # El TOTAL, para la paginacion: sin el, el operador no sabe si la
+        # lista que ve es toda o la primera de muchas.
+        total = db.execute(
+            text(
+                f"""
+                SELECT COUNT(*)
+                FROM models m
+                JOIN categories c ON c.id = m.category_id
+                WHERE {where}
+                """
+            ),
+            parametros,
+        ).scalar_one()
     finally:
         db.close()
 
@@ -657,7 +694,7 @@ def listar_productos(
     for d in datos:
         d["categoria_ruta"] = rutas.get(d["category_id"], d["categoria"])
         d["atributos"] = d.get("specifications") or {}
-    return datos
+    return datos, int(total or 0)
 
 
 def crear_producto(datos: dict[str, Any]) -> dict[str, Any]:
@@ -952,21 +989,54 @@ def eliminar_producto(producto_id: int) -> None:
         db.close()
 
 
-def listar_clientes() -> list[dict[str, Any]]:
-    """Clientes activos."""
+def listar_clientes(
+    *,
+    busqueda: str | None = None,
+    limite: int | None = None,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """
+    Clientes activos, con buscador y paginacion.
+
+    La lista de clientes crece con los clientes de la empresa: 200 clientes
+    son 200 filas en pantalla. Con `limite=None` se traen todos (lo que
+    necesitan los selectores), y con limite, la pantalla pagina.
+    """
+    condiciones = ["deleted_at IS NULL"]
+    parametros: dict[str, Any] = {}
+
+    if busqueda:
+        condiciones.append(
+            "(commercial_name ILIKE :busqueda OR tax_id ILIKE :busqueda "
+            "OR contact_name ILIKE :busqueda OR contact_email ILIKE :busqueda)"
+        )
+        parametros["busqueda"] = f"%{_escapar_like(busqueda)}%"
+
+    where = " AND ".join(condiciones)
+    limite_sql = ""
+    if limite is not None:
+        parametros["limite"] = limite
+        parametros["offset"] = offset
+        limite_sql = " LIMIT :limite OFFSET :offset"
+
     db = get_db_session()
     try:
         filas = db.execute(
             text(
-                """
+                f"""
                 SELECT id, commercial_name, tax_id, contact_name, contact_email, contact_phone
                 FROM clients
-                WHERE deleted_at IS NULL
+                WHERE {where}
                 ORDER BY commercial_name
+                {limite_sql}
                 """
-            )
+            ),
+            parametros,
         ).mappings().all()
-        return [dict(f) for f in filas]
+        total = db.execute(
+            text(f"SELECT COUNT(*) FROM clients WHERE {where}"), parametros
+        ).scalar_one()
+        return [dict(f) for f in filas], int(total or 0)
     finally:
         db.close()
 

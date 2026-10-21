@@ -37,7 +37,11 @@ export const MODULOS = {
     detalle:
       'Donde esta cada equipo, cuanto vale, que hay que reponer y que se movio hoy.',
     icono: 'M20 7l-8-4-8 4-8 4zM5 7l-8-4-8 4-8 4z',
-    vistas: ['inicio', 'escanear', 'inventario', 'movimientos', 'productos', 'compras', 'nuevo'],
+    // `existencia`: el stock por rubro y por ubicacion. Va DESPUES de
+    // `inventario` (que es el equipo) y antes de `movimientos` (que es el
+    // historial): primero donde esta cada equipo, depois cuanto hay de cada
+    // rubro.
+    vistas: ['inicio', 'escanear', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo'],
     dashboard: 'inventario',
   },
   helpdesk: {

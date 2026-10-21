@@ -60,7 +60,7 @@ JOIN categories c ON c.name = 'Notebook' OR v.brand = 'Cisco'
 ON CONFLICT DO NOTHING;
 SQL
 
-say "3/3  Componentes"
+say "3/4  Componentes"
 
 psql_db -t -A <<'SQL'
 INSERT INTO devices (model_id, serial_number, qr_code, current_location_id, current_status, is_warehouse)
@@ -94,6 +94,43 @@ WHERE NOT EXISTS (
   SELECT 1 FROM devices d
   WHERE d.serial_number = v.serial OR d.qr_code = v.qr
 );
+SQL
+
+say "3/4  Vida util, precio de compra y stock minimo"
+
+# Sin esto, el valor libro y las alertas de stock bajo no tienen NADA que
+# mostrar: los equipos de demo no tienen precio de compra y los productos no
+# tienen minimo, asi que el "Por reponer" dice "Faltan 0" y no significa
+# nada.
+#
+# Los valores son de ejemplo pero PLAUSIBLES (36 meses de vida util para un
+# notebook, compra hace 14 meses, minimo 3 unidades en el deposito): un
+# demo con numeros que no significan nada hace que el que lo mira no crea
+# que la pantalla anda mal.
+psql_db -t -A <<'SQL'
+UPDATE models
+SET useful_life_months = CASE
+      WHEN brand = 'Cisco' THEN 60
+      WHEN brand = 'HP' OR brand = 'Lenovo' THEN 36
+      ELSE 36
+    END,
+    min_stock = CASE
+      WHEN brand = 'Dell' THEN 3
+      WHEN brand = 'Lenovo' THEN 2
+      ELSE 1
+    END
+WHERE deleted_at IS NULL
+  AND (useful_life_months IS NULL OR min_stock = 0);
+
+UPDATE devices
+SET purchase_date = CURRENT_DATE - INTERVAL '14 months',
+    purchase_value = CASE
+      WHEN serial_number LIKE 'SN-DEMO-000%' THEN 850.00
+      WHEN serial_number LIKE 'SN-DEMO-001%' THEN 640.00
+      ELSE 1200.00
+    END
+WHERE serial_number LIKE 'SN-DEMO-%'
+  AND purchase_date IS NULL;
 SQL
 
 say "Resultado"

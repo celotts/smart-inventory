@@ -25,6 +25,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { ICONOS, crear, etiquetaProducto, icono } from '../dom.js';
 import { avisar } from '../avisos.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -96,7 +97,32 @@ export function vistaProductos({ permisos = [] }) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  raiz.append(tarjetaCabecera, zonaLista);
+  // LA PAGINACION
+  //
+  // El maestro de productos es la lista que mas crece: con 5000 SKUs, traerlos
+  // todos y pintarlos todos deja la app sin responder. La pantalla pide de a
+  // paginas, y el operador ve cuantas hay en total.
+  let pagina = 0;
+  let limite = 50;
+  let total = 0;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite,
+    pagina,
+    etiqueta: 'productos',
+    alCambiarPagina: (nueva) => {
+      pagina = Math.max(0, nueva);
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      limite = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
+
+  raiz.append(tarjetaCabecera, zonaLista, paginacion.elemento);
 
   let peticionEnCurso = 0;
 
@@ -105,9 +131,17 @@ export function vistaProductos({ permisos = [] }) {
     zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando productos…' }));
 
     try {
-      const productos = await api.productos({ busqueda: inputBuscar.value.trim() || undefined });
+      const respuesta = await api.productos({
+        busqueda: inputBuscar.value.trim() || undefined,
+        limite,
+        offset: pagina * limite,
+      });
       if (numero !== peticionEnCurso) return;
+
+      const productos = respuesta.items ?? respuesta;
+      total = respuesta.total ?? productos.length;
       pintarLista(productos);
+      paginacion.actualizar({ total, limite, pagina });
     } catch (error) {
       if (numero !== peticionEnCurso) return;
       zonaLista.replaceChildren(
