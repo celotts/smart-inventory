@@ -154,6 +154,26 @@ export function abrirDialogo({
   pila.push(modal);
   bloquearScroll();
 
+  // LA FOTO DE LOS VALORES
+  //
+  // Para saber si el operador ESCRIBIO algo, se compara cada control con
+  // el valor que tenia cuando se abrio el modal. Asi el aviso de "hay
+  // cambios sin guardar" aparece SOLO si hay cambios de verdad: antes
+  // aparecia siempre, y abrir un formulario y tocar el fondo preguntaba
+  // "descartar lo que escribiste" con el formulario vacio.
+  const valoresAlAbrir = new Map();
+  for (const control of modal.querySelectorAll('input, select, textarea')) {
+    valoresAlAbrir.set(control, control.value);
+  }
+
+  /** Hay cambios sin guardar. */
+  function hayCambiosSinGuardar() {
+    for (const [control, valorInicial] of valoresAlAbrir) {
+      if (control.value !== valorInicial) return true;
+    }
+    return false;
+  }
+
   const focusables = modal.querySelectorAll(FOCUSEABLES);
   const primero = focusables[0];
   const ultimo = focusables[focusables.length - 1];
@@ -216,7 +236,7 @@ export function abrirDialogo({
     // El aviso se hace con un modal encima, porque la confirmacion tiene dos
     // respuestas y una needs attention: un `confirm()` del navegador rompe el
     // tema y el foco.
-    if (avanzarAlCerrar && !descartar) {
+    if (avanzarAlCerrar && !descartar && hayCambiosSinGuardar()) {
       const btnPerder = crear('button', {
         clase: 'boton boton--peligro',
         texto: 'Descartar los cambios',
@@ -261,6 +281,23 @@ export function abrirDialogo({
 
   modal.addEventListener('keydown', atraparFoco);
   document.addEventListener('keydown', alEscape);
+
+  // TOCAR EL FONDO CIERRA EL MODAL
+  //
+  // Es la afordancia que todo el mundo espera, y es la que evita que un
+  // modal sin boton de cerrar deje al operador atrapado: en un celular no
+  // hay tecla Escape, y sin boton no hay salida.
+  //
+  // Solo cierra si el clic fue en el FONDO (el `target` es el overlay), no
+  // dentro del contenido: un clic en un campo de texto no cierra nada.
+  //
+  // Pasa por `cerrer()`, que ya pregunta por los cambios sin guardar: un
+  // formulario con datos escritos avisa antes de perderlos.
+  modal.addEventListener('click', (evento) => {
+    if (evento.target !== modal) return;
+    if (!esSuperior(modal)) return;
+    cerrar();
+  });
 
   primero?.focus();
   alAbrir?.(modal, cerrar);

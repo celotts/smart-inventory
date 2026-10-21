@@ -243,6 +243,120 @@ def _claves_de_crear(texto: str) -> set[str]:
     return claves
 
 
+class TestModales:
+    """
+    Un modal sin boton de cerrar es un modal TRABADO.
+
+    QUE PASÓ
+    ---------
+    Cinco formularios (reportar incidencia, nuevo usuario, contrasena, mi
+    cuenta, nueva categoria) se abrian con `acciones: []`: sin ningun boton
+    visible. La unica salida era la tecla Escape, y en un CELULAR no hay
+    tecla Escape: el operador abria el formulario y no podia volver.
+
+    No habia ningun error, ninguna peticion fallida, nada en la consola. Solo
+    un boton que no estaba.
+
+    QUE CHEQUEA
+    -----------
+    1. Que ninguna llamada a `abrirDialogo` se quede sin acciones.
+    2. Que todo modal con un formulario tenga, ademas, la opcion de cerrar
+       tocando el fondo (eso lo garantiza `dialogo.js`).
+    """
+
+    def _archivos_con_dialogo(self) -> list[Path]:
+        archivos = []
+        for ruta in _archivos_js():
+            texto = ruta.read_text(encoding="utf-8")
+            if "abrirDialogo" in texto:
+                archivos.append(ruta)
+        return archivos
+
+    def test_ningun_modal_se_abre_sin_botones(self):
+        problemas = []
+
+        for ruta in self._archivos_con_dialogo():
+            texto = ruta.read_text(encoding="utf-8")
+            for m in re.finditer(r"abrirDialogo\(\{", texto):
+                # Se toma el bloque de opciones: hasta el cierre de la llave
+                # del objeto de opciones.
+                i = m.end() - 1
+                profundidad = 0
+                fin = len(texto)
+                for j in range(i, len(texto)):
+                    if texto[j] == "{":
+                        profundidad += 1
+                    elif texto[j] == "}":
+                        profundidad -= 1
+                        if profundidad == 0:
+                            fin = j
+                            break
+                bloque = texto[i:fin]
+                if re.search(r"acciones:\s*\[\s*\]", bloque):
+                    linea = texto[: m.start()].count("\n") + 1
+                    problemas.append(
+                        f"{ruta.name}:{linea}: el modal se abre sin ningun boton "
+                        "(acciones vacias): en un celular no hay Escape para salir."
+                    )
+
+        assert not problemas, "\n".join(problemas)
+
+
+class TestCamposDeFormulario:
+    """
+    Los helpers de formulario aceptan dos formas de llamada.
+
+    `campoTexto` se llama de las dos formas en el codigo: con un objeto
+    (`campoTexto({ etiqueta: 'Marca' })`) y posicional
+    (`campoTexto('Ej: Dell', 'Marca')`).
+
+    Cuando la firma era solo la de objeto, las llamadas posicionales
+    pasaban un TEXTO donde se esperaba un objeto: la destructuracion daba
+    `undefined` para todo, y el campo salia con la etiqueta "undefined".
+    El formulario se veia roto sin decir por que.
+    """
+
+    def test_las_llamadas_a_campo_texto_pasan_lo_correcto(self):
+        problemas = []
+
+        for ruta in _archivos_js():
+            # Sin comentarios: un ejemplo en un docstring no es una llamada.
+            texto = _sin_comentarios(ruta.read_text(encoding="utf-8"))
+            for m in re.finditer(r"(?<!function )campoTexto\(", texto):
+                # El primer argumento: tiene que ser un objeto o un texto.
+                i = m.end()
+                while i < len(texto) and texto[i] in " \n":
+                    i += 1
+                if i >= len(texto):
+                    continue
+                primero = texto[i]
+                if primero not in "{'" and primero != "`":
+                    linea = texto[: m.start()].count("\n") + 1
+                    problemas.append(
+                        f"{ruta.name}:{linea}: `campoTexto()` con un primer "
+                        f"argumento que no es ni objeto ni texto: {primero!r}"
+                    )
+
+        assert not problemas, "\n".join(problemas)
+
+    def test_las_etiquetas_de_los_campos_no_son_undefined(self):
+        """
+        Una etiqueta "undefined" es la firma de una llamada con la forma
+        equivocada: el helper recibio un string donde esperaba un objeto.
+        """
+        problemas = []
+
+        for ruta in _archivos_js():
+            texto = ruta.read_text(encoding="utf-8")
+            # Busqueda literal: si el codigo tiene "undefined" pegado a una
+            # etiqueta de campo, esta mal.
+            for m in re.finditer(r"etiqueta:\s*['\"]undefined['\"]", texto):
+                linea = texto[: m.start()].count("\n") + 1
+                problemas.append(f"{ruta.name}:{linea}: una etiqueta de campo es 'undefined'")
+
+        assert not problemas, "\n".join(problemas)
+
+
 class TestCss:
     """
     El CSS es codigo, y tiene una clase de bug que no da error: una regla

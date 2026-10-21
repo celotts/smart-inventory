@@ -347,15 +347,25 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       }
     }
 
+    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // tecla Escape, y en un celular no hay Escape: el operador queda
+    // atrapado en el formulario.
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
     cerrarModal = abrirDialogo({
       titulo: 'Nuevo usuario',
       nota: 'La contrasena se guarda hasheada: no se puede volver a leer. Comunicasela al usuario.',
       cuerpo: [form],
       clase: 'modal--formulario',
-      acciones: [],
+      acciones: [btnCancelar],
       avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
       },
     });
   }
@@ -419,15 +429,25 @@ export function vistaUsuarios({ permisos = [] } = {}) {
       }
     }
 
+    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // tecla Escape, y en un celular no hay Escape: el operador queda
+    // atrapado en el formulario.
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
     cerrarModal = abrirDialogo({
       titulo: `Contrasena de ${usuario.email}`,
       nota: 'Se cierran las sesiones abiertas de ese usuario.',
       cuerpo: [form],
       clase: 'modal--formulario',
-      acciones: [],
+      acciones: [btnCancelar],
       avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
       },
     });
   }

@@ -196,13 +196,23 @@ import { campoTexto } from '../formulario.js';
       }
     }
 
+    // El boton de CERRAR. Un modal sin salida visible solo se cierra con la
+    // tecla Escape, y en un celular no hay Escape: el operador queda
+    // atrapado en el formulario.
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
     cerrarModal = abrirDialogo({
       titulo: categoria ? `Editar ${categoria.name}` : 'Nueva categoria',
       cuerpo: [form],
       clase: 'modal--formulario',
-      acciones: [],
+      acciones: [btnCancelar],
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
       },
     });
   }

@@ -48,6 +48,18 @@ let accessToken = null;
 let renovando = false;
 
 /**
+ * La renovacion EN CURSO, compartida.
+ *
+ * Todas las peticiones que reciben un 401 al mismo tiempo esperan a ESTA
+ * promesa: se renueva una sola vez, con un solo refresh token. (El backend
+ * rota el refresh token en cada canje, y un token reutilizado se toma como
+ * un token clonado: cierra todas las sesiones del usuario.)
+ *
+ * @type {Promise<boolean>|null}
+ */
+let promesaRenovacion = null;
+
+/**
  * Operación pendiente guardada cuando expira el token durante una request.
  * Permite reanudar tras login sin perder datos.
  * @type {Object|null}
@@ -262,34 +274,71 @@ export async function restaurarSesion() {
   }
 }
 
+/**
+ * Renueva el access token.
+ *
+ * EL PROBLEMA QUE ESTO ARREGLA
+ * ----------------------------
+ * Cuando el access token vence (15 minutos), la app tiene varias peticiones
+ * en vuelo: el tablero, la campana, la vista que se esta abriendo. Todas
+ * reciben un 401 AL MISMO TIEMPO, y todas llaman a `renovar()`.
+ *
+ * Con el guardia viejo ("si ya hay una renovacion en curso, devuelve false"),
+ * la SEGUNDA peticion tomaba el `false` como "la sesion semurio" y llamaba a
+ * `cerrarSesion()`: el operador quedaba afuera de la app a los 15 minutos de
+ * usarla, sin haber hecho nada malo.
+ *
+ * Peor: el backend ROTA el refresh token en cada canje, y un refresh ya usado
+ * se interpreta como un token clonado, lo que cierra TODAS las sesiones del
+ * usuario. Dos renovaciones en paralelo con el mismo token eran, para el
+ * backend, un robo.
+ *
+ * LA SOLUCION
+ * -----------
+ * Que todas las peticiones que necesitan renovar ESPEREN a la MISMA
+ * renovacion (una promesa compartida), en vez de que unas esperen y otras
+ * desistan. Se renueva una vez, con un solo token, y todas reintentan.
+ *
+ * @returns {Promise<boolean>} `true` si hay un access token nuevo.
+ */
 async function renovar() {
-  if (renovando) return false;
+  // Ya hay una renovacion en curso: se ESPERA a esa, no se abandona.
+  if (promesaRenovacion) return promesaRenovacion;
 
   const refresh = await leerRefreshToken();
   if (!refresh) return false;
 
-  renovando = true;
+  promesaRenovacion = (async () => {
+    try {
+      const r = await fetchConTimeout(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+      }, 10000); // 10s timeout for refresh
+
+      if (!r.ok) return false;
+
+      const datos = await r.json();
+      guardarSesion({
+        access_token: datos.access_token,
+        refresh_token: datos.refresh_token ?? refresh,
+      });
+      return true;
+    } catch {
+      // Sin red. No se pierde la sesion por un problema de conexion: el token
+      // viejo puede seguir siendo valido.
+      return false;
+    } finally {
+      renovando = false;
+    }
+  })();
+
   try {
-    const r = await fetchConTimeout(`${BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-    }, 10000); // 10s timeout for refresh
-
-    if (!r.ok) return false;
-
-    const datos = await r.json();
-    guardarSesion({
-      access_token: datos.access_token,
-      refresh_token: datos.refresh_token ?? refresh,
-    });
-    return true;
-  } catch {
-    // Sin red. No se pierde la sesion por un problema de conexion: el token
-    // viejo puede seguir siendo valido.
-    return false;
+    return await promesaRenovacion;
   } finally {
-    renovando = false;
+    // La promesa compartida se libera recien cuando TERMINO: mientras tanto,
+    // las peticiones que llegan siguen esperandola.
+    promesaRenovacion = null;
   }
 }
 

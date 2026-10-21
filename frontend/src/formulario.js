@@ -67,6 +67,22 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
   const idCampo = `campo-${(contador += 1)}`;
   const idError = `${idCampo}-error`;
 
+  // EL ASTERISCO Y EL `aria-required`, DE LA MISMA FUENTE
+  // -------------------------------------------------
+  // La etiqueta con "*" al final YA dice que el campo es obligatorio. Si el
+  // que escribe la llamada no pasa `requerido: true`, se deduce de la
+  // etiqueta. Asi:
+  //
+  //   - No queda un asterisco pegado al campo sin el atributo que lo
+  //     anuncia (el lector de pantalla lee "titulo, obligatory" solo si el
+  //     `aria-required` esta).
+  //   - No queda un "Titulo * *" (el helper agrega el asterisco y el que
+  //     escribio la etiqueta ya habia puesto uno).
+  const esObligatorio =
+    requerido === true || (typeof etiqueta === 'string' && /\*\s*$/.test(etiqueta));
+  const textoSinAsterisco =
+    typeof etiqueta === 'string' ? etiqueta.replace(/\*\s*$/, '').trim() : etiqueta;
+
   // El `id` explicito y el `for` de la etiqueta: la etiqueta envuelve al
   // control (asociacion implicita, que ya funciona), pero el par
   // `for`/`id` es lo que permite que un lector de pantalla salte al control
@@ -76,7 +92,7 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
 
   const textoEtiqueta = crear('span', {
     clase: 'campo__etiqueta',
-    texto: requerido ? `${etiqueta} *` : etiqueta,
+    texto: esObligatorio ? `${textoSinAsterisco} *` : etiqueta,
   });
 
   const nodoAyuda = ayuda
@@ -96,7 +112,7 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
   if (nodoAyuda) campo.append(nodoAyuda);
   campo.append(nodoError);
 
-  if (requerido) control.setAttribute('aria-required', 'true');
+  if (esObligatorio) control.setAttribute('aria-required', 'true');
 
   // El tooltip de la etiqueta: la descripcion corta de que es el campo. La
   // ayuda larga va debajo, siempre visible.
@@ -143,8 +159,21 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
 /**
  * Campo de texto.
  *
- * @param {object} opciones
- * @param {string} opciones.etiqueta
+ * LAS DOS FORMAS DE LLAMADA
+ * -------------------------
+ *   campoTexto({ etiqueta: 'Marca', placeholder: 'Ej: Dell' })   <- objeto
+ *   campoTexto('Ej: Dell', 'Marca')                               <- posicional
+ *
+ * Las dos existen en el codigo: la forma de objeto es la que usa la
+ * mayoria, pero hay llamadas posicionales (las de los formularios mas
+ * viejos). Con una sola forma, la que no coincide recibe un OBJETO donde
+ * espera un texto, y el campo sale con la etiqueta "undefined": el
+ * formulario parece roto y no dice por que.
+ *
+ * Por eso se aceptan LAS DOS. La de objeto manda cuando viene un objeto.
+ *
+ * @param {object|string} opciones
+ * @param {string} [opciones.etiqueta]
  * @param {string} [opciones.placeholder]
  * @param {string} [opciones.ayuda]
  * @param {boolean} [opciones.requerido]
@@ -155,21 +184,33 @@ function construirCampo({ etiqueta, control, ayuda, requerido = false, descripci
  * @param {number} [opciones.maxlength]
  * @returns {object}
  */
-export function campoTexto({
-  etiqueta,
-  placeholder = '',
-  ayuda,
-  descripcion,
-  requerido = false,
-  tipo = 'text',
-  autocomplete = 'off',
-  inputmode,
-  mono = false,
-  maxlength,
-  name,
-  valor = '',
-  paso,
-}) {
+export function campoTexto(opciones, etiquetaPosicional, opcionesPosicional) {
+  // La forma posicional: el primer argumento es el PLACEHOLDER y el
+  // segundo la ETIQUETA (al reves de como se lee, que es como se
+  // escribieron las llamadas).
+  if (typeof opciones === 'string') {
+    opciones = {
+      ...(opcionesPosicional ?? {}),
+      placeholder: opciones,
+      etiqueta: etiquetaPosicional,
+    };
+  }
+
+  const {
+    etiqueta,
+    placeholder = '',
+    ayuda,
+    descripcion,
+    requerido = false,
+    tipo = 'text',
+    autocomplete = 'off',
+    inputmode,
+    mono = false,
+    maxlength,
+    name,
+    valor = '',
+    paso,
+  } = opciones ?? {};
   const atributos = {
     type: tipo,
     placeholder,

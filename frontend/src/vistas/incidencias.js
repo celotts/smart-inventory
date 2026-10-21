@@ -631,15 +631,28 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
       }
     }
 
+    // EL BOTON DE CERRAR
+    // -----------------
+    // Un modal sin boton de cerrar solo se cierra con la tecla Escape, y en
+    // un celular no hay tecla Escape: el operador queda trapped en el
+    // formulario y no puede volver a la lista. Todo modal con formulario
+    // tiene que tener una salida visible.
+    const btnCancelar = crear('button', {
+      clase: 'boton boton--suave',
+      texto: 'Cancelar',
+      atributos: { type: 'button' },
+    });
+
     cerrarModal = abrirDialogo({
       titulo: 'Reportar incidencia',
       nota: 'El plazo de respuesta y de resolucion se calculan con el SLA de la severidad.',
       cuerpo: [form],
       clase: 'modal--formulario',
-      acciones: [],
+      acciones: [btnCancelar],
       avanzarAlCerrar: true,
       alAbrir: (_modal, cerrar) => {
         cerrarModal = cerrar;
+        btnCancelar.addEventListener('click', cerrar);
       },
     });
   }

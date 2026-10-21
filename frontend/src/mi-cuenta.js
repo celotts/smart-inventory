@@ -107,15 +107,24 @@ export function abrirMiCuenta(usuario) {
     }
   }
 
+  // El boton de CERRAR: sin el, el modal solo se cierra con Escape, y en
+  // un celular no hay Escape.
+  const btnCancelar = crear('button', {
+    clase: 'boton boton--suave',
+    texto: 'Cancelar',
+    atributos: { type: 'button' },
+  });
+
   cerrarModal = abrirDialogo({
     titulo: 'Mi cuenta',
     nota: `Sesion de ${usuario?.email ?? 'este usuario'}. Al cambiar la contrasena se cierran las demas sesiones abiertas.`,
     cuerpo: [form],
     clase: 'modal--formulario',
-    acciones: [],
+    acciones: [btnCancelar],
     avanzarAlCerrar: true,
     alAbrir: (_modal, cerrar) => {
       cerrarModal = cerrar;
+      btnCancelar.addEventListener('click', cerrar);
     },
   });
 }
