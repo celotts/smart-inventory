@@ -97,6 +97,10 @@ CREATE TABLE models (
     replacement_cycle_months INT,
     requires_maintenance BOOLEAN DEFAULT FALSE,
     maintenance_interval_months INT,
+    -- La VIDA UTIL, en meses. Con esto y con `devices.purchase_date` se
+    -- calcula el valor libro (la depreciacion lineal). Sin esta columna en
+    -- el esquema, el modelo se la inventa y la consulta no arranca.
+    useful_life_months INT,
     is_active BOOLEAN DEFAULT TRUE,
     is_serialized BOOLEAN,
     track_by_lot BOOLEAN,
@@ -113,6 +117,10 @@ CREATE TABLE devices (
     is_warehouse BOOLEAN,
     warehouse_entry_date TIMESTAMPTZ,
     installation_date TIMESTAMPTZ,
+    -- La FECHA y el VALOR de compra: son la base del valor libro. La
+    -- depreciacion es lineal sobre los meses que pasaron desde la compra.
+    purchase_date DATE,
+    purchase_value NUMERIC(12, 2),
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
@@ -281,5 +289,18 @@ POCISOSOS = (
 
 
 def descripcion_esquema() -> str:
-    """El bloque que se inyecta en el system prompt. Sin filas, siempre."""
-    return f"{ESQUEMA_SQL}\n{NOTAS_ESQUEMA}\n{POCISOSOS}"
+    """
+    El bloque que se inyecta en el system prompt. Sin filas, siempre.
+
+    EL ESQUEMA VIENE DE LA BASE
+    ---------------------------
+    El DDL de arriba es el de a mano, y queda como FALLBACK (para los tests
+    sin base). El que se usa es el que lee `information_schema`: una copia
+    escrita a mano se desactualiza sin que nadie se entere, y el modelo
+    termina escribiendo consultas con columnas que no existen.
+
+    Ver `src.modules.ai.esquema`.
+    """
+    from src.modules.ai.esquema import esquema_del_sistema
+
+    return f"{esquema_del_sistema()}\n{NOTAS_ESQUEMA}\n{POCISOSOS}"

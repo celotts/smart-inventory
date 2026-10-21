@@ -231,6 +231,19 @@ make ai-test          # incluye la suite de seguridad
 
 ## Estructura
 
+### Ramas
+
+| Rama | Qué es |
+|---|---|
+| `main` | Lo que está en producción. |
+| `develop` | La integración: todo lo terminado se mergea acá. |
+| `feature/<nombre>` | Una cosa que se está haciendo. |
+
+Nadie commitea directo en `main` ni en `develop`, y `main` solo avanza por
+merge de `develop`. El detalle está en [`docs/flujo-trabajo.md`](docs/flujo-trabajo.md).
+
+### El código
+
 ```
 backend/src/
 ├── main.py                  # app + /health (no consulta a la IA, a propósito)

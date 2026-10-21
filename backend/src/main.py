@@ -358,3 +358,18 @@ try:
     app.add_middleware(AuditMiddleware)
 except Exception as e:
     print(f"Warning: No se pudo cargar AuditMiddleware: {e}")
+
+# LA BITACORA DE TRANSACCIONES
+#
+# Se engancha al final (y por eso es el PRIMERO en la pila: `add_middleware`
+# mete al principio): asi mide la duracion de TODO, incluyendo lo que tardan
+# los otros middleware y el endpoint.
+#
+# Si la tabla `transacciones` todavia no existe (una base migrada a medias),
+# el middleware no se engancha y la app sigue funcionando: la bitacora es
+# importante, pero no es lo que hace que la app ande.
+try:
+    from src.core.transacciones_middleware import TransaccionesMiddleware
+    app.add_middleware(TransaccionesMiddleware)
+except Exception as e:
+    print(f"Warning: No se pudo cargar TransaccionesMiddleware: {e}")

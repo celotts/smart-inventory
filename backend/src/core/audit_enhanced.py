@@ -79,6 +79,48 @@ def registrar_auditoria_completa(
     except Exception as e:
         logger.exception(f"Error inesperado en auditoria: {e}")
 
+def contar_trazabilidad(
+    table_name: str | None = None,
+    record_id: str | None = None,
+    user_id: str | None = None,
+) -> int:
+    """
+    Cuantos registros hay, con los mismos filtros de la trazabilidad.
+
+    POR QUE ES UNA CONSULTA APARTE
+    -----------------------------
+    Sin esto, el endpoint devuelve `total = len(items)`, que es el TAMANO DE
+    LA PAGINA, no el total. Con 4000 eventos y una pagina de 50, el front
+    cree que hay 50 y muestra "Pagina 1 de 1": el operador ve 50 de 4000 y
+    no hay forma de saber que faltan 3950.
+    """
+    condiciones = ["1=1"]
+    params: dict[str, object] = {}
+
+    if table_name:
+        condiciones.append("al.table_name = :table_name")
+        params["table_name"] = table_name
+    if record_id:
+        condiciones.append("al.record_id = :record_id")
+        params["record_id"] = record_id
+    if user_id:
+        condiciones.append("al.user_id = :user_id")
+        params["user_id"] = user_id
+
+    sql = f"""
+        SELECT COUNT(*)
+        FROM audit_logs al
+        WHERE {' AND '.join(condiciones)}
+    """
+
+    try:
+        with get_ai_engine().connect() as conn:
+            return int(conn.execute(text(sql), params).scalar() or 0)
+    except Exception:  # noqa: BLE001
+        logger.exception("Error al contar la trazabilidad")
+        return 0
+
+
 def obtener_trazabilidad_completa(
     table_name: str | None = None,
     record_id: str | None = None,
@@ -91,7 +133,7 @@ def obtener_trazabilidad_completa(
     """
     condiciones = ["1=1"]
     params = {"limit": limit, "offset": offset}
-    
+
     if table_name:
         condiciones.append("al.table_name = :table_name")
         params["table_name"] = table_name
@@ -101,9 +143,9 @@ def obtener_trazabilidad_completa(
     if user_id:
         condiciones.append("al.user_id = :user_id")
         params["user_id"] = user_id
-    
+
     sql = f"""
-        SELECT 
+        SELECT
             al.id,
             al.action,
             al.table_name,
@@ -122,7 +164,7 @@ def obtener_trazabilidad_completa(
         ORDER BY al.created_at DESC
         LIMIT :limit OFFSET :offset
     """
-    
+
     try:
         with get_ai_engine().connect() as conn:
             result = conn.execute(text(sql), params)

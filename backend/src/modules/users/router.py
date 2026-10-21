@@ -39,6 +39,7 @@ from src.modules.users.models import (
     listar_roles,
 )
 from src.modules.users.schemas import (
+    PasswordStrengthRequest,
     ActualizarUsuarioRequest,
     CambiarPasswordRequest,
     CrearUsuarioRequest,
@@ -162,17 +163,28 @@ def login(datos: LoginRequest, request: Request):
         raise HTTPException(status_code=500, detail="Error interno.") from exc
 
 
-@router.get(
+@router.post(
     "/api/auth/password-strength",
     summary="Verificar fortaleza de contraseña",
 )
-def verificar_fortaleza_password(password: str):
+def verificar_fortaleza_password(datos: PasswordStrengthRequest):
     """
     Verifica la fortaleza de una contraseña sin guardarla.
     Útil para medidores de fortaleza en tiempo real en el frontend.
+
+    ES UN POST, NO UN GET
+    ---------------------
+    Con un GET la contraseña iría en la URL, y la URL queda en el log de
+    acceso de nginx, en el historial del navegador y en los proxies. En el
+    body no: el cuerpo no se registra en ningun log de acceso.
+
+    No pide autenticación a propósito: el medidor va en el formulario de
+    "cambiar mi contraseña" y en el de "crear usuario", y en los dos casos la
+    persona todavia no tiene una sesión. Es un calculo sin ningun dato
+    sensible: no consulta la base ni guarda nada.
     """
     from src.core.security import obtener_info_fortaleza_password
-    return obtener_info_fortaleza_password(password)
+    return obtener_info_fortaleza_password(datos.password)
 
 
 @router.post(

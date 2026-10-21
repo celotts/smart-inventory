@@ -23,6 +23,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear } from '../dom.js';
 import { avisar } from '../avisos.js';
 
@@ -87,10 +88,27 @@ export function vistaConsultas({ permisos = [] } = {}) {
   // que se encontro?" entienda de que equipo se trata.
   const historial = [];
 
+  // El MODULO en el que esta trabajando el operador.
+  //
+  // Va en la consulta porque es el desempate del orquestrador: si la
+  // pregunta no tiene palabras clave ("y ahora que?"), el agente que
+  // responde es el del modulo en el que se esta mirando.
+  const moduloActual = () => document.body.dataset.modulo || null;
+
   // --- Estado de la IA ------------------------------------------------------
   const tarjetaEstado = crear('div', { clase: 'tarjeta' });
   raiz.append(tarjetaEstado);
   pintarEstadoIA(tarjetaEstado);
+
+  // --- Los agentes ----------------------------------------------------------
+  //
+  // El orquestador tiene varios agentes, cada uno con su foco. Mostrar
+  // cuales hay y que sabe cada uno es lo que convierte "una IA que responde"
+  // en "un equipo que responde": el operador puede preguntar en funcin de lo
+  // que cada uno sabe, y ve de parte de quien le respondio.
+  const tarjetaAgentes = crear('div', { clase: 'tarjeta' });
+  raiz.append(tarjetaAgentes);
+  pintarAgentes(tarjetaAgentes);
 
   // --- Preguntas ------------------------------------------------------------
   // En pantallas anchas, layout de dos columnas: chat a la izquierda,
@@ -218,13 +236,24 @@ export function vistaConsultas({ permisos = [] } = {}) {
       // "Cual es ese equipo que se encontro?" no se puede responder sin
       // saber de que equipo se trata. El backend lo usa para no cambiar de
       // tema y para traer el DETALLE de lo que antes se conto.
-      const respuesta = await api.preguntar(pregunta, historial);
+      // El ORQUESTADOR, no la consulta simple.
+      //
+      // El backend elige el agente segun la pregunta y segun el modulo en el
+      // que esta trabajando el operador, y le corre sus herramientas antes de
+      // responder. La respuesta viene con QUIEN respondio, y eso se muestra:
+      // el operador tiene que ver si la respuesta vino del agente de
+      // Service Desk o del de inventario, porque de eso depende que le sirva.
+      const respuesta = await api.consultarAgente(pregunta, moduloActual(), historial);
       pensando.remove();
 
       if (respuesta.error) {
         agregarMensaje('Sistema', respuesta.error, 'alerta');
       } else {
-        agregarMensaje('Inventario', respuesta.respuesta || 'Sin respuesta.', 'exito');
+        agregarMensaje(
+          respuesta.agente_nombre || 'Inventario',
+          respuesta.respuesta || 'Sin respuesta.',
+          'exito',
+        );
       }
 
       // La tabla con los DATOS.
@@ -325,8 +354,56 @@ export function vistaConsultas({ permisos = [] } = {}) {
    * pero un texto puede traer HTML de un serial mal cargado, y esto es un
    * chat que se repite en cada pantalla.
    */
-  function tablaDeDatos(respuesta) {
+  /**
+   * Pinta los agentes que hay, con lo que cada uno sabe.
+   *
+   * @param {HTMLElement} contenedor
+   */
+  async function pintarAgentes(contenedor) {
+    contenedor.append(
+      crear('h2', { clase: 'tarjeta__titulo', texto: 'Agentes' }),
+      crear('p', {
+        clase: 'tarjeta__subtitulo',
+        estilo: 'margin:0 0 0.75rem',
+        texto: 'Cada pregunta la responde el agente que mejor la entiende.',
+      }),
+    );
+
+    const lista = crear('ul', { clase: 'lista' });
+    contenedor.append(lista);
+
+    try {
+      const datos = await api.agentes();
+      for (const agente of datos.agentes ?? []) {
+        const item = crear('li', { clase: 'lista__item' });
+        const cuerpo = crear('div', { clase: 'lista__cuerpo' });
+        cuerpo.append(
+          crear('div', { clase: 'lista__titulo', texto: agente.nombre }),
+          crear('div', { clase: 'lista__meta', texto: agente.descripcion }),
+        );
+        item.append(cuerpo);
+        lista.append(item);
+      }
+    } catch (error) {
+      // Los agentes son un extra: si no se pueden listar, la pantalla de
+      // consultas sigue sirviendo.
+      contenedor.append(
+        crear('p', { clase: 'tenue pequeno', texto: 'No se pudieron listar los agentes.' }),
+      );
+    }
+  }
+
+  function tablaDeDatos(respuesta, paginaInicial = 0) {
     const envoltorio = crear('div', { clase: 'ia-tabla', estilo: 'margin-top:0.6rem' });
+
+    // La PAGINACION DE LA TABLA
+    //
+    // Es del lado del cliente: los datos ya vinieron en la respuesta (el
+    // backend los limita para que no viaje la base entera). Si la consulta
+    // trajo 200 filas, se muestran de a 25: una tabla de 200 filas en la
+    // pantalla del chat es ilegible.
+    const porPagina = 25;
+    let pagina = paginaInicial;
 
     const tabla = crear('table', { clase: 'ia-tabla__tabla' });
 
@@ -343,7 +420,9 @@ export function vistaConsultas({ permisos = [] } = {}) {
     tabla.append(cabecera);
 
     const cuerpo = crear('tbody');
-    for (const fila of respuesta.datos) {
+    const desde = pagina * porPagina;
+    const hasta = Math.min(respuesta.datos.length, desde + porPagina);
+    for (const fila of respuesta.datos.slice(desde, hasta)) {
       const tr = crear('tr');
       for (const columna of respuesta.columnas) {
         const valor = fila?.[columna];
@@ -358,8 +437,31 @@ export function vistaConsultas({ permisos = [] } = {}) {
     tabla.append(cuerpo);
     envoltorio.append(tabla);
 
+    // La barra de paginacion, si hay mas de una pagina.
+    if (respuesta.datos.length > porPagina) {
+      const paginas = Math.ceil(respuesta.datos.length / porPagina);
+      const zona = crear('div', { estilo: 'margin-top:0.5rem' });
+      const barra = crearPaginacion({
+        total: respuesta.datos.length,
+        limite: porPagina,
+        pagina,
+        etiqueta: 'filas',
+        alCambiarPagina: (nueva) => {
+          pagina = nueva;
+          // Se vuelve a pintar la tabla con la pagina nueva.
+          caja.lastChild.replaceWith(tablaDeDatos(respuesta, pagina));
+        },
+        alCambiarLimite: () => {
+          // El limite se cambia desde el componente compartido, que ya
+          // guarda la preferencia.
+        },
+      });
+      zona.append(barra.elemento);
+      envoltorio.append(zona);
+    }
+
     // El pie solo cuando aporta: "1 fila." debajo de una tabla de una fila
-    // es ruido. Cuando hay varias (o se truncaron) el número importa.
+    // es ruido. Cuando hay varias (o se truncaron) el numero importa.
     if (respuesta.truncado || respuesta.cantidad_filas > 1) {
       envoltorio.append(
         crear('p', {

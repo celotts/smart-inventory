@@ -75,8 +75,11 @@ export function PasswordStrengthMeter({ modelValue = '', mostrarRequisitos = tru
     }
 
     try {
+      // POST y no GET: con la contraseña en la URL, queda en el log de
+      // acceso del servidor y en el historial del navegador.
       const respuesta = await api.pedir('/auth/password-strength', {
-        params: { password: valor },
+        metodo: 'POST',
+        cuerpo: { password: valor },
       });
       // La respuesta puede llegar tarde si el usuario sigue escribiendo.
       if (medidor.password !== valor) return;

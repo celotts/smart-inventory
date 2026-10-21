@@ -598,6 +598,21 @@ export const api = {
       timeoutMs: 300000,
     }),
 
+  // La consulta al ORQUESTADOR: elije el agente segun la pregunta y el
+  // modulo en el que se esta trabajando, y devuelve quien respondio.
+  //
+  // El `modulo` va en el pedido y no se deduce del front: es la informacion
+  // de "donde esta mirando el operador", que es lo que desempata cuando la
+  // pregunta no tiene palabras clave ("y ahora que?").
+  consultarAgente: (pregunta, modulo = null, historial = []) =>
+    pedir('/ai/agente', {
+      metodo: 'POST',
+      cuerpo: { pregunta, modulo, historial },
+      timeoutMs: 300000,
+    }),
+
+  agentes: () => pedir('/ai/agentes'),
+
   reporte: () => pedir('/ai/reporte', { metodo: 'POST', cuerpo: {}, timeoutMs: 300000 }),
 
   estadoIA: () => pedir('/ai/health'),

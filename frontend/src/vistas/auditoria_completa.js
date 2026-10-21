@@ -2,6 +2,7 @@
  * Vista Auditoría Completa - Trazabilidad profesional con INSERT/UPDATE/DELETE
  */
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear, icono, ICONOS } from '../dom.js';
 import { formatearFecha } from './inventario.js';
 
@@ -73,14 +74,48 @@ export function vistaAuditoriaCompleta({ permisos = [] } = {}) {
   const contenido = crear('div');
   lista.append(contenido);
   raiz.append(lista);
+  // La barra de paginacion va DESPUES de la lista, en la tarjeta.
+  const zonaPaginacion = crear('div', { estilo: 'margin-top:0.75rem' });
+  raiz.append(zonaPaginacion);
+
+  // La PAGINACION
+  //
+  // Esta vista es la que mas filas tiene (cada escritura queda registrada),
+  // asi que sin paginacion el operador scrollea 4000 eventos para encontrar
+  // uno.
+  let pagina = 0;
+  let porPagina = 50;
+
+  const paginacion = crearPaginacion({
+    total: 0,
+    limite: porPagina,
+    pagina,
+    etiqueta: 'eventos',
+    alCambiarPagina: (nueva) => {
+      pagina = nueva;
+      cargar();
+    },
+    alCambiarLimite: (nuevo) => {
+      porPagina = nuevo;
+      pagina = 0;
+      cargar();
+    },
+  });
 
   async function cargar() {
     contenido.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando...' }));
     try {
-      const data = await fetch('/api/audit/trazabilidad' + (selTabla.value ? `?table_name=${selTabla.value}&limit=200` : '?limit=200'), {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      }).then(r => r.json());
-      
+      // Por `api`, y no con un `fetch` a mano: el token vive en MEMORIA y no
+      // en el `localStorage`, asi que el `fetch` de antes mandaba la
+      // peticion sin token y la pantalla no cargaba nunca.
+      const data = await api.auditoriaTrazabilidad({
+        table_name: selTabla.value || undefined,
+        limit: porPagina,
+        offset: pagina * porPagina,
+      });
+
+      paginacion.actualizar({ total: data.total ?? 0, limite: porPagina, pagina });
+
       if (!data.items || !data.items.length) {
         contenido.replaceChildren(crear('p', { clase: 'tenue', texto: 'Sin registros' }));
         return;
@@ -147,8 +182,16 @@ export function vistaAuditoriaCompleta({ permisos = [] } = {}) {
     }
   }
   
-  selTabla.addEventListener('change', cargar);
-  selAccion.addEventListener('change', cargar);
+  zonaPaginacion.append(paginacion.elemento);
+
+  selTabla.addEventListener('change', () => {
+    pagina = 0;
+    cargar();
+  });
+  selAccion.addEventListener('change', () => {
+    pagina = 0;
+    cargar();
+  });
   cargar();
   
   return { elemento: raiz };

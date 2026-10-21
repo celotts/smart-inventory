@@ -98,7 +98,10 @@ def trazabilidad_completa(
     Trazabilidad completa con old/new values para INSERT/UPDATE/DELETE.
     Permite ver exactamente que cambio, quien lo hizo y desde dónde.
     """
-    from src.core.audit_enhanced import obtener_trazabilidad_completa
+    from src.core.audit_enhanced import (
+        contar_trazabilidad,
+        obtener_trazabilidad_completa,
+    )
     items = obtener_trazabilidad_completa(
         table_name=table_name,
         record_id=record_id,
@@ -106,4 +109,12 @@ def trazabilidad_completa(
         limit=limit,
         offset=offset,
     )
-    return {"items": items, "total": len(items), "limit": limit, "offset": offset}
+    # El TOTAL es el de todos los registros que cumplen el filtro, no el
+    # tamaño de la pagina: sin el, el front no puede saber cuantas paginas
+    # hay, y el operador ve 50 de 4000 sin enterarse.
+    total = contar_trazabilidad(
+        table_name=table_name,
+        record_id=record_id,
+        user_id=user_id,
+    )
+    return {"items": items, "total": total, "limit": limit, "offset": offset}

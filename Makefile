@@ -428,6 +428,12 @@ ai-test-guard:
 	@docker compose exec -T backend python -m pytest tests/ -q 2>/dev/null || \
 		python3 -m pytest backend/tests/ -q
 
+# El diagnostico de la paleta: contraste, distinguibilidad de estados y
+# calidez de los tres temas. El TEST es el que impone (falla si algo se
+# rompe); este comando es el que EXPLICA, con los numeros de cada medida.
+paleta:
+	@python3 scripts/paleta.py
+
 
 # ===========================================================================
 # Limpieza

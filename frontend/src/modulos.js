@@ -37,11 +37,17 @@ export const MODULOS = {
     detalle:
       'Donde está cada equipo, cuanto vale, que hay que reponer y que se movio hoy.',
     icono: 'M20 7l-8-4-8 4-8 4zM5 7l-8-4-8 4-8 4z',
-    // `existencia`: el stock por rubro y por ubicación. Va Después de
+    // `existencia`: el stock por rubro y por ubicación. Va después de
     // `inventario` (que es el equipo) y antes de `movimientos` (que es el
     // historial): primero donde está cada equipo, depois cuanto hay de cada
     // rubro.
-    vistas: ['inicio', 'escanear', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo'],
+    //
+    // `usuarios` está en los DOS módulos a propósito: administrar usuarios
+    // no es una tarea del depósito ni del taller, es de la casa, y tiene que
+    // estar disponible desde los dos. (Cuando no estaba en ninguna de las
+    // dos listas, la pantalla de usuarios era inalcanzable: el admin no
+    // tenía por dónde dar de alta a nadie.)
+    vistas: ['inicio', 'escanear', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo', 'usuarios'],
     dashboard: 'inventario',
   },
   helpdesk: {
@@ -55,7 +61,10 @@ export const MODULOS = {
     // La flota SI está en el Service Desk: el técnico tiene que ver el equipo
     // que está fallando para diagnosticarlo. Lo que no está es el maestro de
     // productos: eso es tarea del depósito.
-    vistas: ['inicio', 'incidencias', 'inventario', 'consultas', 'auditoria'],
+    //
+    // `usuarios` está en los dos módulos (ver la nota del módulo Inventario):
+    // administrar usuarios es de la casa, no del taller.
+    vistas: ['inicio', 'incidencias', 'inventario', 'consultas', 'auditoria', 'usuarios'],
     dashboard: 'helpdesk',
   },
 };

@@ -19,6 +19,7 @@
  */
 
 import { api } from '../api.js';
+import { crearPaginacion } from '../paginacion.js';
 import { crear, icono, ICONOS, ESTADOS, MOVIMIENTOS } from '../dom.js';
 import { LectorQR, normalizarCodigo } from '../escaner.js';
 import { abrirDialogo, confirmar } from '../dialogo.js';
@@ -50,6 +51,16 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let inputCodigo = null;
   // La lista del recibo de escaneos de la sesión.
   let listaRecibo = null;
+  // TODOS los escaneos de la sesion, en una lista aparte.
+  //
+  // La lista del recibo muestra solo una pagina (el recibo crece con cada
+  // escaneo y en un turno largo son cientos), pero el EXPORT tiene que
+  // llevar todos: el CSV es el comprobante del conteo. Por eso el_array es
+  // la verdad y la lista es solo lo que se ve.
+  let itemsRecibo = [];
+  let paginaRecibo = 0;
+  let porPaginaRecibo = 25;
+  let paginacionRecibo = null;
   // El chispoteo de "registrando…".
   let indicadorRegistro = null;
   let botonManual = null;
@@ -1070,7 +1081,7 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
    * exportes del backend, para que se abra bien en Excel en espanol.
    */
   function exportarRecibo() {
-    if (!listaRecibo || !listaRecibo.children.length) {
+    if (!itemsRecibo.length) {
       avisar('Todavía no hay escaneos para exportar.', 'alerta');
       return;
     }
@@ -1078,7 +1089,8 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     const filas = [['Hora', 'Codigo', 'Serial', 'Equipo', 'Ubicacion', 'Estado', 'Resultado']];
 
     // Del más viejo al más nuevo: el CSV se lee en orden cronologico.
-    for (const item of [...listaRecibo.children].reverse()) {
+    // Se recorren TODOS los escaneos, no solo la página que se ve.
+    for (const item of [...itemsRecibo].reverse()) {
       const hora = item.querySelector('.escaneo__hora')?.textContent ?? '';
 
       // Los pares etiqueta/valor de la ficha del equipo.
@@ -1145,9 +1157,12 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
         atributos: { type: 'button' },
       });
       btnLimpiar.addEventListener('click', () => {
+        itemsRecibo = [];
+        paginaRecibo = 0;
         listaRecibo?.replaceChildren();
         zonaResultado.replaceChildren();
         listaRecibo = null;
+        paginacionRecibo = null;
       });
       conTooltip(btnLimpiar, 'Borra el recibo de escaneos de está sesión.');
 
@@ -1165,7 +1180,25 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
 
       encabezadoRecibo.append(btnExportar, btnLimpiar);
 
-      zonaResultado.replaceChildren(encabezadoRecibo, listaRecibo);
+      const zonaPaginacion = crear('div', { estilo: 'margin-top:0.5rem' });
+      paginacionRecibo = crearPaginacion({
+        total: 0,
+        limite: porPaginaRecibo,
+        pagina: paginaRecibo,
+        etiqueta: 'escaneos',
+        alCambiarPagina: (nueva) => {
+          paginaRecibo = nueva;
+          pintarRecibo();
+        },
+        alCambiarLimite: (nuevo) => {
+          porPaginaRecibo = nuevo;
+          paginaRecibo = 0;
+          pintarRecibo();
+        },
+      });
+      zonaPaginacion.append(paginacionRecibo.elemento);
+
+      zonaResultado.replaceChildren(encabezadoRecibo, listaRecibo, zonaPaginacion);
     }
 
     // El más nuevo arriba: es el que el operador está mirando.
@@ -1177,7 +1210,31 @@ function mostrarCodigoDeProducto(producto, codigo, { alRegistrar, alCerrar }) {
     });
     item.append(crear('span', { clase: 'escaneo__hora tabular', texto: hora }));
     item.appendChild(bloque);
-    listaRecibo.prepend(item);
+
+    // El más nuevo arriba: es el que el operador está mirando.
+    itemsRecibo.unshift(item);
+    pintarRecibo();
+  }
+
+  /**
+   * Pinta la pagina del recibo.
+   *
+   * La lista y el array son dos cosas: el array tiene TODOS los escaneos de
+   * la sesion (es lo que se exporta) y la lista muestra solo la pagina
+   * (es lo que se ve).
+   */
+  function pintarRecibo() {
+    if (!listaRecibo) return;
+
+    const desde = paginaRecibo * porPaginaRecibo;
+    const hasta = Math.min(itemsRecibo.length, desde + porPaginaRecibo);
+    listaRecibo.replaceChildren(...itemsRecibo.slice(desde, hasta));
+
+    paginacionRecibo?.actualizar({
+      total: itemsRecibo.length,
+      limite: porPaginaRecibo,
+      pagina: paginaRecibo,
+    });
   }
 
   /**

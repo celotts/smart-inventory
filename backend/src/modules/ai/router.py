@@ -19,6 +19,7 @@ detalle adentro lo esconde.
 
 import logging
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -27,7 +28,10 @@ from src.core.deps import exigir, get_current_user
 from src.core.llm import LLMError, get_llm
 from src.core.permissions import Permiso
 from src.modules.ai import analyzer, report, sql_agent
+from src.modules.ai.agentes import agentes, orquestador
 from src.modules.ai.schemas import (
+    ConsultaAgenteRequest,
+    RespuestaAgente,
     AnalisisDispositivoResponse,
     EstadoIA,
     PreguntaRequest,
@@ -99,6 +103,88 @@ def preguntar(
         sugerencia=resultado.get("sugerencia"),
         resumen=resultado.get("resumen"),
     )
+
+
+@router.post(
+    "/agente",
+    response_model=RespuestaAgente,
+    summary="Consulta al agente que corresponda",
+)
+def consultar_agente(
+    pedido: ConsultaAgenteRequest,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.IA_PREGUNTAR)),
+) -> RespuestaAgente:
+    """
+    La consulta pasa por el ORQUESTADOR: elije el agente segun la pregunta
+    y el modulo en el que esta trabajando el operador, le corre sus
+    herramientas y le da el foco con el que tiene que mirar.
+
+    Es el mismo motor que `/preguntar` (mismo modelo, mismo guard de SQL,
+    misma auditoria): lo que cambia es que la respuesta viene con un agente
+    adelante, y con los datos que ese agente ya consulto.
+
+    POR QUE UN ENDPOINT Y NO REEMPLAZAR AL OTRO
+    --------------------------------------------
+    `/preguntar` sigue existiendo: es el camino simple, el que no decide
+    nada. Este es el que se usa cuando la pregunta es del ambito del agente
+    ("que se esta rompiendo mas") y interesa ver quien respondio.
+    """
+    llm = get_llm()
+
+    try:
+        resultado = orquestador.consultar(
+            pedido.pregunta,
+            modulo=pedido.modulo,
+            llm=llm,
+            historial=[turno.model_dump() for turno in pedido.historial],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return RespuestaAgente(
+        pregunta=resultado.get("pregunta"),
+        respuesta=resultado.get("respuesta", ""),
+        sql=resultado.get("sql"),
+        datos=resultado.get("filas", []),
+        columnas=resultado.get("columnas", []),
+        cantidad_filas=resultado.get("cantidad_filas", 0),
+        truncado=resultado.get("truncado", False),
+        modelo=resultado.get("modelo"),
+        proveedor=resultado.get("proveedor"),
+        uso_fallback=resultado.get("usou_fallback", False),
+        error=resultado.get("error"),
+        sugerencia=resultado.get("sugerencia"),
+        resumen=resultado.get("resumen"),
+        agente=resultado.get("agente"),
+        agente_nombre=resultado.get("agente_nombre"),
+    )
+
+
+@router.get(
+    "/agentes",
+    summary="Los agentes disponibles",
+)
+def listar_agentes(
+    _usuario: UsuarioActual = Depends(exigir(Permiso.IA_PREGUNTAR)),
+) -> dict[str, Any]:
+    """
+    Los agentes que hay, con lo que cada uno sabe.
+
+    Lo consume la pantalla de Consultas para mostrar quien va a responder, y
+    para que el operador sepa a que pregunte.
+    """
+    return {
+        "agentes": [
+            {
+                "clave": agente.clave,
+                "nombre": agente.nombre,
+                "descripcion": agente.descripcion,
+                "herramientas": list(agente.herramientas),
+                "modulos": list(agente.modulos),
+            }
+            for agente in agentes.AGENTES
+        ]
+    }
 
 
 @router.get(

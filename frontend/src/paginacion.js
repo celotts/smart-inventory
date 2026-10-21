@@ -24,9 +24,56 @@
 import { crear } from './dom.js';
 import { conTooltip } from './tooltip.js';
 
-// Las cantidades por página que se ofrecen. Ni tan pocas que haya que
-// scrollear, ni tantas que la pantalla se vuelva un mapa.
-export const TAMANOS_PAGINA = [25, 50, 100];
+// Las cantidades por página que se ofrecen.
+//
+// Ni tan pocas que haya que scrollear, ni tantas que la pantalla se vuelva
+// un mapa. El 10 esta porque en una pantalla de celular 25 filas son tres
+// pantallas de scroll; el 200 porque el que mira una lista de mil
+// equipos para，找 uno, no va a querer 25 por pagina.
+export const TAMANOS_PAGINA = [10, 25, 50, 100, 200];
+
+// Donde se guarda la preferencia.
+const CLAVE_PREFERENCIA = 'si.porPagina';
+
+/**
+ * La cantidad por pagina que el operador eligio la ultima vez.
+ *
+ * POR QUE SE GUARDA
+ * -----------------
+ * La cantidad por pagina es una PREFERENCIA DE LA PERSONA, como el idioma
+ * o el modo exterior: el que trabaja con 100 filas por pagina porque
+ * conoce el dato, no va a querer 25 cada vez que vuelve a la pantalla.
+ *
+ * Se guarda en `localStorage` (no en `sessionStorage`) porque es una
+ * preferencia que dura: `sessionStorage` la pierde al cerrar la pestaña, y
+ * con ella, la preferencia.
+ *
+ * @param {number} [porDefecto]
+ * @returns {number}
+ */
+export function cantidadPreferida(porDefecto = 25) {
+  try {
+    const guardado = Number(localStorage.getItem(CLAVE_PREFERENCIA));
+    if (TAMANOS_PAGINA.includes(guardado)) return guardado;
+  } catch {
+    // Sin storage (modo privado): se usa la de por defecto.
+  }
+  return porDefecto;
+}
+
+/**
+ * Guarda la cantidad por pagina elegida.
+ *
+ * @param {number} cantidad
+ */
+export function guardarCantidad(cantidad) {
+  if (!TAMANOS_PAGINA.includes(cantidad)) return;
+  try {
+    localStorage.setItem(CLAVE_PREFERENCIA, String(cantidad));
+  } catch {
+    // Sin storage: la preferencia no se guarda, pero la app sigue.
+  }
+}
 
 /**
  * Crea la barra de paginación.
@@ -66,6 +113,18 @@ export function crearPaginacion({
 
   const info = crear('span', { clase: 'paginacion__info' });
 
+  // LA PREFERENCIA
+  // ---------------
+  // Si el operador eligio otra cantidad la ultima vez, se usa esa. Se avisa
+  // con `alCambiarLimite` para que la vista recargue con el limite nuevo:
+  // la primera consulta (con el limite de por defecto) se descarta, y eso
+  // es un viaje de 10 ms a un servidor local, no un problema.
+  const preferida = cantidadPreferida(limite);
+  if (preferida !== limite) {
+    limite = preferida;
+    queueMicrotask(() => alCambiarLimite?.(preferida));
+  }
+
   // LA CANTIDAD POR Página
   //
   // Es parte de la paginación y no un detalle: con 5000 registros, ver 50
@@ -78,7 +137,9 @@ export function crearPaginacion({
     );
   }
   selectorCantidad.addEventListener('change', () => {
-    alCambiarLimite?.(Number(selectorCantidad.value));
+    const nueva = Number(selectorCantidad.value);
+    guardarCantidad(nueva);
+    alCambiarLimite?.(nueva);
   });
 
   const zonaCantidad = crear('label', { clase: 'paginacion__grupo' });

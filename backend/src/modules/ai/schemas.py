@@ -104,6 +104,34 @@ class RespuestaIA(BaseModel):
     resumen: str | None = None
 
 
+class ConsultaAgenteRequest(BaseModel):
+    """
+    La pregunta para el orquestrador.
+
+    `modulo` es el modulo del front en el que esta trabajando el operador
+    ("inventario" o "helpdesk"). El orquestrador lo usa para elegir el
+    agente cuando la pregunta no tiene palabras clave: si pregunta desde el
+    Service Desk, el agente de Service Desk es el que responde.
+    """
+
+    pregunta: str = Field(..., min_length=1, max_length=500)
+    modulo: str | None = Field(None, max_length=32)
+    historial: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RespuestaAgente(RespuestaIA):
+    """
+    La respuesta del orquestrador.
+
+    `agente` y `agente_nombre` dicen QUIEN respondio: el operador tiene que
+    ver que la respuesta vino del agente de Service Desk y no del de
+    inventario, porque de eso depende que le sirva.
+    """
+
+    agente: str | None = Field(None, description="Clave del agente que respondio.")
+    agente_nombre: str | None = Field(None, description="Nombre del agente que respondio.")
+
+
 class AnalisisDispositivoRequest(BaseModel):
     device_id: int = Field(..., gt=0)
     # Si viene False, no se manda el historial de reparaciones al modelo: solo

@@ -252,7 +252,7 @@ def _get_alertas_stock(db: Session, limite: int = 8) -> list[dict]:
                 END AS reposicion_tarde
             FROM stock_alerts a
             WHERE a.resuelto = FALSE AND a.model_id IS NOT NULL
-            ORDER BY reposicion_tarde DESC, días_bajo_minimo DESC, a.faltante DESC
+            ORDER BY reposicion_tarde DESC, dias_bajo_minimo DESC, a.faltante DESC
             LIMIT :limite
             """
         ),

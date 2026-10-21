@@ -37,6 +37,23 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., min_length=10, max_length=2000)
 
 
+class PasswordStrengthRequest(BaseModel):
+    """
+    La contraseña cuya fortaleza se quiere medir.
+
+    POR QUÉ ES UN POST Y NO UN GET
+    ------------------------------
+    Con un GET, la contraseña viaja en la URL: `?password=...`. Y la URL
+    queda en el log de acceso de nginx, en el historial del navegador, en los
+    proxies y en los `Referer`. Una contraseña en un log es una contraseña
+    escrita en un archivo que cualquiera con acceso al servidor lee.
+
+    En el body no: el cuerpo no se registra en el log de acceso.
+    """
+
+    password: str = Field(..., min_length=1, max_length=128)
+
+
 class CambiarPasswordRequest(BaseModel):
     password_actual: str = Field(..., min_length=1, max_length=128)
     password_nueva: str = Field(..., min_length=8, max_length=72)

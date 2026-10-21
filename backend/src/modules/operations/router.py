@@ -336,10 +336,10 @@ def listar_alertas(
         filas = conexion.execute(
             text(
                 """
-                SELECT id, ubicacion, mínimo, actual, resuelto, created_at
+                SELECT id, ubicacion, minimo, actual, resuelto, created_at
                 FROM stock_alerts
                 WHERE (:incluir = TRUE OR resuelto = FALSE)
-                ORDER BY (mínimo - actual) DESC, created_at DESC
+                ORDER BY (minimo - actual) DESC, created_at DESC
                 LIMIT :limite
                 """
             ),
