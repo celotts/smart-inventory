@@ -301,6 +301,8 @@ export const TRADUCCIONES = {
   'Avisos de SLA': 'SLA alerts',
   'Dar de alta un equipo (nuevo)': 'Register a device (new)',
   'Dar de alta un equipo nuevo': 'Register a new device',
+  'Escanear un equipo (registrar un movimiento)': 'Scan a device (register a movement)',
+  'Escanear un equipo': 'Scan a device',
   'Alternar modo exterior (alto contraste)': 'Toggle outdoor mode (high contrast)',
   'Modo exterior / alto contraste (para sol directo)': 'Outdoor mode / high contrast (for direct sunlight)',
   'Activos, inventario e incidencias': 'Assets, inventory and incidents',

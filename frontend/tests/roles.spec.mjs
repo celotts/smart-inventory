@@ -57,6 +57,13 @@ async function queVe(page) {
       .filter((b) => !b.hidden && b.offsetParent !== null)
       .map((b) => b.dataset.vista),
     modulo: document.getElementById('cabecera-modulo')?.textContent.trim() ?? '',
+    // El escaneo es un boton de la cabecera (al nivel del selector de
+    // modulo), no una pestana del menu: en el celular, donde el menu
+    // scrollea, una pestana se pierde.
+    escanear: (() => {
+      const b = document.getElementById('cabecera-escanear');
+      return !!b && !b.hidden && b.offsetParent !== null;
+    })(),
     lanzador: !!document.querySelector('.lanzador'),
   }));
 }
@@ -75,7 +82,9 @@ test.describe('Acceso por rol', () => {
     // Ve lo del depósito...
     expect(vista.pestanas).toContain('inventario');
     expect(vista.pestanas).toContain('movimientos');
-    expect(vista.pestanas).toContain('escanear');
+
+    // ...el escaneo, que esta en la cabecera (no en el menu de secciones)...
+    expect(vista.escanear).toBe(true);
 
     // ...y NO ve la bandeja de incidencias (no es su módulo) ni la auditoría
     // (no tiene el permiso).
@@ -99,10 +108,10 @@ test.describe('Acceso por rol', () => {
     expect(vista.pestanas).toContain('inventario');
 
     // Y NO ve lo que es tarea del depósito.
-    expect(vista.pestanas).not.toContain('escanear'); // no crea movimientos
     expect(vista.pestanas).not.toContain('productos'); // no ve el maestro
     expect(vista.pestanas).not.toContain('compras'); // no ve las órdenes
     expect(vista.pestanas).not.toContain('auditoria'); // no audita
+    expect(vista.escanear).toBe(false); // no crea movimientos
   });
 
   test('el admin ve los dos módulos y elige en la pantalla de entrada', async ({ page }) => {

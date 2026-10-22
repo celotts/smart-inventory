@@ -495,6 +495,39 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   border-bottom: 1px solid var(--borde);
 }
 
+/* EL SELECTOR DE TRABAJO
+ *
+ * El grupo completo: el selector de modulo (Inventario | Service Desk) y
+ * el boton de Escanear, al mismo nivel.
+ *
+ * EL CENTRADO
+ * -----------
+ * El grupo va centrado con `position: absolute`: en una grilla, el centro
+ * de una celda NO es el centro de la pagina, asi que "centrar la celda"
+ * dejaria los botones corridos hacia un lado.
+ *
+ * Lo que se centra es el GRUPO ENTERO (modulos + escanear), no cada parte
+ * por separado: si se centraran por separado, el boton de escanear quedaria
+ * pegado al centro de la pagina, encima del modulo activo.
+ *
+ * Y al estar en la segunda fila NO SE MUEVE cuando cambia el modulo: el
+ * menu de secciones cambia de ancho (son pestanas distintas) y, si el
+ * selector estuviera en la primera fila, se moveria con el. */
+.cabecera__selector {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* Si no entra (celular angosto), el grupo scrollea en vez de pisar al
+   * bloque del usuario. */
+  max-width: calc(100% - 3.5rem);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cabecera__selector::-webkit-scrollbar { display: none; }
+
 .cabecera__marca {
   grid-area: marca;
   /* La marca no se encoge: si no, en una pantalla chica el nombre de la app
@@ -579,24 +612,11 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 .cabecera__modulos {
   flex-shrink: 0;
-  /* CENTRADO EN LA PAGINA, EN LA SEGUNDA FILA
-   *
-   * El selector de modulo (Inventario | Service Desk) va en la misma fila
-   * que el bloque del usuario ("Rol: Admin") y CENTRADO en la pagina.
-   *
-   * El centrado es con `position: absolute` y no con `justify-self: center`:
-   * dentro de una celda de la grilla, el centro de la celda NO es el centro
-   * de la pagina, asi que "centrar la celda" dejaba los botones corridos
-   * hacia un lado. La fila 2 tiene `position: relative`, asi que el
-   * `left: 50%` es el 50% del ANCHO DE LA PAGINA (menos el padding), que es
-   * lo que se quiere.
-   *
-   * Y al estar en la segunda fila NO SE MUEVE cuando cambia el modulo: el
-   * menu de secciones cambia de ancho (son pestanas distintas) y, si el
-   * selector estuviera en la primera fila, se moveria con el. */
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  /* El selector de modulo (Inventario | Service Desk) va en la misma fila
+   * que el bloque del usuario ("Rol: Admin"), DENTRO del grupo centrado
+   * (`.cabecera__selector`). El centrado lo hace ese grupo: si cada parte
+   * se centrara por separado, el boton de escanear caeria encima del
+   * modulo activo. */
 }
 
 .cabecera__marca {
@@ -756,44 +776,105 @@ button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .pestana__icono { display: grid; place-items: center; }
 
 /* En celular el texto de la pestana no entra: solo el icono, con el nombre
-   como etiqueta accesible. */
+   como etiqueta accesible.
+ *
+ * EL TEXTO SE ESCONDE, NO SE BORRA
+ * --------------------------------
+ * Con `display: none` el texto sale del ARBOL DE ACCESIBILIDAD: la
+ * pestana se quedaba sin nombre para el lector de pantalla y para el
+ * buscador del navegador. Con el patron `sr-only` (el mismo que usa el
+ * tooltip) el texto sigue en el DOM, se lee con el lector y no ocupa
+ * espacio.
+ *
+ * EL ICONO SE APROVECHA
+ * ---------------------
+ * En el celular lo que importa es que TODOS los iconos quepan sin
+ * scrollear: por eso la pastilla es mas angosta (el padding es lo que
+ * consumia el ancho) y el menu entero se ve de un vistazo. */
 @media (max-width: 560px) {
-  .pestana__texto { display: none; }
-  .pestana { padding: 0 0.7rem; }
+  .pestana__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .pestana { position: relative; padding: 0 0.55rem; }
   .cabecera { padding-inline: 0.75rem; gap: 0.5rem; }
 }
 
-/* EN EL CELULAR, LA CABECERA TIENE DOS FILAS
+/* EN EL CELULAR, LA CABECERA TIENE TRES FILAS
  *
- * En 390 px no entran el menu, los modulos, la campana y el boton de
- * salir en una sola linea: si se apilan, el menu queda con dos pixeles de
- * ancho y los pestanas se meten debajo de los botones.
+ *   [ marca ]                     [ idioma · nuevo · sol · campana · salir ]
+ *   [ quien ][ Inventario | Service Desk · Escanear ]
+ *   [ menu de secciones: TODAS las pestanas ]
  *
- * Con dos filas: arriba, la marca, el menu y los botones de la derecha;
- * abajo, el bloque del usuario y el selector de modulo.
+ * POR QUE EL MENU BAJO A SU PROPIA FILA
+ * --------------------------------------
+ * El menu de secciones estaba en la primera fila, al lado de la marca, y en
+ * el celular no cabia: la marca y los botones de la derecha se comian el
+ * ancho y el menu quedaba con un pedazo de 130 pixeles. Con dos o tres
+ * iconos a la vista y el resto escondido en un scroll que nadie descubre,
+ * el menu de secciones DESAPARECIA: y es lo que mas se usa de la app.
+ *
+ * Con su propia fila, del ancho de la pantalla, todas las pestanas se ven.
+ * Si no entran (muchas pestanas, o una pantalla muy angosta), el menu
+ * scrollea a lo ancho, que es un gesto que se conoce, y la pestana activa
+ * se trae al centro sola (ver `centrarPestanaActiva` en `navegacion.js`).
  */
 @media (max-width: 760px) {
   .cabecera {
-    grid-template-columns: auto 1fr auto;
+    /* `minmax(0, 1fr)` y no `1fr`: el menu de secciones no se parte (son
+     * pestanas de una linea), asi que su ancho minimo es la suma de todas.
+     * Con `1fr` a secas, el menu empuja la grilla y la cabecera se sale de
+     * la pantalla: la pagina entera scrollea en horizontal. */
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'marca    nav      acciones'
-      'fila2    fila2    fila2';
-    row-gap: 0.4rem;
+      'marca    acciones'
+      'fila2    fila2'
+      'nav      nav';
+    row-gap: 0.35rem;
     column-gap: 0.75rem;
   }
 
+  /* El menu es su propia fila: del ancho de la pagina y con TODAS las
+     pestanas a la vista. */
   .cabecera__nav {
-    justify-content: flex-start;
+    justify-content: safe center;
     padding-inline: 0.25rem;
+    /* El menu no se encoge: si le quedara un racion de la fila, volveria a
+       desaparecer lo que no entra. */
+    min-width: 0;
   }
 
-  /* En el celular el selector sigue CENTRADO en la pagina (es la fila 2, y
-     la fila 2 es del ancho de la pagina). Lo que cambia es que el bloque
-     del usuario y el selector comparten la fila: con el usuario a la
-     izquierda y el selector al centro, no se pisan porque en el celular el
-     bloque del usuario es solo el avatar (ver la media query de 1100 px). */
-  .cabecera__modulos {
-    min-width: 9.5rem;
+  /* EL GRUPO DE TRABAJO, A LA DERECHA
+   *
+   * En el escritorio el grupo va CENTRADO en la pagina (con posicion
+   * absoluta). En el celular no: centrado, un grupo de tres botones se
+   * monta encima del avatar, que esta a la izquierda de la misma fila.
+   *
+   * A la derecha del avatar, el grupo usa todo el ancho que le queda y no
+   * se pisa con nadie. */
+  .cabecera__selector {
+    position: static;
+    left: auto;
+    transform: none;
+    margin-left: auto;
+    max-width: calc(100% - 2.5rem);
+  }
+}
+
+/* Durante el lanzador no hay menu: la app todavia no empezo y no hay modulo
+   elegido. En el celular, ademas, la fila del menu no tiene que quedar
+   vacia. */
+@media (max-width: 760px) {
+  .cabecera--lanzador {
+    grid-template-areas:
+      'marca    acciones'
+      'fila2    fila2';
   }
 }
 
@@ -2982,6 +3063,51 @@ body[data-modulo="helpdesk"] {
   user-select: none;
 }
 
+/* ESCANEAR: el boton de la cabecera, al lado del selector de modulo
+ *
+ * POR QUE NO ES UNA PESTANA DEL MENU
+ * ----------------------------------
+ * El menu de secciones es una fila que scrollea: en el celular lo que esta
+ * al final se esconde, y el escaneo (que era una pestana) se perdia. El
+ * escaneo es la tarea del deposito: tiene que estar a un clic, siempre.
+ *
+ * Es una ACCION, no un modulo: al pulsarlo se abre la vista del escaner y
+ * el modulo de trabajo NO cambia (el operador sigue en Inventario, con sus
+ * pestanas ahi). Por eso no esta dentro del grupo de modulos.
+ *
+ * El tratamiento es el de un boton de la cabecera, con su propio color: se
+ * distingue de los modulos (que son areas de trabajo) porque es otra cosa. */
+.cabecera__escanear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm, 8px);
+  background: var(--superficie-2);
+  color: var(--texto-secundario);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.cabecera__escanear:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+/* La vista de escaneo abierta: el boton queda marcado, como una pestana
+   activa, para que se sepa en que seccion se esta. */
+.cabecera__escanear[aria-current="page"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
 /* El modulo que el usuario NO puede usar.
  *
  * `visibility: hidden` y NO `hidden`: con `hidden` el elemento sale del
@@ -3462,4 +3588,110 @@ textarea.campo__control {
   .clientes-stats__grid { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
   .cliente-card__acciones { flex-direction: column; }
   .cliente-card__avatar { width: 36px; height: 36px; font-size: 0.8rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   LA CABECERA EN EL CELULAR: AJUSTES FINOS
+   ---------------------------------------------------------------------------
+   Van AL FINAL del archivo a proposito: una media query no gana por ser
+   una media query, gana por ir DESPUES de la regla que quiere pisar. Con
+   estos ajustes aqui abajo (y no junto al resto de la cabecera) se sabe
+   que mandan.
+
+   QUE AJUSTAN
+   -----------
+   1. Los botones del grupo de trabajo (Inventario | Service Desk |
+      Escanear) son mas compactos: en el celular tienen que caber los tres
+      sin que el ultimo quede escondido.
+   2. La marca (el nombre de la app) se oculta en las pantallas mas
+      angostas: con el nombre entero, los botones de la derecha no entran
+      y la pagina entera scrollea en horizontal.
+   --------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  /* El ancho minimo del grupo de modulos (11.5 rem) es una regla de la
+     version de escritorio: que la cabecera no cambie de ancho segun el
+     rol. En el celular el grupo va a la derecha del avatar y lo que
+     importa es que quepan los tres botones (Inventario | Service Desk |
+     Escanear): sin este minimo, el grupo de un admin (dos modulos) no
+     entra junto al de escanear.
+
+     OJO: este ajuste va AL FINAL del archivo a proposito. Una media query
+     no gana por ser una media query: gana por ir DESPUES de la regla que
+     quiere pisar, y la regla de escritorio esta mas arriba. */
+  .cabecera__modulos {
+    min-width: 0;
+  }
+
+  .cabecera__modulo {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .cabecera__escanear {
+    padding: 0 0.5rem;
+    font-size: 0.78rem;
+  }
+}
+
+/* En una pantalla angosta (iPhone y similares) el nombre de la app se va:
+   el logo queda, y los botones de la derecha (idioma, nuevo, modo exterior,
+   campana, salir) tienen lugar. Sin esto, la cabecera se sale de la
+   pantalla y la pagina scrollea en horizontal.
+
+   EL CORTE
+   --------
+   Con el nombre entero, la fila 1 necesita 163 (marca) + 12 (hueco) + 215
+   (los cinco botones) = 390 pixeles, y el ancho util es el de la pantalla
+   menos 24 de padding: 390 entra a partir de 414 pixeles de ancho. */
+@media (max-width: 400px) {
+  .cabecera__marca span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Y en una pantalla MUY angosta (iPhone SE de 320 y 360), el boton de
+   escanear se queda con el icono: el grupo de trabajo (los dos modulos y
+   el escaneo) necesita 286 pixeles, y al lado del avatar solo hay 266.
+   El boton que queda fuera es justo el que mas se usa, asi que se
+   sacrifica su TEXTO (el nombre sigue en el `aria-label` y en el `title`).
+
+   A partir de 360 pixeles entra el texto: por eso el corte es aqui y no
+   junto con el del nombre de la app. */
+@media (max-width: 360px) {
+  .cabecera__escanear-texto {
+    display: none;
+  }
+  .cabecera__escanear {
+    padding: 0 0.45rem;
+  }
+}
+
+/* LAS LISTAS DEL TABLERO, EN UN CELULAR ANGOSTO
+ *
+ * Un boton que es un item de flex tiene `min-width: auto`: no baja de su
+ * contenido. Con un nombre de producto largo y su SKU, la fila no se
+ * encoge, la tarjeta se sale de la pantalla y la pagina entera scrollea en
+ * horizontal. Con `min-width: 0` la fila se encoge y el texto se recorta
+ * con los tres puntos, que es lo que ya hace. */
+@media (max-width: 560px) {
+  .boton-lista {
+    min-width: 0;
+  }
+
+  /* Y las listas (y las tarjetas que las contienen) pueden encogerse: una
+     grilla con columnas `auto` mide la columna por el contenido mas ancho,
+     y con un nombre de producto largo esa columna se sale de la pantalla. */
+  .apilado {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tarjeta {
+    min-width: 0;
+  }
 }

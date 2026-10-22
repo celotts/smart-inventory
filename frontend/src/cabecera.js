@@ -52,7 +52,7 @@ export function actualizarCabeceraUsuario() {
   const pestanaIncidencias = document.getElementById('pestana-incidencias');
   const pestanaUsuarios = document.getElementById('pestana-usuarios');
   const pestanaExistencia = document.getElementById('pestana-existencia');
-  const pestanaEscanear = document.getElementById('pestana-escanear');
+  const botonEscanear = document.getElementById('cabecera-escanear');
   const pestanaInventario = document.getElementById('pestana-inventario');
   const pestanaConsultas = document.getElementById('pestana-consultas');
 
@@ -109,9 +109,14 @@ export function actualizarCabeceraUsuario() {
     //
     // Es la tarea del depósito: se escanea la etiqueta del equipo y se
     // registra la salida. Un técnico no puede Crear movimientos (eso es de
-    // quien los hace), asi que la pestaña no le aparece: una pestaña que
-    // siempre responde 403 es ruido, y el operador la prueba y descarta.
-    if (pestanaEscanear) pestanaEscanear.hidden = !perms.includes('movements:create') || !permitidas.has('escanear');
+    // quien los hace), asi que el botón no le aparece: un botón que
+    // siempre responde 403 es ruido, y el operador lo prueba y descarta.
+    //
+    // NO depende del módulo: el escaneo se abre desde la cabecera, al lado
+    // del selector, y está disponible en cualquiera de los dos. Antes era
+    // una pestaña del menú de secciones, y en el celular —donde ese menú
+    // scrollea— se perdía.
+    if (botonEscanear) botonEscanear.hidden = !perms.includes('movements:create');
 
     // INVENTARIO: la flota. Se ve con permiso de LECTURA: el técnico la
     // necesita para ver el equipo que esta fallando.
@@ -125,12 +130,19 @@ export function actualizarCabeceraUsuario() {
     // terminan mostrando cosas distintas.
     pintarSelectorModulo();
 
+    // Las pestañas cambiaron: el menu vuelve al principio.
+    //
+    // Al cambiar de modulo, el menu scrollea (en el celular es una fila
+    // con TODAS las secciones) y queda en la posicion de las pestañas del
+    // modulo anterior: se ve un menu a medias, con un hueco.
+    const nav = document.querySelector('.cabecera__nav');
+    if (nav) nav.scrollLeft = 0;
+
     // Si el menú no entra en su columna, se avisa con el desvanecido del
     // borde: sin el, un menú que scrollea parece un menú CORTADO. La medicion
     // se hace después de pintar las pestañas, porque antes el ancho es el
     // viejo.
     requestAnimationFrame(() => {
-      const nav = document.querySelector('.cabecera__nav');
       if (!nav) return;
       nav.classList.toggle('cabecera__nav--desbordado', nav.scrollWidth > nav.clientWidth + 2);
     });
@@ -144,7 +156,7 @@ export function actualizarCabeceraUsuario() {
     if (pestanaIncidencias) pestanaIncidencias.hidden = true;
     if (pestanaUsuarios) pestanaUsuarios.hidden = true;
     if (pestanaExistencia) pestanaExistencia.hidden = true;
-    if (pestanaEscanear) pestanaEscanear.hidden = true;
+    if (botonEscanear) botonEscanear.hidden = true;
     if (pestanaInventario) pestanaInventario.hidden = true;
     if (pestanaConsultas) pestanaConsultas.hidden = true;
   }

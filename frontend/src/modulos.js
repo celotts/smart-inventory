@@ -47,7 +47,12 @@ export const MODULOS = {
     // estar disponible desde los dos. (Cuando no estaba en ninguna de las
     // dos listas, la pantalla de usuarios era inalcanzable: el admin no
     // tenía por dónde dar de alta a nadie.)
-    vistas: ['inicio', 'escanear', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo', 'usuarios'],
+    //
+    // `escanear` NO está en la lista: el escaneo no es una sección del
+    // módulo, es una acción de la cabecera (junto al selector de módulo).
+    // Como pestaña del menú se perdía en el celular, donde el menú es una
+    // fila que scrollea.
+    vistas: ['inicio', 'inventario', 'existencia', 'movimientos', 'productos', 'compras', 'nuevo', 'usuarios'],
     dashboard: 'inventario',
   },
   helpdesk: {
@@ -66,15 +71,6 @@ export const MODULOS = {
     // administrar usuarios es de la casa, no del taller.
     vistas: ['inicio', 'incidencias', 'inventario', 'consultas', 'auditoria', 'usuarios'],
     dashboard: 'helpdesk',
-  },
-  escanear: {
-    clave: 'escanear',
-    etiqueta: 'Escanear',
-    titulo: 'Escanear',
-    descripcion: 'Lectura de códigos de barras y QR',
-    icono: 'M3 7l9 12 9-12 9-12 9zM3 7l9 12 9-12 9-12 9z',
-    vistas: ['escanear'],
-    dashboard: 'escanear',
   },
 };
 

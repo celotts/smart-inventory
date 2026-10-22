@@ -51,10 +51,10 @@
 
   <header class="cabecera" id="cabecera" hidden>
     <!--
-      LA CABECERA ES UNA GRID DE DOS FILAS
+      LA CABECERA ES UNA GRID: DOS FILAS EN EL ESCRITORIO, TRES EN EL CELULAR
 
         [ Gestor de Activos ]  [ menu de secciones ]  [ sol · campana · salir ]
-        [ 👤 quien ][ Inventario | Service Desk ]
+        [ 👤 quien ][ Inventario | Service Desk · Escanear ]
 
       Por que en GRID y no en flex con margenes automaticos: con margenes
       automaticos, el menu se centra repartiendo el espacio sobrante, asi que
@@ -69,6 +69,23 @@
       Y por que el usuario y el selector de modulo en la MISMA fila: son las
       dos cosas de la segunda fila (quien esta y en que modulo esta), y
       Gestor de Activos solo, arriba, con su nombre entero.
+
+      EN EL CELULAR LA CABECERA TIENE TRES FILAS
+      -------------------------------------------
+        [ marca ]                [ idioma · nuevo · sol · campana · salir ]
+        [ 👤 quien ][ Inventario | Service Desk · Escanear ]
+        [ menu de secciones, con TODAS las pestanas ]
+
+      El menu de secciones estaba en la PRIMERA fila, al lado de la marca, y
+      en el celular no cabia: la marca y los botones de la derecha se
+      comian el ancho y el menu quedaba con un pedazo de 130 pixeles, con
+      dos o tres iconos y el resto escondido (con un scroll que nadie
+      descubre). El menu de secciones es lo que mas se usa: no puede ser lo
+      que se pierde.
+
+      Por eso en el celular el menu pasa a su PROPIA fila, del ancho de la
+      pantalla: todas las pestanas se ven, y si no entran, scrollean a lo
+      ancho con el desvanecido del borde.
     -->
     <div class="cabecera__marca">
       <span class="cabecera__logo" aria-hidden="true">
@@ -105,22 +122,48 @@
     </div>
 
     <!--
-      El selector de modulo (Inventario | Service Desk), en la misma fila que
-      el bloque del usuario y CENTRADO en la pagina.
+      EL SELECTOR DE TRABAJO
+      --
+      Inventario | Service Desk (el modulo en el que se esta) y Escanear (la
+      vista de escaneo), AL MISMO NIVEL: los tres son "a donde ir" desde la
+      cabecera, y los tres tienen que estar a la vista siempre.
 
-      Va centrado con `position: absolute`: en una grilla, el centro de una
-      celda no es el centro de la pagina, y centrado dentro de la celda los
-      botones quedarian corridos hacia un lado.
+      Escanear fue una pestana del menu de secciones, y en el celular eso la
+      escondia: el menu es una fila que scrollea y la pestana se iba con
+      ella. El escaneo es la tarea del deposito y tiene que estar a un clic,
+      sin scrollear.
 
-      Y al estar en la segunda fila NO SE MUEVE cuando cambia el modulo: el
-      menu de secciones cambia de ancho (son pestanas distintas) y, si el
-      selector estuviera en la primera fila, se moveria con el.
+      El grupo va centrado con una posicion absoluta (en una grilla, el
+      centro de una celda no es el centro de la pagina, asi que "centrar la
+      celda" dejaria los botones corridos hacia un lado). Por eso el grupo
+      entero --modulos y escanear-- es lo que se centra, y no cada parte
+      por separado.
     -->
+    <div class="cabecera__selector" id="cabecera-selector">
     <div class="cabecera__modulos" id="cabecera-modulo" role="group" aria-label="Modulo de trabajo" hidden></div>
+
+    <!--
+      ESCANEAR: registrar un movimiento escaneando la etiqueta del equipo.
+
+      Es una ACCION, no un modulo: no cambia el area de trabajo (el operador
+      sigue en Inventario y sus pestanas siguen ahi), solo abre la vista del
+      escaner. Por eso vive al lado del selector de modulo y no dentro de
+      el.
+    -->
+    <button class="cabecera__escanear" id="cabecera-escanear" data-vista="escanear" hidden
+            title="Escanear un equipo (registrar un movimiento)"
+            aria-label="Escanear un equipo">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke-linecap="round"/>
+        <path d="M3 12h18" stroke-linecap="round"/>
+      </svg>
+      <span class="cabecera__escanear-texto">Escanear</span>
+    </button>
+    </div>
     </div>
 
     <nav class="cabecera__nav" aria-label="Secciones">
-      <button class="pestana" data-vista="inicio" aria-current="page">
+      <button class="pestana" data-vista="inicio" aria-current="page" title="Inicio">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 12l9-8 9 8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -130,17 +173,17 @@
         <span class="pestana__texto">Inicio</span>
       </button>
 
-      <button class="pestana" data-vista="escanear" id="pestana-escanear" hidden>
-        <span class="pestana__icono" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke-linecap="round"/>
-            <path d="M3 12h18" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span class="pestana__texto">Escanear</span>
-      </button>
+      <!--
+        EL MENU DE SECCIONES
+        --
+        Las secciones del modulo en el que se esta trabajando. El escaneo NO
+        esta aqui: vive en la cabecera, al lado del selector de modulo
+        (ver `#cabecera-escanear`), porque en el celular un menu que
+        scrollea esconde lo que esta al final, y el escaneo es lo que mas
+        se usa en el deposito.
+      -->
 
-      <button class="pestana" data-vista="inventario" id="pestana-inventario" hidden>
+      <button class="pestana" data-vista="inventario" id="pestana-inventario" hidden title="Inventario">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 7l9-4 9 4v10l-9 4-9-4z" stroke-linejoin="round"/>
@@ -154,7 +197,7 @@
         responde "cuanto hay de cada cosa", que antes no existia en ninguna
         parte de la app.
       -->
-      <button class="pestana" data-vista="existencia" id="pestana-existencia" hidden>
+      <button class="pestana" data-vista="existencia" id="pestana-existencia" hidden title="Existencia">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/>
@@ -164,7 +207,7 @@
         <span class="pestana__texto">Existencia</span>
       </button>
 
-      <button class="pestana" data-vista="movimientos" id="pestana-movimientos" hidden>
+      <button class="pestana" data-vista="movimientos" id="pestana-movimientos" hidden title="Movimientos">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M5 9l-3 3 3 3M19 15l3-3-3-3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -174,7 +217,7 @@
         <span class="pestana__texto">Movimientos</span>
       </button>
 
-      <button class="pestana" data-vista="incidencias" id="pestana-incidencias" hidden>
+      <button class="pestana" data-vista="incidencias" id="pestana-incidencias" hidden title="Incidencias">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linejoin="round"/>
@@ -184,7 +227,7 @@
         <span class="pestana__texto">Incidencias</span>
       </button>
 
-      <button class="pestana" data-vista="consultas" id="pestana-consultas" hidden>
+      <button class="pestana" data-vista="consultas" id="pestana-consultas" hidden title="Consultas">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-linejoin="round"/>
@@ -193,7 +236,7 @@
         <span class="pestana__texto">Consultas</span>
       </button>
 
-      <button class="pestana" data-vista="productos" id="pestana-productos" hidden>
+      <button class="pestana" data-vista="productos" id="pestana-productos" hidden title="Productos">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke-linejoin="round"/>
@@ -203,7 +246,7 @@
         <span class="pestana__texto">Productos</span>
       </button>
 
-      <button class="pestana" data-vista="compras" id="pestana-compras" hidden>
+      <button class="pestana" data-vista="compras" id="pestana-compras" hidden title="Compras">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="9" cy="21" r="1"/>
@@ -214,7 +257,7 @@
         <span class="pestana__texto">Compras</span>
       </button>
 
-      <button class="pestana" data-vista="auditoria" id="pestana-auditoria" hidden>
+      <button class="pestana" data-vista="auditoria" id="pestana-auditoria" hidden title="Auditoría">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 8v4l3 2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -224,7 +267,7 @@
         <span class="pestana__texto">Auditoría</span>
       </button>
 
-      <button class="pestana" data-vista="usuarios" id="pestana-usuarios" hidden>
+      <button class="pestana" data-vista="usuarios" id="pestana-usuarios" hidden title="Usuarios">
         <span class="pestana__icono" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>

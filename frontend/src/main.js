@@ -30,7 +30,7 @@
 import { verificarVersionDelServidor } from './build.js';
 import { iniciarChipUsuario, iniciarModoExterior, iniciarSelectorModulo, inicializarFooter } from './cabecera.js';
 import { aplicarIdiomaGuardado, iniciarSelectorIdioma } from './idioma.js';
-import { mostrarVista } from './navegacion.js';
+import { mostrarVista, iniciarNavegacion } from './navegacion.js';
 import { arrancar, cerrar } from './sesion.js';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +128,13 @@ iniciarChipUsuario();
 // El selector de módulo, en la cabecera. Solo aparece para quien puede usar
 // los dos módulos.
 iniciarSelectorModulo();
+
+// EL BOTON "ATRAS" DEL CELULAR
+//
+// Cada vista deja su marca en el historial del navegador. Sin escuchar el
+// `popstate`, el boton atras del celular cambia la URL y NO cambia la
+// pantalla: la app parece no andar (ver `iniciarNavegacion`).
+iniciarNavegacion();
 
 // Una vista puede pedir un salto a otra ("Ver todos" en el tablero). Se usa un
 // evento de documento y no un import de `navegacion.js`: importarla desde una

@@ -61,8 +61,19 @@ const cabecera = document.getElementById('cabecera');
  * @param {string} nombre    La clave de la vista.
  * @param {object} [opciones]
  * @param {number} [opciones.deviceId]  Para la ficha de un equipo.
+ * @param {boolean} [opciones.sinHistorial]  No agrega la vista al historial
+ *   (la llega el boton atras: ver `iniciarNavegacion`).
  */
 export function mostrarVista(nombre, opciones = {}) {
+  // ESCANEAR: SOLO PARA QUIEN CREA MOVIMIENTOS
+  //
+  // El boton de la cabecera ya lo esconde para quien no puede, pero el
+  // hash de la URL es otra puerta: sin este filtro, un tecnico que teclea
+  // #escanear entra a una vista que solo va a darle 403.
+  if (nombre === 'escanear' && !permisosDe().includes('movements:create')) {
+    nombre = 'inicio';
+  }
+
   // Si se cambia de vista, la anterior se destruye. Una vista puede tener
   // recursos que no se limpian solos: la camara del escaner, por ejemplo, que
   // sigue encendida si no se apaga explicitamente.
@@ -141,9 +152,71 @@ export function mostrarVista(nombre, opciones = {}) {
     else boton.removeAttribute('aria-current');
   }
 
-  if (window.location.hash !== `#${nombre}`) {
+  // La pestaña activa, a la vista.
+  //
+  // En el celular el menu de secciones es una fila del ancho de la pantalla
+  // que scrollea cuando hay muchas secciones: si la pestaña activa queda
+  // fuera de la pantalla, el operador no sabe en que seccion esta. Se
+  // trae al centro.
+  centrarPestanaActiva();
+
+  if (!opciones.sinHistorial && window.location.hash !== `#${nombre}`) {
     history.pushState({ vista: nombre }, '', `#${nombre}`);
   }
+}
+
+/**
+ * EL BOTON "ATRAS" DEL CELULAR
+ *
+ * Cada cambio de vista deja su marca en el historial del navegador
+ * (`pushState`). Sin escuchar el `popstate`, el boton atras del celular
+ * cambia la URL y NO cambia la pantalla: el operador queda mirando la
+ * misma vista con una URL que dice otra cosa, y la app parece no andar.
+ *
+ * En el escritorio casi nadie lo nota (el raton va a las pestanas). En el
+ * celular el boton atras es el gesto que todos usan para deshacer.
+ *
+ * Con `sinHistorial` la vista se pinta SIN volver a empujar al historial:
+ * si no, el "atras" se comeria a si mismo y la app quedaria atrapada en
+ * un bucle de navegacion.
+ */
+export function iniciarNavegacion() {
+  window.addEventListener('popstate', () => {
+    const destino = window.location.hash.replace('#', '');
+    if (!destino) {
+      // Se volvio al estado inicial (la entrada, sin hash): se deja la
+      // marca del tablero, pero sin agregar otra entrada al historial.
+      history.replaceState({ vista: 'inicio' }, '', '#inicio');
+      mostrarVista('inicio', { sinHistorial: true });
+      return;
+    }
+    const vista = VISTAS[destino] ? destino : 'inicio';
+    mostrarVista(vista, { sinHistorial: true });
+  });
+}
+
+/**
+ * Trae al centro del menu la pestaña que esta activa.
+ *
+ * Solo si el menu scrollea: si entra entero, moverlo seria un salto sin
+ * motivo. Y se mide con los rectangulos (no con `offsetLeft`), que son los
+ * que dicen donde esta la pestaña de verdad: el menu es un hijo del header,
+ * y `offsetLeft` seria la distancia al header, no al menu.
+ */
+function centrarPestanaActiva() {
+  const nav = document.querySelector('.cabecera__nav');
+  if (!nav) return;
+
+  const activa = nav.querySelector('[aria-current="page"]');
+  if (!activa) return;
+  if (nav.scrollWidth <= nav.clientWidth + 2) return;
+
+  const menu = nav.getBoundingClientRect();
+  const pestana = activa.getBoundingClientRect();
+
+  // El scroll que hay que hacer para que la pestana quede en el medio.
+  const destino = nav.scrollLeft + (pestana.left - menu.left) - (nav.clientWidth - pestana.width) / 2;
+  nav.scrollTo({ left: Math.max(0, destino), behavior: 'smooth' });
 }
 
 /**

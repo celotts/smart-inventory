@@ -328,25 +328,41 @@ class TestCabecera:
 
         En la segunda fila, con el bloque del usuario, la pregunta "en qué
         módulo estoy" tiene su respuesta en un solo lugar.
+
+        EL CENTRADO ESTÁ EN EL GRUPO
+        -----------------------------
+        Lo que se centra es el grupo de trabajo (`.cabecera__selector`), que
+        contiene el selector de módulo Y el botón de escanear: los dos van
+        al mismo nivel. Si se centraran por separado, el botón de escanear
+        caería encima del módulo activo.
         """
         css = self._css()
 
-        bloque = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
-        assert bloque, "No se encuentra la regla del selector de modulo."
+        bloque = re.search(r"\.cabecera__selector\s*\{[^}]*\}", css, re.S)
+        assert bloque, "No se encuentra la regla del grupo de trabajo."
         regla = bloque.group(0)
 
         # Centrado respecto de la PAGINA, no de una celda.
         assert "position: absolute" in regla, (
-            "El selector de modulo va centrado con `position: absolute`: "
+            "El grupo de trabajo va centrado con `position: absolute`: "
             "dentro de una celda de la grilla, el centro de la celda no es el "
             "centro de la pagina."
         )
         assert "left: 50%" in regla, (
-            "El selector de modulo tiene que estar en el centro de la pagina."
+            "El grupo de trabajo tiene que estar en el centro de la pagina."
         )
         assert "transform: translateX(-50%)" in regla, (
-            "Sin la traslacion, el selector queda corrido hacia la derecha "
+            "Sin la traslacion, el grupo queda corrido hacia la derecha "
             "la mitad de su ancho."
+        )
+
+        # Y el selector de modulo esta DENTRO del grupo: son dos partes de
+        # la misma cosa, al mismo nivel.
+        bloque_modulos = re.search(r"\.cabecera__modulos\s*\{[^}]*\}", css, re.S)
+        assert bloque_modulos, "No se encuentra la regla del selector de modulo."
+        assert "position: absolute" not in bloque_modulos.group(0), (
+            "El selector de modulo no se posiciona por su cuenta: el que se "
+            "posiciona es el grupo de trabajo, que lo contiene."
         )
 
         areas = re.search(r"grid-template-areas:\s*([^;]+);", css, re.S)
