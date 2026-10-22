@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("SECRET_KEY", "x" * 48)
 os.environ.setdefault("APP_ENV", "development")
 
+from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from src.core.middleware import (  # noqa: E402
@@ -216,10 +217,21 @@ class TestRateLimit:
 
         Sin `Retry-After`, el cliente reintenta a ciegas y el problema se
         agrava; con el, sabe cuando volver.
+
+        EL LIMITE LO PONE EL TEST
+        --------------------------
+        Con la app compartida, este test dependia de cuantos pedidos habian
+        hecho los tests anteriores (misma IP, mismo bucket) y del valor de
+        `RATE_LIMIT_RPM`: con el limite en 300 y 200 pedidos, nunca llegaba
+        al corte. Una app aparte con un limite bajo hace que el test mida
+        LO QUE DICE MEDIR y no lo que casualmente quedo en el bucket.
         """
-        c = TestClient(app)
+        app_de_prueba = FastAPI()
+        app_de_prueba.add_middleware(RateLimitMiddleware, requests_per_minute=10)
+        c = TestClient(app_de_prueba)
+
         codigos = []
-        for _ in range(200):
+        for _ in range(15):
             r = c.get("/api/devices")
             codigos.append(r.status_code)
             if r.status_code == 429:
