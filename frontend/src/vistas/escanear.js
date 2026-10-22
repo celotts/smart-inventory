@@ -14,7 +14,7 @@
  * - BarcodeDetector nativo (Chrome/Safari/Edge), fallback manual
  * - Geolocalizacion opcional
  * - Ficha rica: ubicación, historial, días instalado
- * - Estados: idle → escaneando → procesando → éxito/error
+ * - Estados: idle --> escaneando --> procesando --> éxito/error
  * - Accesibilidad: targets 48px+, labels ARIA, focus visible, alto contraste
  */
 
@@ -831,7 +831,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     } finally {
       envioEnCurso = false;
       botonManual.disabled = false;
-      indicarRegistro(false);
+      indicarRegistro();
     }
   }
 
@@ -841,14 +841,15 @@ export function vistaEscanear({ alAbrirDispositivo }) {
    * Va en la tarjeta de la camara y no en la zona de resultado: el recibo de
    * escaneos tiene que seguir ahí mientras se registra el siguiente.
    */
-  function indicarRegistro(activo) {
+  function indicarRegistro() {
     if (!indicadorRegistro) {
       indicadorRegistro = crear('p', { clase: 'escaner-registrando', atributos: { role: 'status' } });
       indicadorRegistro.hidden = true;
       tarjetaCamara.appendChild(indicadorRegistro);
     }
-    indicadorRegistro.hidden = !activo;
-    indicadorRegistro.textContent = activo ? 'Registrando…' : '';
+    indicadorRegistro.hidden = false;
+    indicadorRegistro.textContent = 'Registro scaneado';
+    setTimeout(() => { indicadorRegistro.hidden = true; }, 1500);
   }
 
   /**

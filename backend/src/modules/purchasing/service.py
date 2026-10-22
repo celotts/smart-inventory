@@ -76,7 +76,27 @@ def listar_ordenes(
 ) -> tuple[list[dict[str, Any]], int]:
     db = get_db_session()
     try:
-        query = """
+        # El filtro se arma UNA vez y se usa en las DOS consultas: la de las
+        # filas y la del total. Si se arman por separado, se desincronizan y
+        # el total no corresponde a lo que se muestra.
+        condiciones = ["1=1"]
+        params: dict[str, Any] = {}
+        if estado:
+            condiciones.append("po.status = :estado")
+            params["estado"] = estado
+        if vendor_id:
+            condiciones.append("po.vendor_id = :vendor_id")
+            params["vendor_id"] = vendor_id
+        if desde:
+            condiciones.append("po.created_at >= :desde")
+            params["desde"] = desde
+        if hasta:
+            condiciones.append("po.created_at <= :hasta")
+            params["hasta"] = hasta
+
+        donde = " AND ".join(condiciones)
+
+        query = f"""
             SELECT
                 po.id, po.vendor_id, v.name AS vendor_name,
                 po.status, po.expected_date, po.observations,
@@ -84,22 +104,9 @@ def listar_ordenes(
                 (SELECT SUM(cantidad * unit_cost) FROM purchase_order_lines WHERE po_id = po.id) AS total_estimado
             FROM purchase_orders po
             LEFT JOIN vendors v ON v.id = po.vendor_id
-            WHERE 1=1
+            WHERE {donde}
+            ORDER BY po.created_at DESC
         """
-        params = {}
-        if estado:
-            query += " AND po.status = :estado"
-            params["estado"] = estado
-        if vendor_id:
-            query += " AND po.vendor_id = :vendor_id"
-            params["vendor_id"] = vendor_id
-        if desde:
-            query += " AND po.created_at >= :desde"
-            params["desde"] = desde
-        if hasta:
-            query += " AND po.created_at <= :hasta"
-            params["hasta"] = hasta
-        query += " ORDER BY po.created_at DESC"
 
         # La paginacion: el `LIMIT 100` de antes recortaba sin avisar, y el
         # operador creia que esas eran todas las ordenes.
@@ -111,9 +118,26 @@ def listar_ordenes(
         result = db.execute(text(query), params)
         rows = result.mappings().all()
 
-        # El total, con el MISMO filtro.
-        conteo = query[: query.index(" ORDER BY")]
-        total = db.execute(text(conteo), params).scalar_one()
+        # El TOTAL, con el MISMO filtro.
+        #
+        # ES UN `COUNT(*)`, NO LA MISMA CONSULTA SIN EL `ORDER BY`.
+        # Antes se cortaba el texto de la consulta y se contaba eso, con lo
+        # que `scalar_one()` recibia TODAS las filas y reventaba con mas de
+        # una orden: la pantalla de Compras devolvia un 500 en cuanto habia
+        # dos ordenes. Solo se veia con datos de verdad: con la orden de
+        # prueba, funcionaba.
+        params_conteo = {k: v for k, v in params.items() if k not in ("limite", "offset")}
+        total = db.execute(
+            text(
+                f"""
+                SELECT COUNT(*)
+                FROM purchase_orders po
+                LEFT JOIN vendors v ON v.id = po.vendor_id
+                WHERE {donde}
+                """
+            ),
+            params_conteo,
+        ).scalar_one()
         return [dict(r) for r in rows], int(total or 0)
     finally:
         db.close()

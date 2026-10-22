@@ -235,12 +235,12 @@ def mover_por_producto(
                 SELECT d.id, d.serial_number
                 FROM devices d
                 LEFT JOIN LATERAL (
-                    SELECT MAX(mh.movement_date) AS ultimo
+                    SELECT MAX(mh.movement_date) AS ultimo_movimiento
                     FROM movement_history mh
                     WHERE mh.device_id = d.id
                 ) h ON TRUE
                 WHERE {' AND '.join(condiciones)}
-                ORDER BY COALESCE(h.último, d.created_at) ASC, d.id ASC
+                ORDER BY COALESCE(h.ultimo_movimiento, d.created_at) ASC, d.id ASC
                 LIMIT :limite
                 """
             ),

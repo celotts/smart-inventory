@@ -111,6 +111,40 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   // --- Cabecera: stock por producto -----------------------------------------
   const tarjetaCabecera = crear('div', { clase: 'tarjeta' });
 
+  // LAS DOS PESTAÑAS DE ESTA PANTALLA
+  // -----------------------------------
+  // "Stock por producto" y "Historial de movimientos" son DOS cosas
+  // distintas, y antes estaban apiladas en la misma pantalla: una tarjeta
+  // titulada "Movimientos" y otra titulada "Historial de movimientos", una
+  // debajo de la otra.
+  //
+  // El resultado era que el operador no sabia en cual de las dos estaba, y
+  // un error de scroll lo dejaba en la de arriba creyendo que estaba en la
+  // de abajo (o al reves). Con dos tarjetas de nombre parecido, uno siempre
+  // cree que esta en la otra.
+  //
+  // Ahora son dos PESTANAS: se ve cual esta activa, y se cambia con un
+  // clic (que es lo que hace falta para corregir un error).
+  let segmentoActivo = 'stock';
+
+  const zonaSegmentos = crear('div', {
+    clase: 'segmentos',
+    role: 'tablist',
+    'aria-label': 'Que se muestra',
+  });
+
+  const segmentoStock = crear('button', {
+    clase: 'segmento segmento--activo',
+    texto: 'Stock por producto',
+    atributos: { type: 'button', role: 'tab', 'aria-selected': 'true' },
+  });
+  const segmentoHistorial = crear('button', {
+    clase: 'segmento',
+    texto: 'Historial de movimientos',
+    atributos: { type: 'button', role: 'tab', 'aria-selected': 'false' },
+  });
+  zonaSegmentos.append(segmentoStock, segmentoHistorial);
+
   const encabezado = crear('div', { clase: 'flex-entre' });
   encabezado.append(
     crear('div', {
@@ -119,7 +153,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
         crear('p', {
           clase: 'tarjeta__subtitulo',
           estilo: 'margin:0',
-          texto: 'Entrada, salida, transferencia, devolucion y baja de mercancia por producto.',
+          texto: 'Mover mercancia y ver quien movio que.',
         }),
       ],
     }),
@@ -128,7 +162,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   const btnActualizar = crear('button', {
     clase: 'boton boton--suave',
     texto: 'Actualizar',
-    atributos: { type: 'button', onclick: () => cargar() },
+    atributos: { type: 'button', onclick: () => cargarStock() },
   });
   conTooltip(btnActualizar, 'Vuelve a pedir el stock por producto al servidor.');
 
@@ -144,7 +178,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
 
   encabezado.append(btnExportar, btnActualizar);
 
-  tarjetaCabecera.append(encabezado);
+  tarjetaCabecera.append(encabezado, zonaSegmentos);
 
   // LA Paginación DEL STOCK
   //
@@ -161,12 +195,12 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     etiqueta: 'existencias',
     alCambiarPagina: (nueva) => {
       paginaStock = Math.max(0, nueva);
-      cargar();
+      cargarStock();
     },
     alCambiarLimite: (nuevo) => {
       limiteStock = nuevo;
       paginaStock = 0;
-      cargar();
+      cargarStock();
     },
   });
 
@@ -215,8 +249,8 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   const filtrosHistorial = crear('div', { clase: 'rejilla-filtros' });
   filtrosHistorial.append(etiquetaHistorial);
 
-  const zonaHistorial = crear('div');
-  tarjetaHistorial.append(cabeceraHistorial, filtrosHistorial, zonaHistorial);
+  const listaHistorial = crear('div');
+  tarjetaHistorial.append(cabeceraHistorial, filtrosHistorial, listaHistorial);
 
   let paginaHistorial = 0;
   let limiteHistorial = 50;
@@ -241,13 +275,50 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   // --- Resultados -----------------------------------------------------------
   const zonaLista = crear('div');
 
-  raiz.append(
-    tarjetaCabecera,
-    zonaLista,
-    paginacionStock.elemento,
-    tarjetaHistorial,
-    paginacionHistorial.elemento,
-  );
+  // Las dos zonas van en un contenedor, y se muestra una u otra.
+  //
+  // Antes estaban las dos a la vista, una debajo de la otra, y con nombres
+  // parecidos ("Movimientos" y "Historial de movimientos"). El operador no
+  // sabia en cual estaba.
+  const zonaStock = crear('div');
+  zonaStock.append(zonaLista, paginacionStock.elemento);
+
+  const pestanaHistorial = crear('div', { hidden: true });
+  pestanaHistorial.append(tarjetaHistorial, paginacionHistorial.elemento);
+
+  raiz.append(tarjetaCabecera, zonaStock, pestanaHistorial);
+
+  /**
+   * Cambia de pestana.
+   *
+   * Se cambia de verdad (no se superponen las dos) y se carga lo que la
+   * pestana nueva necesita: entrar en "Historial" sin haberlo cargado
+   * mostraria una lista vacia, que parece un error.
+   *
+   * @param {'stock'|'historial'} nuevo
+   */
+  function cambiarSegmento(nuevo) {
+    if (nuevo === segmentoActivo) return;
+    segmentoActivo = nuevo;
+
+    const esStock = nuevo === 'stock';
+    zonaStock.hidden = !esStock;
+    pestanaHistorial.hidden = esStock;
+
+    segmentoStock.classList.toggle('segmento--activo', esStock);
+    segmentoStock.setAttribute('aria-selected', esStock ? 'true' : 'false');
+    segmentoHistorial.classList.toggle('segmento--activo', !esStock);
+    segmentoHistorial.setAttribute('aria-selected', esStock ? 'false' : 'true');
+
+    if (esStock) {
+      cargarStock();
+    } else {
+      cargarHistorial();
+    }
+  }
+
+  segmentoStock.addEventListener('click', () => cambiarSegmento('stock'));
+  segmentoHistorial.addEventListener('click', () => cambiarSegmento('historial'));
 
   let peticionEnCurso = 0;
   // El stock se guarda para que el modal calcule disponibilidad sin volver a
@@ -256,7 +327,10 @@ export function vistaMovimientos({ permisos = [] } = {}) {
   // parpadeo.
   let filasStock = [];
 
-  async function cargar() {
+  /**
+   * Carga el stock por producto (la primera pestana).
+   */
+  async function cargarStock() {
     const numero = ++peticionEnCurso;
     zonaLista.replaceChildren(crear('div', { clase: 'cargando', texto: 'Cargando stock…' }));
 
@@ -283,7 +357,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
    * Carga el historial de movimientos (con buscador y paginación).
    */
   async function cargarHistorial() {
-    zonaHistorial.replaceChildren(
+    listaHistorial.replaceChildren(
       crear('div', { clase: 'cargando', texto: 'Cargando movimientos…' }),
     );
 
@@ -304,7 +378,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
         pagina: paginaHistorial,
       });
     } catch (error) {
-      zonaHistorial.replaceChildren(
+      listaHistorial.replaceChildren(
         crear('div', { clase: 'resultado resultado--error', texto: error.message }),
       );
     }
@@ -317,7 +391,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     if (!movimientos.length) {
       const vacio = crear('div', { clase: 'tarjeta centrado tenue' });
       vacio.append(crear('p', { texto: 'No hay movimientos con esa busqueda.' }));
-      zonaHistorial.replaceChildren(vacio);
+      listaHistorial.replaceChildren(vacio);
       return;
     }
 
@@ -354,7 +428,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
       lista.append(item);
     }
 
-    zonaHistorial.replaceChildren(lista);
+    listaHistorial.replaceChildren(lista);
   }
 
   /**
@@ -663,7 +737,7 @@ export function vistaMovimientos({ permisos = [] } = {}) {
           avisar(resultado.mensaje, 'exito', 3000);
         }
         cerrarModal();
-        cargar();
+        cargarStock();
       } catch (error) {
         avisar(error.message, 'error');
         btnMover.disabled = false;
@@ -690,7 +764,9 @@ export function vistaMovimientos({ permisos = [] } = {}) {
     cargarHistorial();
   });
 
-  cargar();
-  cargarHistorial();
+  // Solo se carga la pestana ACTIVA. Antes se cargaban las dos al entrar, y
+  // con 40.000 movimientos eso era una consulta que el operador no iba a
+  // ver (hasta que abria la pestana de abajo).
+  cargarStock();
   return { elemento: raiz };
 }

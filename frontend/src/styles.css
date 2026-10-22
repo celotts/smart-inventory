@@ -1271,6 +1271,24 @@ textarea.campo__control {
   border-radius: var(--radius-full);
   margin-bottom: var(--space-4);
 }
+/* El grupo de PESTANAS dentro de una pantalla.
+ *
+ * No es lo mismo que el menu de secciones (que esta arriba, en la
+ * cabecera): esto es un cambio de VISTA dentro de la pantalla actual, y
+ * por eso vive pegado al contenido que cambia.
+ */
+.segmentos {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  padding: 0.25rem;
+  border-radius: calc(var(--radius-full) - 4px);
+  background: var(--color-surface-hover);
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .segmento {
   display: inline-flex;
   align-items: center;

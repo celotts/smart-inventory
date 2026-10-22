@@ -135,13 +135,22 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
   //
   // LAS TRES VISTAS
   // ---------------
-  // - Bandeja: lo que nadie tomó. Se vacía con "Tomar el caso".
-  // - Mis casos: lo que ya tengo asignado y sigue abierto.
-  // - Todas: todo, para el supervisor.
+  // - Sin atender: lo que nadie tomó. Se vacía con "Tomar el caso".
+  // - Casos que vencen: los que ya pasaron su plazo.
+  // - Abiertas por severidad: las abiertas, agrupadas por gravedad.
+  // - Trabajo pendiente: lo que ya tengo asignado y sigue abierto.
   const VISTAS_CASOS = [
-    { clave: 'bandeja', texto: 'Bandeja' },
-    { clave: 'mias', texto: 'Mis casos' },
-    { clave: 'todas', texto: 'Todas' },
+    // SIN ATENDER: los casos que NADIE respondio. Es el trabajo que se
+    // pierde, y por eso es la vista con la que se entra.
+    { clave: 'bandeja', texto: 'Sin atender' },
+    // CASOS QUE VENCEN: los que ya pasaron su plazo de resolucion (o estan
+    // por pasarlo). Es lo que el supervisor mira primero.
+    { clave: 'vencidas', texto: 'Casos que vencen' },
+    // POR SEVERIDAD: las abiertas, agrupadas por gravedad. Un tecnico no
+    // quiere una lista mezclada: quiere ver primero las S1.
+    { clave: 'severidad', texto: 'Abiertas por severidad' },
+    // TRABAJO PENDIENTE: los casos que tiene asignados y siguen abiertos.
+    { clave: 'mias', texto: 'Trabajo pendiente' },
   ];
   // La vista con la que se llega desde el tablero decide el segmento.
   //
@@ -324,6 +333,8 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
    */
   function filtrosDeVista() {
     if (vistaCasos === 'bandeja') return { sin_atender: true, solo_abiertas: true };
+    if (vistaCasos === 'vencidas') return { solo_vencidas: true, solo_abiertas: true };
+    if (vistaCasos === 'severidad') return { solo_abiertas: true };
     if (vistaCasos === 'mias') return { solo_mias: true };
     return {};
   }
@@ -419,6 +430,60 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     cargar();
   }
 
+  /**
+   * Los casos agrupados por severidad.
+   *
+   * Un bloque por gravedad, del S1 (critico) al S4 (bajo), y cada bloque con
+   * su cuenta. Los grupos vacios NO se muestran: un "S4: 0" es ruido.
+   *
+   * @param {Array} incidencias  Los casos, en el mismo orden que los items.
+   * @param {Array} items        Los `<li>` ya construidos.
+   * @returns {HTMLElement}
+   */
+  function agruparPorSeveridad(incidencias, items) {
+    const contenedor = crear('div', { clase: 'apilado' });
+
+    const ORDEN = ['S1', 'S2', 'S3', 'S4'];
+    const ETIQUETAS = {
+      S1: 'Criticos',
+      S2: 'Alta',
+      S3: 'Medios',
+      S4: 'Bajos',
+    };
+
+    for (const severidad of ORDEN) {
+      const delGrupo = [];
+      incidencias.forEach((caso, indice) => {
+        if (caso.severity === severidad) delGrupo.push(items[indice]);
+      });
+      if (!delGrupo.length) continue;
+
+      const bloque = crear('section', { clase: 'tarjeta' });
+
+      const cabecera = crear('div', { clase: 'flex-entre', estilo: 'margin-bottom:0.5rem' });
+      cabecera.append(
+        crear('h3', {
+          clase: 'tarjeta__titulo',
+          estilo: 'margin:0',
+          texto: `${severidad} · ${ETIQUETAS[severidad] ?? ''}`,
+        }),
+        crear('span', {
+          clase: 'insignia insignia--deposito',
+          texto: `${delGrupo.length} caso${delGrupo.length === 1 ? '' : 's'}`,
+        }),
+      );
+      bloque.append(cabecera);
+
+      const lista = crear('ul', { clase: 'lista' });
+      for (const item of delGrupo) lista.append(item);
+      bloque.append(lista);
+
+      contenedor.append(bloque);
+    }
+
+    return contenedor;
+  }
+
   function pintarLista(incidencias) {
     if (!incidencias.length) {
       // El estado vacío dice QUE no hay. "No hay incidencias con esos filtros"
@@ -441,6 +506,9 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
     }
 
     const lista = crear('ul', { clase: 'lista' });
+    // El item de cada caso, en el mismo orden: se usan para armar los
+    // bloques por severidad sin volver a construirlos.
+    const items = [];
 
     for (const i of incidencias) {
       const item = crear('li', { clase: 'lista__item' });
@@ -548,6 +616,24 @@ export function vistaIncidencias({ permisos = [], filtros } = {}) {
         item.append(btnTomar);
       }
       lista.append(item);
+      items.push(item);
+    }
+
+    // LA AGRUPACION POR SEVERIDAD
+    // ---------------------------
+    // En la pestana "Abiertas por severidad" la lista NO es una sola lista:
+    // es un bloque por gravedad, del S1 al S4.
+    //
+    // El motivo es que una lista mezclada obliga a leer cada caso para
+    // saber cual es grave. Agrupada, el tecnico ve "3 casos criticos" y
+    // arranca por ahi, sin leer los demas.
+    //
+    // Se agrupan los items YA CONSTRUIDOS (no se vuelven a pintar): asi las
+    // dos listas muestran exactamente lo mismo, y el operador no ve dos
+    // versiones del mismo caso.
+    if (vistaCasos === 'severidad') {
+      zonaLista.replaceChildren(agruparPorSeveridad(incidencias, items));
+      return;
     }
 
     zonaLista.replaceChildren(lista);

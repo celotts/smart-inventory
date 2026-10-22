@@ -104,6 +104,27 @@ class ActualizarDispositivoRequest(BaseModel):
         return valor.strip() if valor else valor
 
 
+class GuardarAtributosRequest(BaseModel):
+    """
+    Los atributos a cargar de un equipo.
+
+    `valores` es un mapa de clave -> valor. Es PARCIAL: las claves que no
+    vienen no se tocan. Y un valor `null` borra el atributo.
+
+    El tipo de cada valor lo dice la definicion del atributo (la categoria
+    del producto), no el cliente: el backend lo valida.
+    """
+
+    valores: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Mapa de clave del atributo a su valor.",
+    )
+    # Cuando se midio. Si no viene, es ahora.
+    medido_at: datetime | None = Field(
+        None, description="Momento de la medicion, si no es ahora."
+    )
+
+
 class BajaDispositivoRequest(BaseModel):
     """Baja lógica de un componente. El motivo queda en el certificado."""
 

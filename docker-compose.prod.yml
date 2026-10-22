@@ -1,0 +1,88 @@
+# ===========================================================================
+# Stack de Produccion — Gestor de Activos
+# ===========================================================================
+# Objetivo: Despliegue listo para empresa con HTTPS, recursos limitados
+# y operaciones seguras.
+# ===========================================================================
+
+services:
+  # --- Proxy inverso con Traefik (HTTPS automático via Let's Encrypt) ---
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.http.entryPoints.http.redirection.entrypoint=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/:ro"
+    restart: unless-stopped
+
+  # --- Base de datos ---
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: smart_inventory
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secretpassword}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- API Backend ---
+  backend:
+    build: ./backend
+    command: uvicorn src.main:app --host 0.0.0.0 --port 5000
+    environment:
+      DATABASE_URL: "postgresql://postgres:${DB_PASSWORD:-secretpassword}@db:5432/smart_inventory"
+      SECRET_KEY: ${SECRET_KEY}
+      APP_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      # Traefik enrutamiento
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`smart-inventory.local`)"
+      - "traefik.http.routers.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+    restart: unless-stopped
+    # Límites de recursos para producción
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # --- Frontend ---
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: "https://smart-inventory.local/api"
+    depends_on:
+      - backend
+    labels:
+      # Traefik enrutamiento
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`smart-inventory.local`)"
+      - "traefik.http.routers.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+    restart: unless-stopped
+    # Límites de recursos para producción
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  db_data:

@@ -457,10 +457,14 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
 
     let productos = [];
     let ubicaciones = [];
+    let atributosEquipo = [];
     try {
-      [productos, ubicaciones] = await Promise.all([
+      [productos, ubicaciones, atributosEquipo] = await Promise.all([
         api.productos().then((r) => r.items ?? r),
         api.ubicaciones(),
+        // Los atributos POR EQUIPO: si fallan, el formulario se abre igual
+        // (son un extra, no lo que hace que la edicion funcione).
+        api.atributosDe(ficha.id).then((r) => r.atributos ?? []).catch(() => []),
       ]);
     } catch (error) {
       avisar(`No se pudo cargar el catalogo: ${error.message}`, 'error');
@@ -556,6 +560,61 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       campoInstalacion.campo,
     );
 
+    // Los ATRIBUTOS POR EQUIPO
+    //
+    // Los valores que son de ESTE equipo y no del modelo: la IP de gestion
+    // de esta camara, la RAM de esta notebook. Se editan aqui porque son
+    // de lo que se trata la ficha: el modelo dice "notebook de 16 GB" (una
+    // cosa para todas) y el equipo dice "esta tiene 8 GB" (otra).
+    const controlesAtributos = new Map();
+    if (atributosEquipo.length) {
+      const zona = crear('div', { estilo: 'margin-top:0.5rem' });
+      zona.append(
+        crear('h3', {
+          clase: 'pequeno tenue',
+          estilo: 'margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.04em',
+          texto: 'Atributos de este equipo',
+        }),
+      );
+
+      for (const atributo of atributosEquipo) {
+        const valor = atributo.valor === null || atributo.valor === undefined ? '' : atributo.valor;
+
+        if (atributo.opciones?.length) {
+          // Con OPCIONES: un select con los valores posibles.
+          const select = crear('select', { clase: 'campo__control' });
+          select.append(
+            crear('option', { texto: '—', atributos: { value: '' } }),
+          );
+          for (const opcion of atributo.opciones) {
+            select.append(
+              crear('option', { texto: opcion.valor, atributos: { value: opcion.codigo } }),
+            );
+          }
+          select.value = String(valor);
+          const etiqueta = crear('label', { clase: 'campo' });
+          etiqueta.append(
+            crear('span', { clase: 'campo__etiqueta', texto: atributo.label ?? atributo.key }),
+            select,
+          );
+          zona.append(etiqueta);
+          controlesAtributos.set(atributo.key, { control: select, atributo });
+        } else {
+          const campo = campoTexto({
+            etiqueta: atributo.label ?? atributo.key,
+            placeholder: atributo.data_type === 'number' ? 'Ej: 8' : 'Ej: valor',
+            valor: String(valor),
+            tipo: atributo.data_type === 'number' ? 'number' : 'text',
+            ayuda: atributo.unit ? `Se mide en ${atributo.unit}.` : undefined,
+          });
+          zona.append(campo.campo);
+          controlesAtributos.set(atributo.key, { control: campo.control, atributo });
+        }
+      }
+
+      form.append(zona);
+    }
+
     const btnGuardar = crear('button', {
       clase: 'boton boton--bloque',
       texto: 'Guardar cambios',
@@ -590,7 +649,22 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
         cambios.installation_date = fecha;
       }
 
-      if (!Object.keys(cambios).length) {
+      // Los atributos por equipo van en su propia peticion (tienen su
+      // endpoint y su validacion). Se guardan SOLO los que cambiaron: si se
+      // mandaran todos, cada edicion reescribiria los que no toco, y
+      // perderian la fecha de medicion.
+      const valoresAtributos = {};
+      for (const [clave, { control, atributo }] of controlesAtributos) {
+        const nuevo = control.value.trim ? control.value.trim() : control.value;
+        const original = atributo.valor === null || atributo.valor === undefined
+          ? ''
+          : String(atributo.valor);
+        if (String(nuevo) !== original) {
+          valoresAtributos[clave] = nuevo === '' ? null : nuevo;
+        }
+      }
+
+      if (!Object.keys(cambios).length && !Object.keys(valoresAtributos).length) {
         cerrarModal(true);
         return;
       }
@@ -606,6 +680,14 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       btnGuardar.textContent = 'Guardando…';
       try {
         await api.actualizarDispositivo(deviceId, cambios);
+
+        // Los atributos van en su propia peticion: tienen su endpoint (que
+        // valida cada valor contra la definicion de la categoria) y su
+        // propia fecha de medicion.
+        if (Object.keys(valoresAtributos).length) {
+          await api.guardarAtributos(deviceId, valoresAtributos);
+        }
+
         avisar('Componente actualizado', 'exito', 2500);
         cerrarModal(true);
         cargar();
@@ -700,6 +782,57 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
     });
   }
 
+  /**
+   * Carga y pinta los ATRIBUTOS POR EQUIPO de un equipo.
+   *
+   * Son los valores que son de ESTE equipo y no del modelo. Si la categoria
+   * no define ningun atributo, no se muestra nada: la zona queda vacia en
+   * lugar de un cartel que dice "no hay atributos".
+   *
+   * @param {number} deviceId
+   * @param {HTMLElement} zona
+   */
+  async function cargarAtributos(deviceId, zona) {
+    try {
+      const datos = await api.atributosDe(deviceId);
+      const atributos = datos.atributos ?? [];
+      if (!atributos.length) {
+        zona.replaceChildren();
+        return;
+      }
+
+      const titulo = crear('h3', {
+        clase: 'pequeno tenue',
+        estilo: 'margin:0 0 0.4rem;text-transform:uppercase;letter-spacing:0.04em',
+        texto: 'Atributos de este equipo',
+      });
+
+      const definicion = crear('dl', { clase: 'def' });
+      for (const atributo of atributos) {
+        const dd = crear('dd', { clase: 'mono' });
+        if (atributo.valor === null || atributo.valor === undefined) {
+          dd.textContent = '—';
+          dd.classList.add('tenue');
+        } else if (atributo.data_type === 'boolean') {
+          dd.textContent = atributo.valor ? 'Sí' : 'No';
+        } else {
+          const valor = String(atributo.valor);
+          dd.textContent = atributo.unit ? `${valor} ${atributo.unit}` : valor;
+        }
+        definicion.append(
+          crear('dt', { texto: atributo.label ?? atributo.key }),
+          dd,
+        );
+      }
+
+      zona.replaceChildren(titulo, definicion);
+    } catch (error) {
+      // Los atributos son un extra: si no se pueden cargar, la ficha se ve
+      // igual.
+      zona.replaceChildren();
+    }
+  }
+
   function tarjetaFicha(ficha) {
     const estadoInfo = ESTADOS[ficha.current_status] ?? {
       texto: 'Estado desconocido',
@@ -730,6 +863,17 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
       fila('Instalado hace', `${ficha.dias_instalado} dias`);
     }
     fila('Movimientos registrados', ficha.movimientos_totales);
+
+    // Los ATRIBUTOS POR EQUIPO
+    //
+    // Son los valores que son de ESTE equipo y no del modelo: la IP de
+    // gestion de esta camara, la RAM de esta notebook. Vienen aparte porque
+    // el backend los tiene en otra tabla, y son la diferencia entre dos
+    // equipos del mismo modelo.
+    //
+    // Se piden despues de pintar: la ficha se arma con lo que ya esta en la
+    // mano, y los atributos llegan despues (van en otro endpoint).
+    const zonaAtributos = crear('div', { estilo: 'margin-top:1rem' });
 
     const tarjeta = crear('div', { clase: 'tarjeta' });
     tarjeta.append(
@@ -762,6 +906,9 @@ export function vistaDispositivo(deviceId, { alVolver, permisos = [], alEliminar
         }),
       );
     }
+
+    tarjeta.append(zonaAtributos);
+    cargarAtributos(ficha.id, zonaAtributos);
 
     return tarjeta;
   }

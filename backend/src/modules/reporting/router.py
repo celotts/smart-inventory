@@ -84,7 +84,7 @@ def tiempo_instalacion(
 def ver_valor_libro(
     client_id: int | None = Query(None, gt=0, description="Solo los equipos del cliente."),
     estado: str | None = Query(None, description="Filtra por estado del equipo."),
-    limite: int = Query(500, ge=1, le=2000),
+    limite: int = Query(200, ge=1, le=1000),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
 ) -> dict:
     """

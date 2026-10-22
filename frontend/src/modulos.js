@@ -67,6 +67,15 @@ export const MODULOS = {
     vistas: ['inicio', 'incidencias', 'inventario', 'consultas', 'auditoria', 'usuarios'],
     dashboard: 'helpdesk',
   },
+  escanear: {
+    clave: 'escanear',
+    etiqueta: 'Escanear',
+    titulo: 'Escanear',
+    descripcion: 'Lectura de códigos de barras y QR',
+    icono: 'M3 7l9 12 9-12 9-12 9zM3 7l9 12 9-12 9-12 9z',
+    vistas: ['escanear'],
+    dashboard: 'escanear',
+  },
 };
 
 /**

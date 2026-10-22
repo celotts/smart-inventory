@@ -149,9 +149,21 @@ class Settings(BaseSettings):
     trusted_proxies: str = ""
 
     # --- Rate limit ------------------------------------------------------
-    # Requests por minuto y por IP, para el trafico general.
-    rate_limit_rpm: int = 120
-    rate_limit_burst: int = 30
+    # Requests por minuto, POR USUARIO (por IP cuando no hay sesion).
+    #
+    # EL NUMERO
+    # ---------
+    # 300, y no 120. Una pantalla de la app hace entre 8 y 15 peticiones
+    # (el tablero, la lista, los filtros, la campana, el estado de la IA), y la
+    # campana suma 2 por minuto todo el tiempo. Con 120/min, un operador que
+    # abre y cierra pantallas se encuentra con un 429 sin saber por que.
+    #
+    # Y con el limite POR USUARIO, 300/min es por persona: una empresa con
+    # veinte operadores a la vez puede consumir 6000/min sin que ninguno se
+    # frene. Con el limite por IP (que era como estaba), los veinte
+    # compartian un contador de 120 y se bloqueaban entre si.
+    rate_limit_rpm: int = 300
+    rate_limit_burst: int = 60
 
     # El login tiene su propio límite, más bajo, y es por IP.
     #

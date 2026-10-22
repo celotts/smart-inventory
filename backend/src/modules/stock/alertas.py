@@ -216,7 +216,7 @@ def listar_alertas(
                 {where}
                 ORDER BY
                     reposicion_tarde DESC,
-                    días_bajo_minimo DESC,
+                    dias_bajo_minimo DESC,
                     a.faltante DESC
                 LIMIT :limite
                 """

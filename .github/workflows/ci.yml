@@ -1,0 +1,89 @@
+name: CI — Backend + Front + Playwright
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: smart_inventory
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secretpassword
+        ports: ["5432:5432"]
+        options: >-
+          --health-postgres="postgres -U postgres -c 'SELECT 1'"
+        timeout_minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql://postgres:secretpassword@localhost:5432/smart_inventory
+        run: |
+          cd backend
+          python -m pytest tests/ -q --tb=short
+
+  test-front:
+    name: Front (Node + Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint (syntax check)
+        run: |
+          cd frontend
+          find . -name "*.mjs" -o -name "*.js" | while read f; do
+            npx --no-install tsc --noEmit --skipLibCheck "$f" 2>/dev/null || node --check "$f" 2>/dev/null || echo "WARN: $f"
+          done
+
+      - name: Playwright test
+        run: |
+          cd frontend
+          npx playwright test --config=playwright.config.mjs
+
+  artifacts:
+    if: failure()
+    name: Artifacts on failure
+    needs: [test-backend, test-front]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload logs on failure
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-logs
+          path: |
+            backend/logs/*.log
+            frontend/tests/artifacts/**
+          retention-days: 1

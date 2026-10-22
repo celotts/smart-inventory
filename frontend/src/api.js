@@ -507,7 +507,14 @@ function mensajeDeError(datos, status) {
     }
   }
 
-  if (status === 429) return traducir('Demasiadas solicitudes. Espera un momento.');
+  if (status === 429) {
+    // El mensaje dice QUE hacer, no solo que paso. Un "demasiadas
+    // solicitudes" sin mas le deja al operador pensando que la app esta
+    // rota.
+    return traducir(
+      'Demasiadas solicitudes. Estás haciendo muchas consultas seguidas: espera un momento y volvé a intentar.',
+    );
+  }
   if (status >= 500) return traducir('El servidor tiene un problema. Intenta de nuevo.');
   return `Error ${status}`;
 }
@@ -575,6 +582,17 @@ export const api = {
   listarDispositivos: (params) => pedir('/devices', { params }),
 
   obtenerDispositivo: (id, params) => pedir(`/devices/${id}`, { params }),
+
+  // Los ATRIBUTOS POR EQUIPO: los valores que son de ESTE equipo y no del
+  // modelo (la IP de gestion de esta camara, la RAM de esta notebook).
+  atributosDe: (id) => pedir(`/devices/${id}/atributos`),
+  guardarAtributos: (id, valores, medidoAt = null) =>
+    pedir(`/devices/${id}/atributos`, {
+      metodo: 'PUT',
+      cuerpo: { valores, medido_at: medidoAt },
+    }),
+  buscarPorAtributo: (clave, valor) =>
+    pedir(`/devices/atributos/${encodeURIComponent(clave)}/${encodeURIComponent(valor)}`),
 
   // PATCH y no PUT: se manda Solo lo que el operador toco. El backend ignora
   // las claves ausentes, así que editar el serial no pisa el modelo ni la
@@ -646,7 +664,9 @@ export const api = {
   // --- Stock agregado -------------------------------------------------------
   // La existencia por producto y ubicación: `{items, total}`.
   resumenStock: (params) => pedir('/stock/summary', { params }),
-  stockBajo: () => pedir('/stock/low'),
+  // El stock bajo ahora viene paginado (`items` + `total`), como las demas
+  // listas: con 400 productos bajo minimo eran 4.000 filas de una vez.
+  stockBajo: (params) => pedir('/stock/low', { params }),
 
   // --- Compras (ordenes y recepcion) ---------------------------------------
   ordenesCompra: (params) => pedir('/purchase-orders', { params }),

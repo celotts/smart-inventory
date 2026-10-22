@@ -21,11 +21,15 @@ router = APIRouter(prefix="/api/stock", tags=["stock"])
 )
 def resumen_stock(
     solo_bajo: bool = Query(False, description="Solo modelos con available <= min_stock"),
-    limite: int | None = Query(
-        None,
+    limite: int = Query(
+        200,
         ge=1,
-        le=5000,
-        description="Cuantas filas se devuelven. Sin limite, todas (para los resumenes).",
+        le=1000,
+        description=(
+            "Cuantas filas se devuelven. Con 400 productos en 30 ubicaciones son "
+            "12.000 filas, y el que las pide todas se lleva 1,5 MB de una: por "
+            "eso el limite tiene tope SIEMPRE y no es opcional."
+        ),
     ),
     offset: int = Query(0, ge=0),
     busqueda: str | None = Query(
@@ -65,14 +69,31 @@ def resumen_stock(
     summary="Modelos con stock por debajo del mínimo",
 )
 def stock_bajo(
+    limite: int = Query(200, ge=1, le=1000, description="Cuantas filas se devuelven."),
+    offset: int = Query(0, ge=0),
     _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
-) -> list[dict]:
+) -> dict:
     """
     Modelos donde available_count <= min_stock.
     Incluye suggested_reorder_qty (redondeado a reorder_multiple).
     Para generar órdenes de compra automaticas.
+
+    PAGINADO, Y NO "TODOS"
+    ----------------------
+    Antes devolvía la lista entera. Con 400 productos bajo minimo eran 4.000
+    filas y 1,2 MB en una sola respuesta: el que la pedia se llevaba la
+    tabla completa en memoria, y el navegador la parseaba entera para
+    mostrar 25.
+
+    Ahora devuelve `items` y `total`, como las demás listas.
     """
-    return service.stock_bajo()
+    filas = service.stock_bajo()
+    return {
+        "items": filas[offset : offset + limite],
+        "total": len(filas),
+        "limit": limite,
+        "offset": offset,
+    }
 
 
 @router.get(

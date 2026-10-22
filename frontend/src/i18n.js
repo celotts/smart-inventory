@@ -50,6 +50,10 @@ export const IDIOMAS = [
 export const TRADUCCIONES = {
   // --- Los roles ---
   'Administrador': 'Administrator',
+  // El limite de peticiones. El mensaje dice QUE hacer, no solo que paso.
+  'Demasiadas solicitudes. Espera un momento.': 'Too many requests. Wait a moment.',
+  'Demasiadas solicitudes. Estás haciendo muchas consultas seguidas: espera un momento y volvé a intentar.':
+    'Too many requests. You are making too many calls in a row: wait a moment and try again.',
   'Técnico': 'Technician',
   'Operador': 'Operator',
   'Auditor': 'Auditor',
@@ -72,6 +76,13 @@ export const TRADUCCIONES = {
   'Eventos del sistema': 'System events',
   'Movimientos de inventario': 'Inventory movements',
   'Mis casos': 'My cases',
+  // Las cuatro pestanas del Service Desk.
+  'Sin atender': 'Unassigned',
+  'Casos que vencen': 'Cases about to expire',
+  'Abiertas por severidad': 'Open by severity',
+  'Trabajo pendiente': 'Pending work',
+  'Stock por producto': 'Stock by product',
+  'Historial de movimientos': 'Movement history',
   'Escaneos de la sesión': 'Session scans',
   'Estado de la IA': 'AI status',
   'Estado desconocido': 'Unknown status',

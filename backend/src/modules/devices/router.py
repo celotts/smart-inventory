@@ -34,7 +34,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from src.core.deps import exigir
 from src.core.permissions import Permiso
 from src.modules.devices import qr, service
-from src.modules.devices.schemas import (
+from src.modules.devices.schemas import (    GuardarAtributosRequest,
+
     ActualizarDispositivoRequest,
     BajaDispositivoRequest,
     CrearDispositivoRequest,
@@ -304,6 +305,86 @@ def actualizar(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"El {campo} no corresponde a ningun registro del catalogo.",
         ) from exc
+
+
+@router.get(
+    "/{device_id}/atributos",
+    summary="Los atributos de un equipo",
+)
+def listar_atributos(
+    device_id: int,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> dict:
+    """
+    Los atributos del equipo, con su definicion y su valor.
+
+    Se ve lo que esta DEFINIDO para la categoria (con su tipo y sus
+    opciones) y lo que esta CARGADO: un atributo sin valor sale con
+    `valor: null`, para que el operador sepa que falta cargarlo y no que
+    no existe.
+    """
+    from src.modules.devices import atributos as atributos_service
+
+    try:
+        return {"device_id": device_id, "atributos": atributos_service.atributos_de(device_id)}
+    except atributos_service.EquipoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.put(
+    "/{device_id}/atributos",
+    summary="Cargar los atributos de un equipo",
+)
+def guardar_atributos(
+    device_id: int,
+    pedido: GuardarAtributosRequest,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_EDITAR)),
+) -> dict:
+    """
+    Carga los atributos del equipo.
+
+    Es PARCIAL: los atributos que vienen se guardan, los que no vienen se
+    quedan como estaban. Y un atributo con valor `null` se borra.
+
+    Se valida cada valor contra la definicion de la categoria: un numero
+    donde va un numero, y un valor de la lista cuando el atributo tiene
+    opciones. Si uno esta mal, NO se guarda ninguno: una ficha a medias es
+    peor que una ficha sin tocar.
+    """
+    from src.modules.devices import atributos as atributos_service
+
+    try:
+        atributos_service.guardar(device_id, pedido.valores, medido_at=pedido.medido_at)
+    except atributos_service.EquipoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except atributos_service.AtributoInvalido as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return {"device_id": device_id, "atributos": atributos_service.atributos_de(device_id)}
+
+
+@router.get(
+    "/atributos/{clave}/{valor}",
+    summary="Los equipos que tienen un atributo con ese valor",
+)
+def buscar_por_atributo(
+    clave: str,
+    valor: str,
+    _usuario: UsuarioActual = Depends(exigir(Permiso.DISPOSITIVOS_VER)),
+) -> dict:
+    """
+    "Todas las camaras con la IP 10.0.0.5", "los equipos con 8 GB de RAM".
+
+    Es la pregunta que justifica que los valores esten indexados.
+    """
+    from src.modules.devices import atributos as atributos_service
+
+    try:
+       Devices = atributos_service.buscar_por_atributo(clave, valor)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {"clave": clave, "valor": valor, "items": Devices}
 
 
 @router.delete(
