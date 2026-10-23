@@ -26,6 +26,8 @@ import { abrirDialogo, confirmar } from '../dialogo.js';
 import { avisar } from '../avisos.js';
 import { conTooltip } from '../tooltip.js';
 import { descargarCsv } from '../descargas.js';
+import QRCode from 'qrcode';
+import bwipjs from 'bwip-js';
 
 /** Tipos de movimiento - se cargan dinamicamente desde /api/movement-types */
 let TIPOS_MOVIMIENTO = [];
@@ -533,6 +535,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   /**
    * Muestra el código leído en un panel lateral al marco (modo mira).
    * En modo mira (sin video), da feedback inmediato al lado del escáner.
+   * Genera QR real o código de barras real según el formato.
    */
   let timeoutCodigoEnPanel = null;
   function mostrarCodigoEnPanel(codigo, formato) {
@@ -550,6 +553,12 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       }
     }
     
+    const esQR = formato?.startsWith('qr') || formato?.startsWith('data_matrix') || 
+                 formato?.startsWith('aztec') || formato?.startsWith('pdf417');
+    const esBarra = formato?.startsWith('code_') || formato?.startsWith('ean_') || 
+                    formato?.startsWith('upc_') || formato?.startsWith('itf') || 
+                    formato?.startsWith('code_39') || formato?.startsWith('code_93');
+    
     const nombreFormato = {
       qr_code: 'QR',
       code_128: 'Code 128',
@@ -565,13 +574,58 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       aztec: 'Aztec',
     }[formato] || formato;
     
-    panel.innerHTML = `
+    let contenidoHTML = `
       <div class="panel-codigo-leido__header">
         <span class="panel-codigo-leido__etiqueta">Último leído</span>
         <span class="panel-codigo-leido__formato">${nombreFormato}</span>
       </div>
-      <div class="panel-codigo-leido__codigo">${codigo}</div>
     `;
+    
+    if (esQR) {
+      contenidoHTML += `<div class="panel-codigo-leido__qr"><canvas id="feedback-qr-canvas" width="140" height="140"></canvas></div>`;
+    } else if (esBarra) {
+      contenidoHTML += `<div class="panel-codigo-leido__barcode"><svg id="feedback-barcode-svg" width="100%" height="70"></svg></div>`;
+    }
+    
+    contenidoHTML += `<div class="panel-codigo-leido__codigo">${codigo}</div>`;
+    
+    panel.innerHTML = contenidoHTML;
+    panel.hidden = false;
+    
+    // Generar QR o código de barras real de forma asíncrona
+    setTimeout(async () => {
+      try {
+        if (esQR) {
+          const canvas = document.getElementById('feedback-qr-canvas');
+          if (canvas) {
+            await QRCode.toCanvas(canvas, codigo, { 
+              width: 140, 
+              margin: 1, 
+              color: { dark: '#0f172a', light: '#ffffff' },
+              errorCorrectionLevel: 'M'
+            });
+          }
+        } else if (esBarra) {
+          const svg = document.getElementById('feedback-barcode-svg');
+          if (svg) {
+            const svgString = await bwipjs.toSVG({
+              bcid: 'code128',
+              text: codigo,
+              scale: 2,
+              height: 10,
+              includetext: true,
+              textxalign: 'center',
+              textsize: 10,
+              textfont: 'monospace'
+            });
+            svg.innerHTML = svgString;
+          }
+        }
+      } catch (e) {
+        console.warn('Error generando feedback visual:', e);
+      }
+    }, 0);
+    
     panel.hidden = false;
     
     // Auto-ocultar después de 3 segundos

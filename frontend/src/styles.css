@@ -1171,7 +1171,7 @@ textarea.campo__control {
   margin-inline: auto;
   border-radius: var(--radio);
   overflow: hidden;
-  background: var(--visor);
+  background: transparent;
   border: 1px solid var(--borde);
 }
 
@@ -1211,6 +1211,18 @@ textarea.campo__control {
   width: auto;
   aspect-ratio: 1;
   pointer-events: none;
+  transition: width 200ms ease, height 200ms ease, aspect-ratio 200ms ease;
+}
+
+/* Mira adaptada para códigos de barras (rectangular horizontal) */
+.escaner-marco--lineal .escaner-mira {
+  height: 35%;
+  width: 85%;
+  aspect-ratio: auto;
+  top: auto;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /**
@@ -1398,6 +1410,61 @@ textarea.campo__control {
   letter-spacing: 0.02em;
   word-break: break-all;
   line-height: 1.3;
+}
+
+/* Clases para el panel de feedback QR/Barcode */
+.panel-codigo-leido__qr {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+}
+.panel-codigo-leido__qr canvas {
+  border: 1px solid #334155;
+  border-radius: 4px;
+  background: white;
+}
+.panel-codigo-leido__barcode {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel-codigo-leido__barcode svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Texto del botón de toggle de cámara */
+.boton__texto {
+  display: inline-block;
+}
+.boton__texto-corto {
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Panel de feedback QR/Barcode en el marco */
+.panel-feedback-codigo__qr {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+}
+.panel-feedback-codigo__qr canvas {
+  border: 1px solid #334155;
+  border-radius: 4px;
+  background: white;
+}
+.panel-feedback-codigo__barcode {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel-feedback-codigo__barcode svg {
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes slideInRight {
@@ -1807,6 +1874,18 @@ textarea.campo__control {
   gap: 0.5rem;
   width: min(92vw, 420px);
   pointer-events: none;
+  transition: width 200ms ease, height 200ms ease, aspect-ratio 200ms ease;
+}
+
+/* Mira adaptada para códigos de barras (rectangular horizontal) */
+.escaner-marco--lineal .escaner-mira {
+  height: 35%;
+  width: 85%;
+  aspect-ratio: auto;
+  top: auto;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .aviso {
@@ -3316,6 +3395,7 @@ body[data-modulo="helpdesk"] {
 .cabecera__modulo--no-disponible {
   visibility: hidden;
   pointer-events: none;
+  transition: width 200ms ease, height 200ms ease, aspect-ratio 200ms ease;
 }
 
 /* Un KPI QUE LLEVA A OTRO LADO TIENE QUE PARECER UN BOTON
