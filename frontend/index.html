@@ -22,6 +22,9 @@
   <link rel="apple-touch-icon" href="/icons/icon-180.png" />
   <link rel="stylesheet" href="/src/styles.css" />
 
+  <!-- Import map externa para resolver módulos npm en el navegador sin bundler -->
+  <link rel="importmap" href="/importmap.json">
+
   <!--
     =====================================================================
     SIN SCRIPT INLINE. TODO.
@@ -30,11 +33,6 @@
     forma de permitirlo es `unsafe-inline`, que desactiva la proteccion contra
     XSS por completo. Ademas `unsafe-eval` esta PROHIBIDO a proposito: es lo que
     permite a un atacante ejecutar codigo de un string.
-
-    La version anterior de esta pagina era UN archivo con ~250 lineas de
-    `<script>` inline. Con `unsafe-inline` en la CSP, cualquier inyeccion de
-    HTML se ejecuta. Por eso ahora todo el JS vive en modulos en /src y la CSP
-    de nginx no necesita ceder nada.
   -->
 </head>
 <body>

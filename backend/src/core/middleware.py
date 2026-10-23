@@ -91,7 +91,7 @@ SECURITY_HEADERS = {
 # inyeccion de HTML se colara en una respuesta, `script-src 'none'` la deja sin
 # poder ejecutarse aunque haya entrado.
 #
-# `style-src 'unsafe-inline'`: NO es ideal y es un precio consciente. Sin eso,
+# `style-src 'unsafe-inline' https://fonts.googleapis.com`: NO es ideal y es un precio consciente. Sin eso,
 # los estilos de los componentes con estilos inline no funcionan. Es lo único
 # que se cede, y es lo único que puede ejecutar CSS, no JS.
 #
@@ -100,9 +100,10 @@ SECURITY_HEADERS = {
 #
 # `font-src 'self' https://fonts.gstatic.com`: permite cargar fuentes de Google Fonts.
 # `style-src 'unsafe-inline' https://fonts.googleapis.com`: permite cargar CSS de Google Fonts.
+# `script-src 'nonce-{nonce}' 'strict-dynamic'`: permite scripts con nonce y módulos que confían en el nonce.
 CSP_API = (
     "default-src 'none'; "
-    "script-src 'none'; "
+    "script-src 'nonce-{nonce}' 'strict-dynamic'; "
     "style-src 'unsafe-inline' https://fonts.googleapis.com; "
     "img-src 'self' data:; "
     "font-src 'self' https://fonts.gstatic.com; "
@@ -115,17 +116,32 @@ CSP_API = (
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Generar nonce para CSP
+        nonce = uuid.uuid4().hex
+        request.state.csp_nonce = nonce
+
         response = await call_next(request)
 
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
+
+        # Rutas que son API (necesitan CSP estricta sin scripts)
+        es_api = request.url.path.startswith(("/api/", "/health", "/api/"))
 
         # La CSP va Solo en las respuestas de la API. En `/docs` no, porque
         # Swagger UI carga sus scripts de un CDN y una CSP de API lo dejaria en
         # blanco. El reason es el mismo por el que no se sirve `/docs` en
         # producción: es una superficie, no un endpoint de negocio.
         if not request.url.path.startswith(("/docs", "/redoc")):
-            response.headers.setdefault("Content-Security-Policy", CSP_API)
+            if es_api:
+                # API: CSP estricta sin scripts
+                csp = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            else:
+                # Frontend: CSP con nonce para permitir scripts con nonce
+                csp = CSP_API.format(nonce=nonce)
+            response.headers.setdefault("Content-Security-Policy", csp)
+            # Pasar nonce a los templates si se renderizan
+            request.state.csp_nonce = nonce
 
         # HSTS solo si viene por HTTPS (evita romper dev local)
         if request.url.scheme == "https":

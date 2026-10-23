@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "qrcode": "https://esm.sh/qrcode@1.5.3",
+    "bwip-js": "https://esm.sh/bwip-js@4.5.1"
+  }
+}

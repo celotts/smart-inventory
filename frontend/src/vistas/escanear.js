@@ -46,7 +46,8 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let zonaVacia = null;
   let mira = null;
   let botonCamara = null;
-  let vacioIcono = null;
+  let botonToggleVideo = null;
+  let vacioIcono = null;;
   let vacioTexto = null;
   let vacioPista = null;
   let timerSinLectura = null;
@@ -205,7 +206,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   });
 
   // Botón cámara: toggle on/off - integrado en barra de controles
-  const botonCamara = crear('button', {
+  botonCamara = crear('button', {
     clase: 'boton boton--camara-toggle',
     atributos: {
       type: 'button',
@@ -224,7 +225,7 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   );
 
   // Toggle: modo video visible (debug) vs modo mira (producción)
-  const botonToggleVideo = crear('button', {
+  botonToggleVideo = crear('button', {
     clase: 'boton boton--toggle-modo',
     atributos: {
       type: 'button',
