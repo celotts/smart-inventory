@@ -39,7 +39,6 @@ from src.modules.users.models import (
     listar_roles,
 )
 from src.modules.users.schemas import (
-    PasswordStrengthRequest,
     ActualizarUsuarioRequest,
     CambiarPasswordRequest,
     CrearUsuarioRequest,
@@ -47,6 +46,7 @@ from src.modules.users.schemas import (
     LoginRequest,
     LoginResponse,
     MiPerfilResponse,
+    PasswordStrengthRequest,
     RefreshRequest,
     ResetPasswordRequest,
     SesionActiva,

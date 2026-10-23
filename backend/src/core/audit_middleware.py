@@ -5,7 +5,7 @@ Registra IP, user_agent y user_id en cada request para trazabilidad completa.
 from __future__ import annotations
 
 import contextvars
-from typing import Callable
+from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import Request, Response

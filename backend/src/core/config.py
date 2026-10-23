@@ -192,6 +192,42 @@ class Settings(BaseSettings):
     # filas en un POST.
     scan_batch_max: int = 500
 
+    # --- Localización ------------------------------------------------------
+    # País activo para validaciones (RUT/RFC), comunas/estados, feriados, moneda.
+    # ISO 3166-1 alpha-2: "CL", "MX", "CO", "PE", "US", ...
+    localization_country: str = "CL"
+
+    # --- WAF / Seguridad -------------------------------------------------
+    # Habilitar WAF (patrones de ataque + rate limit anónimo)
+    waf_enabled: bool = True
+    # Solo loggear, no bloquear (para tuning en staging)
+    waf_log_only: bool = False
+    # CIDR de redes de confianza (oficina, VPN, CI/CD) - Skip WAF y rate limit
+    # Ej: "200.50.10.0/24,192.168.1.0/24,10.0.0.0/8"
+    waf_whitelist: str = ""
+    # Bloqueos antes de ban persistente (15 min)
+    waf_block_threshold: int = 10
+    # Duración del ban persistente (segundos)
+    waf_block_duration: int = 900
+
+    @property
+    def waf_whitelist_networks(self) -> list:
+        """Redes CIDR de confianza parseadas."""
+        import ipaddress
+        redes = []
+        for texto in self.waf_whitelist.split(","):
+            texto = texto.strip()
+            if not texto:
+                continue
+            try:
+                redes.append(ipaddress.ip_network(texto, strict=False))
+            except ValueError:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "WAF_WHITELIST: '%s' no es una red válida y se ignora", texto
+                )
+        return redes
+
     @property
     def cors_origins_list(self) -> list[str]:
         """

@@ -21,7 +21,8 @@ termina. Con un árbol sano de tres niveles, nunca se llega al límite.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 # A partir de está profundidad se corta el recorrido. Un árbol sano de
 # categorías o de ubicaciones tiene 2 o 3 niveles: 10 es holgado.

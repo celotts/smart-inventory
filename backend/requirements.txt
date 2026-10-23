@@ -30,6 +30,9 @@ bcrypt==4.2.1
 # de las que uno quiere en la pieza que decide quien es admin.
 PyJWT==2.10.1
 
+# TOTP / MFA (2FA)
+pyotp==2.10.0
+
 # QR de la etiqueta del equipo.
 #
 # `qrcode` es Python puro: ni una extension compilada, ni un binario. Se usa

@@ -97,12 +97,15 @@ SECURITY_HEADERS = {
 #
 # `connect-src 'self'`: la API no puede ser llamada desde otro origen por el
 # navegador, sin importar que diga CORS.
+#
+# `font-src 'self' https://fonts.gstatic.com`: permite cargar fuentes de Google Fonts.
+# `style-src 'unsafe-inline' https://fonts.googleapis.com`: permite cargar CSS de Google Fonts.
 CSP_API = (
     "default-src 'none'; "
     "script-src 'none'; "
-    "style-src 'unsafe-inline'; "
+    "style-src 'unsafe-inline' https://fonts.googleapis.com; "
     "img-src 'self' data:; "
-    "font-src 'self'; "
+    "font-src 'self' https://fonts.gstatic.com; "
     "connect-src 'self'; "
     "base-uri 'none'; "
     "form-action 'none'; "

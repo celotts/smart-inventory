@@ -39,6 +39,7 @@ from typing import Any
 
 import bcrypt
 import jwt
+import pyotp
 
 from src.core.config import get_settings
 
@@ -457,3 +458,212 @@ def obtener_info_fortaleza_password(password: str) -> dict:
         "requisitos": requisitos,
         "es_valida": es_valida,
     }
+
+
+# ---------------------------------------------------------------------------
+# Device Fingerprinting (para binding de refresh token a dispositivo)
+# ---------------------------------------------------------------------------
+
+def generar_device_fingerprint(
+    user_agent: str | None,
+    ip: str | None,
+    *,
+    extra: str | None = None,
+) -> tuple[str, str]:
+    """
+    Genera un fingerprint de dispositivo determinista pero no reversible.
+
+    Devuelve (fingerprint_hash, device_name_legible).
+
+    - fingerprint_hash: SHA-256 truncado a 64 chars (32 bytes), para guardar en BD
+    - device_name: string legible para UI "mis sesiones" (ej. "Chrome 119 / Windows 10")
+
+    El fingerprint incluye:
+    - User-Agent (navegador + SO)
+    - IP (red, no host completo para privacidad)
+    - `extra`: opcional, para añadir entropía del cliente (canvas, screen, etc.)
+
+    NO incluye datos personales. Es determinista: mismo dispositivo -> mismo hash.
+    """
+    ua = (user_agent or "").strip()
+    ip_part = (ip or "").split(",")[0].strip() if ip else ""
+
+    # Reducir IP a /24 (IPv4) o /64 (IPv6) para no trackear host individual
+    import ipaddress
+    try:
+        ip_obj = ipaddress.ip_address(ip_part)
+        if isinstance(ip_obj, ipaddress.IPv4Address):
+            ip_part = str(ipaddress.IPv4Network(f"{ip_part}/24", strict=False).network_address)
+        else:
+            ip_part = str(ipaddress.IPv6Network(f"{ip_part}/64", strict=False).network_address)
+    except ValueError:
+        pass  # no es IP válida, usar tal cual
+
+    # Nombre legible: extraer browser + OS del UA (heurística simple)
+    device_name = "Dispositivo desconocido"
+    if ua:
+        # Chrome/Edge/Firefox/Safari + Windows/Mac/Linux/Android/iOS
+        browser = "Desconocido"
+        os_name = "Desconocido"
+        ua_lower = ua.lower()
+        if "edg/" in ua_lower:
+            browser = "Edge"
+        elif "chrome/" in ua_lower and "edg/" not in ua_lower:
+            browser = "Chrome"
+        elif "firefox/" in ua_lower:
+            browser = "Firefox"
+        elif "safari/" in ua_lower and "chrome/" not in ua_lower:
+            browser = "Safari"
+        if "windows" in ua_lower:
+            os_name = "Windows"
+        elif "macintosh" in ua_lower or "mac os" in ua_lower:
+            os_name = "macOS"
+        elif "linux" in ua_lower and "android" not in ua_lower:
+            os_name = "Linux"
+        elif "android" in ua_lower:
+            os_name = "Android"
+        elif "iphone" in ua_lower or "ipad" in ua_lower:
+            os_name = "iOS"
+        device_name = f"{browser} / {os_name}"
+
+    # Hash determinista
+    material = f"{ua}|{ip_part}|{extra or ''}".encode()
+    fp_hash = hashlib.sha256(material).hexdigest()
+
+    return fp_hash, device_name
+
+
+def verificar_device_fingerprint(
+    fingerprint_guardado: str,
+    user_agent: str | None,
+    ip: str | None,
+    *,
+    extra: str | None = None,
+    tolerancia: bool = True,
+) -> bool:
+    """
+    Verifica si el fingerprint actual coincide con el guardado.
+
+    `tolerancia=True`: permite variaciones menores en UA (versión de navegador).
+    Compara solo los primeros 16 chars (8 bytes = 64 bits) para permitir
+    actualizaciones menores de navegador sin forzar re-login.
+    """
+    if not fingerprint_guardado:
+        return True  # sin fingerprint guardado = primer uso, permitir
+
+    fp_actual, _ = generar_device_fingerprint(user_agent, ip, extra=extra)
+
+    if tolerancia:
+        # Comparar prefijo de 16 chars (64 bits) para tolerar cambios de versión
+        return fp_actual[:16] == fingerprint_guardado[:16]
+
+    return hmac.compare_digest(fp_actual, fingerprint_guardado)
+
+
+# ---------------------------------------------------------------------------
+# TOTP (MFA / 2FA) - RFC 6238
+# ---------------------------------------------------------------------------
+
+def generar_totp_secret() -> str:
+    """
+    Genera un secreto base32 para TOTP (32 chars = 160 bits, RFC 6238 compliant).
+    """
+    return pyotp.random_base32(length=32)
+
+
+def get_totp_uri(secret: str, email: str, issuer: str = "SmartInventory") -> str:
+    """
+    Genera la URI `otpauth://` para QR code en apps autenticadoras (Google Auth, Authy, etc.).
+    """
+    return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name=issuer)
+
+
+def verificar_totp(secret: str, token: str, *, window: int = 1) -> bool:
+    """
+    Verifica un código TOTP.
+
+    `window=1`: acepta código anterior/actual/siguiente (30s cada uno) para tolerar
+    desfase de reloj. `window=0` = solo código actual.
+    """
+    if not secret or not token:
+        return False
+    totp = pyotp.TOTP(secret)
+    return totp.verify(token, valid_window=window)
+
+
+def generar_recovery_codes(cantidad: int = 8, longitud: int = 10) -> list[str]:
+    """
+    Genera códigos de recuperación alfanuméricos (mayúsculas + dígitos, sin ambiguos).
+
+    Devuelve lista de códigos en CLARO (solo se muestran UNA vez al usuario).
+    La app debe hashearlos con bcrypt antes de guardar.
+    """
+    alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sin I, O, 0, 1
+    return [
+        "".join(secrets.choice(alfabeto) for _ in range(longitud))
+        for _ in range(cantidad)
+    ]
+
+
+def hashear_recovery_codes(codigos: list[str]) -> list[str]:
+    """Hashea lista de códigos con bcrypt para almacenamiento seguro."""
+    return [bcrypt.hashpw(c.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8") for c in codigos]
+
+
+def verificar_recovery_code(codigo_recibido: str, hashes_guardados: list[str]) -> tuple[bool, int]:
+    """
+    Verifica un código de recuperación contra lista de hashes.
+
+    Devuelve (valido, indice): si válido, el índice del hash usado (para marcarlo consumido).
+    Uso único: la app debe REMOVER el hash de la lista tras uso exitoso.
+    """
+    for i, h in enumerate(hashes_guardados):
+        if bcrypt.checkpw(codigo_recibido.encode("utf-8"), h.encode("utf-8")):
+            return True, i
+    return False, -1
+
+
+# ---------------------------------------------------------------------------
+# Password Rotation & History Helpers
+# ---------------------------------------------------------------------------
+
+PASSWORD_HISTORY_MAX = 12  # cuántos hashes previos recordar (no reutilizar)
+
+def password_en_historial(password: str, historial_hashes: list[str]) -> bool:
+    """
+    Verifica si la password (en claro) coincide con alguno de los hashes del historial.
+    """
+    for h in historial_hashes:
+        if bcrypt.checkpw(password.encode("utf-8"), h.encode("utf-8")):
+            return True
+    return False
+
+
+def password_requiere_rotacion(
+    password_changed_at: datetime | None,
+    password_rotation_days: int | None,
+    password_must_change: bool = False,
+) -> bool:
+    """
+    Determina si la contraseña debe rotarse.
+
+    - `password_must_change=True` -> siempre True (forced reset)
+    - `password_rotation_days <= 0` -> nunca rota
+    - `password_changed_at` None -> nunca cambió, forzar
+    - Sino, compara fecha actual contra `password_changed_at + rotation_days`
+    """
+    if password_must_change:
+        return True
+
+    if not password_rotation_days or password_rotation_days <= 0:
+        return False
+
+    if password_changed_at is None:
+        return True
+
+    # Asegurar timezone-aware
+    if password_changed_at.tzinfo is None:
+        password_changed_at = password_changed_at.replace(tzinfo=UTC)
+
+    expira = password_changed_at + timedelta(days=password_rotation_days)
+    return datetime.now(UTC) >= expira

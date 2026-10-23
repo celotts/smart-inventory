@@ -51,7 +51,9 @@ def get_db():
 COLUMNAS_USUARIO = """
     u.id, u.email, u.full_name, u.address, u.phone, u.phone2,
     u.is_active, u.is_specialist, u.role_id,
-    u.created_at, u.updated_at, u.deleted_at
+    u.created_at, u.updated_at, u.deleted_at,
+    u.password_changed_at, u.password_must_change, u.password_rotation_days,
+    u.totp_enabled, u.totp_last_used_at
 """
 
 

@@ -226,21 +226,22 @@ app = FastAPI(
 # vistazo.
 from src.core.exceptions import register_exception_handlers
 from src.core.security import verificar_configuracion_de_secreto
+from src.core.localization.router import router as localization_router
 from src.modules.ai.router import router as ai_router
-from src.modules.catalog.router import router as catalog_router
 from src.modules.audit.router import router as audit_router
+from src.modules.catalog.router import router as catalog_router
 from src.modules.devices.router import router as devices_router
-from src.modules.movements.router import router as movements_router
-from src.modules.users.router import router as auth_router
-from src.modules.users.router import usuarios_router
-from src.modules.operations.router import router as ops_router
-from src.modules.stock.router import router as stock_router
+from src.modules.export.router import router as export_router
+from src.modules.incidents.router import router as incidents_router
+from src.modules.locations.router import router as locations_router
 from src.modules.maintenance.router import router as maintenance_router
+from src.modules.movements.router import router as movements_router
+from src.modules.operations.router import router as ops_router
 from src.modules.purchasing.router import router as purchasing_router
 from src.modules.reporting.router import router as reporting_router
-from src.modules.locations.router import router as locations_router
-from src.modules.incidents.router import router as incidents_router
-from src.modules.export.router import router as export_router
+from src.modules.stock.router import router as stock_router
+from src.modules.users.router import router as auth_router
+from src.modules.users.router import usuarios_router
 
 # Falla en el ARRANQUE y no en el primer login. Un deploy sin SECRET_KEY tiene
 # que caerse en el pipeline, no un martes a la tarde en producción.
@@ -254,10 +255,17 @@ from src.core.middleware import (
     SecurityHeadersMiddleware,
     configurar_cors,
 )
+from src.core.waf import register_waf
 
 configurar_cors(app)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIdMiddleware)
+
+# WAF: primera barrera de defensa en profundidad (antes del rate limit)
+# En producción bloquea; en desarrollo solo loggea (log_only=True)
+_es_produccion = os.getenv("APP_ENV", "production").lower() in ("production", "prod")
+register_waf(app, log_only=not _es_produccion)
+
 # El orden importa. `add_middleware` los mete al PRINCIPIO de la pila, así que
 # el último agregado es el más externo: el rate limit ve la request antes que
 # el parser de cuerpo y antes de que se abra la sesión. Un límite que se
@@ -266,6 +274,7 @@ app.add_middleware(RequestIdMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(LoginRateLimitMiddleware)
 
+app.include_router(localization_router)
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(usuarios_router)
@@ -308,7 +317,7 @@ def health() -> Response:
             content=(
                 '{"status": "degraded", "database": "unreachable", '
                 f'"detail": "{error}"}}'
-            ).encode("utf-8"),
+            ).encode(),
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             media_type="application/json",
         )
@@ -356,7 +365,7 @@ if __name__ == "__main__":
 try:
     from src.core.audit_middleware import AuditMiddleware
     app.add_middleware(AuditMiddleware)
-except Exception as e:
+except ImportError as e:
     print(f"Warning: No se pudo cargar AuditMiddleware: {e}")
 
 # LA BITACORA DE TRANSACCIONES
@@ -371,5 +380,5 @@ except Exception as e:
 try:
     from src.core.transacciones_middleware import TransaccionesMiddleware
     app.add_middleware(TransaccionesMiddleware)
-except Exception as e:
+except ImportError as e:
     print(f"Warning: No se pudo cargar TransaccionesMiddleware: {e}")

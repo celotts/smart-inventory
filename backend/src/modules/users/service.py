@@ -27,7 +27,11 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from src.core.security import hashear_password, validar_password
+from src.core.security import (
+    hashear_password,
+    password_en_historial,
+    validar_password,
+)
 from src.modules.users.models import (
     COLUMNAS_USUARIO,
     ErrorDeUsuario,
@@ -325,6 +329,10 @@ def cambiar_password(
     password change: con un token robado (o con la sesión abierta en un
     navegador compartido) un atacante se cambia la contraseña y echa al dueño
     de su propia cuenta.
+
+    NUEVO: Verifica historial de contraseñas (no reutilizar las últimas 12).
+    Actualiza password_changed_at, password_must_change=False.
+    Inserta en password_history.
     """
     actor_id = _exigir_actor(actor_id)
 
@@ -345,17 +353,57 @@ def cambiar_password(
             raise ErrorDeUsuario("La contraseña actual no es correcta.")
 
     validar_password(password_nueva)
+
+    # --- PASSWORD HISTORY CHECK ---
+    # Obtener últimos hashes del historial
+    with get_db().connect() as conexion:
+        historial = conexion.execute(
+            text("""
+                SELECT password_hash FROM password_history
+                WHERE user_id = :user_id
+                ORDER BY created_at DESC
+                LIMIT 12
+            """),
+            {"user_id": user_id},
+        ).mappings().all()
+
+    historial_hashes = [h["password_hash"] for h in historial]
+
+    # También verificar contra el hash ACTUAL (no está en history hasta commit)
+    from src.modules.users.models import buscar_usuario_por_email
+    actual = buscar_usuario_por_email(usuario["email"], incluir_password=True)
+    if actual and actual.get("password_hash"):
+        historial_hashes.insert(0, actual["password_hash"])
+
+    if password_en_historial(password_nueva, historial_hashes):
+        raise ErrorDeUsuario(
+            "Esta contraseña ya fue usada recientemente. Elige una distinta "
+            "(no se pueden reutilizar las últimas 12)."
+        )
+
     nuevo_hash = hashear_password(password_nueva)
 
     with get_db().connect() as conexion:
         transaccion = conexion.begin()
+        # Actualizar password + campos de rotación
         conexion.execute(
             text("""
                 UPDATE users
-                SET password = :password, updated_by_user_id = :actor_id
+                SET password = :password,
+                    updated_by_user_id = :actor_id,
+                    password_changed_at = NOW(),
+                    password_must_change = FALSE
                 WHERE id = :user_id
             """),
             {"password": nuevo_hash, "actor_id": actor_id, "user_id": user_id},
+        )
+        # Insertar en historial
+        conexion.execute(
+            text("""
+                INSERT INTO password_history (user_id, password_hash, created_by_user_id)
+                VALUES (:user_id, :password_hash, :actor_id)
+            """),
+            {"user_id": user_id, "password_hash": nuevo_hash, "actor_id": actor_id},
         )
         transaccion.commit()
 
@@ -479,7 +527,7 @@ def desactivar_usuario(user_id: str, actor_id: str) -> dict[str, Any]:
 
     # Cerrar las sesiones de un usuario desactivado es parte de desactivarlo.
     # Si no, su access token sigue sirviendo hasta los 15 minutos.
-    revocar_todas_las_sesiones(user_id, motivo="usuario desactivado")  # noqa: F821
+    revocar_todas_las_sesiones(user_id, motivo="usuario desactivado")
 
     return obtener_usuario(user_id)
 

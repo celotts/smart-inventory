@@ -68,6 +68,9 @@ export function vistaEscanear({ alAbrirDispositivo }) {
   let chipsContainer = null;
   let segmentoActivo = 'escanear'; // 'escanear' | 'manual'
 
+  // Configuración: modo video visible (debug/demo) vs modo mira (producción)
+  let mostrarVideo = false; // false = modo mira (solo overlay), true = video visible
+
   // ============================================================
   // CONSTRUCCION DE LA UI
   // ============================================================
@@ -199,21 +202,50 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     texto: 'QR: encuadra la etiqueta dentro del cuadro. Código de barras: gira el celular en horizontal y llena la franja.',
   });
 
-  // Botón cámara: toggle on/off con tooltip
-  botonCamara = crear('button', {
-    clase: 'boton boton--bloque boton--camara',
+  // Botón cámara: toggle on/off - integrado en barra de controles
+  const botonCamara = crear('button', {
+    clase: 'boton boton--camara-toggle',
     atributos: {
       type: 'button',
       'aria-label': 'Alternar cámara del escaner',
       'aria-pressed': 'false',
+      title: 'Encender / apagar cámara (Ctrl+Shift+C)',
     },
-    hijos: [icono(ICONOS.camara, { tamano: 20 }), crear('span', { texto: 'Encender cámara' })],
+    hijos: [
+      icono(ICONOS.camara, { tamano: 22 }),
+      crear('span', { clase: 'boton__texto', texto: 'Encender cámara' }),
+    ],
   });
   conTooltip(
     botonCamara,
-    'Enciende o apaga la camara. La camara se queda encendida entre escaneos: ' +
-      'podés pasar el celu sobre las etiquetas sin tocar la pantalla.',
+    'Enciende o apaga la cámara. La cámara se queda encendida entre escaneos: podés pasar el celu sobre las etiquetas sin tocar la pantalla.',
   );
+
+  // Toggle: modo video visible (debug) vs modo mira (producción)
+  const botonToggleVideo = crear('button', {
+    clase: 'boton boton--toggle-modo',
+    atributos: {
+      type: 'button',
+      'aria-label': 'Alternar video visible / mira',
+      'aria-pressed': 'false',
+      title: 'Ctrl+Shift+V: Video visible / mira',
+    },
+    hijos: [
+      icono(ICONOS.camara, { tamano: 18 }),
+      crear('span', { clase: 'boton__texto-corto', texto: 'Video' }),
+    ],
+  });
+  conTooltip(botonToggleVideo, 'Video visible (debug) / Solo mira (producción). Atajo: Ctrl+Shift+V');
+  botonToggleVideo.addEventListener('click', () => {
+    mostrarVideo = !mostrarVideo;
+    botonToggleVideo.setAttribute('aria-pressed', mostrarVideo ? 'true' : 'false');
+    botonToggleVideo.querySelector('span').textContent = mostrarVideo ? 'Mira' : 'Video';
+    if (lector.activo) {
+      lector.elementoVideo.hidden = !mostrarVideo;
+      mira.hidden = mostrarVideo;
+    }
+    avisar(mostrarVideo ? 'Modo video visible (debug)' : 'Modo mira (producción)', 'info', 2000);
+  });
 
   const tarjetaCamara = crear('section', { clase: 'tarjeta tarjeta--camara', id: 'tarjeta-escanear' });
   tarjetaCamara.append(
@@ -226,7 +258,15 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     }),
     marcoVideo,
     leyendaGuia,
-    crear('div', { clase: 'escaner-controles', hijos: [botonCamara] })
+    crear('div', { 
+      clase: 'escaner-toolbar', 
+      role: 'toolbar',
+      'aria-label': 'Controles de escaneo',
+      hijos: [
+        botonCamara,
+        botonToggleVideo,
+      ]
+    })
   );
 
   // ----- 3. Tarjeta: Ingreso Manual (COLAPSABLE) -----
@@ -483,7 +523,62 @@ export function vistaEscanear({ alAbrirDispositivo }) {
     inputCodigo.value = codigo;
     // La guia de encuadre se adapta al formato leído.
     ajustarGuia(formato);
+    // Feedback visual: mostrar código leído en el marco (modo mira)
+    if (!mostrarVideo) {
+      mostrarCodigoEnMarco(codigo, formato);
+    }
     encolar(codigo);
+  }
+
+  /**
+   * Muestra el código leído en un panel lateral al marco (modo mira).
+   * En modo mira (sin video), da feedback inmediato al lado del escáner.
+   */
+  let timeoutCodigoEnPanel = null;
+  function mostrarCodigoEnPanel(codigo, formato) {
+    if (timeoutCodigoEnPanel) clearTimeout(timeoutCodigoEnPanel);
+    
+    // Crear o reutilizar panel lateral
+    let panel = document.getElementById('panel-codigo-leido');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'panel-codigo-leido';
+      panel.className = 'panel-codigo-leido';
+      // Insertar al lado del marco de video
+      if (marcoVideo && marcoVideo.parentNode) {
+        marcoVideo.parentNode.insertBefore(panel, marcoVideo.nextSibling);
+      }
+    }
+    
+    const nombreFormato = {
+      qr_code: 'QR',
+      code_128: 'Code 128',
+      ean_13: 'EAN-13',
+      ean_8: 'EAN-8',
+      upc_a: 'UPC-A',
+      upc_e: 'UPC-E',
+      code_39: 'Code 39',
+      code_93: 'Code 93',
+      itf: 'ITF',
+      data_matrix: 'Data Matrix',
+      pdf417: 'PDF417',
+      aztec: 'Aztec',
+    }[formato] || formato;
+    
+    panel.innerHTML = `
+      <div class="panel-codigo-leido__header">
+        <span class="panel-codigo-leido__etiqueta">Último leído</span>
+        <span class="panel-codigo-leido__formato">${nombreFormato}</span>
+      </div>
+      <div class="panel-codigo-leido__codigo">${codigo}</div>
+    `;
+    panel.hidden = false;
+    
+    // Auto-ocultar después de 3 segundos
+    if (timeoutCodigoEnPanel) clearTimeout(timeoutCodigoEnPanel);
+    timeoutCodigoEnPanel = setTimeout(() => {
+      if (panel) panel.hidden = true;
+    }, 3000);
   }
 
   /**
@@ -570,10 +665,11 @@ export function vistaEscanear({ alAbrirDispositivo }) {
       // durante un par de cuadros. El timeout evita que una camara que nunca
       // entrega fotogramas deje el girador girando para siempre.
       await primerFotograma(lector.elementoVideo);
-      // El `<video>` del lector es el que tiene el stream: se muestra ese.
-      lector.elementoVideo.hidden = false;
+      // Modo configurable: mostrarVideo = true (video visible tipo videollamada)
+      //                          false = modo mira (solo overlay CSS)
+      lector.elementoVideo.hidden = !mostrarVideo;
       zonaVacia.hidden = true;
-      mira.hidden = false;
+      mira.hidden = mostrarVideo; // mira visible solo en modo mira
       mostrarFormatos();
       armarAvisoDeNadaDetectado();
       pintarBotonCamara(true);

@@ -29,7 +29,7 @@ Por eso, cuando el email no existe, se verifica igual contra un hash DUMMY.
 Cuesta lo mismo y devuelve lo mismo. Ver `_verificar_contra_dummy`.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -42,7 +42,10 @@ from src.core.security import (
     crear_refresh_token,
     decodificar_token,
     hashear_token,
+    password_requiere_rotacion,
+    verificar_device_fingerprint,
     verificar_password,
+    verificar_totp,
 )
 from src.modules.users.models import (
     SesionInvalida,
@@ -82,6 +85,8 @@ def login(
     password: str,
     ip: str | None = None,
     user_agent: str | None = None,
+    totp_token: str | None = None,
+    device_fingerprint_extra: str | None = None,
 ) -> dict[str, Any]:
     """
     Autentica y abre sesión.
@@ -90,6 +95,10 @@ def login(
     clientes que probablemente son SPA o scripts. Para un navegador, la
     alternativa correcta es cookie `HttpOnly` + `Secure` + `SameSite`, que es
     un diseño distinto y no se improvisa con un token en el JSON.
+
+    Parámetros opcionales:
+    - totp_token: código TOTP si el usuario tiene MFA habilitado
+    - device_fingerprint_extra: entropía extra del cliente (canvas, screen, etc.)
     """
     config = get_settings()
 
@@ -107,14 +116,53 @@ def login(
         raise CredencialesInvalidas("Email o contraseña incorrectos.")
 
     if not usuario["is_active"]:
-        # Acá SÍ se dice algo distinto, y es correcto: el usuario existe, se
-        # equivoco de password o está desactivado. Decir "desactivado" no filtra
-        # nada nuevo — para saberlo ya hubo que acertar la contraseña.
         raise CredencialesInvalidas(
             "Tu cuenta esta desactivada. Contacta al administrador."
         )
 
-    tokens = _abrir_sesion(usuario, ip=ip, user_agent=user_agent)
+    # --- MFA / TOTP ---
+    if usuario.get("totp_enabled") and usuario.get("totp_secret"):
+        if not totp_token:
+            raise CredencialesInvalidas("Se requiere código de autenticación de dos factores (2FA).")
+        if not verificar_totp(usuario["totp_secret"], totp_token):
+            raise CredencialesInvalidas("Código 2FA inválido o expirado.")
+
+    # --- Password Rotation Check ---
+    if password_requiere_rotacion(
+        password_changed_at=usuario.get("password_changed_at"),
+        password_rotation_days=usuario.get("password_rotation_days"),
+        password_must_change=usuario.get("password_must_change", False),
+    ):
+        # Login exitoso pero requiere cambio de password
+        # Devolvemos tokens con flag especial; el frontend debe forzar cambio
+        tokens = _abrir_sesion(usuario, ip=ip, user_agent=user_agent, device_fingerprint_extra=device_fingerprint_extra)
+
+        from src.modules.users.service import registrar_auditoria
+
+        registrar_auditoria(
+            accion="LOGIN",
+            tabla="users",
+            record_id=usuario["id"],
+            user_id=usuario["id"],
+            valor_nuevo=f"login desde {ip or 'ip desconocida'} (password rotation required)",
+            ip=ip,
+            user_agent=user_agent,
+        )
+
+        return {
+            **tokens,
+            "usuario": {
+                "id": usuario["id"],
+                "email": usuario["email"],
+                "full_name": usuario["full_name"],
+                "role_name": usuario["role_name"],
+            },
+            "expira_en_segundos": config.access_token_expire_minutes * 60,
+            "password_rotation_required": True,
+            "password_rotation_reason": "rotacion_periodica" if not usuario.get("password_must_change") else "cambio_forzado_admin",
+        }
+
+    tokens = _abrir_sesion(usuario, ip=ip, user_agent=user_agent, device_fingerprint_extra=device_fingerprint_extra)
 
     from src.modules.users.service import registrar_auditoria
 
@@ -140,12 +188,24 @@ def login(
     }
 
 
-def _abrir_sesion(usuario: dict[str, Any], ip=None, user_agent=None) -> dict[str, Any]:
+def _abrir_sesion(
+    usuario: dict[str, Any],
+    ip=None,
+    user_agent=None,
+    device_fingerprint_extra: str | None = None,
+) -> dict[str, Any]:
     """Crea la fila en `sessions` y devuelve los dos tokens."""
+    from src.core.security import generar_device_fingerprint
+
     config = get_settings()
 
     refresh_token, expira_refresh = crear_refresh_token(usuario["id"])
     token_hash = hashear_token(refresh_token)
+
+    # Generar fingerprint del dispositivo
+    device_fp, device_name = generar_device_fingerprint(
+        user_agent, ip, extra=device_fingerprint_extra
+    )
 
     with get_db().connect() as conexion:
         transaccion = conexion.begin()
@@ -157,9 +217,11 @@ def _abrir_sesion(usuario: dict[str, Any], ip=None, user_agent=None) -> dict[str
             conexion.execute(
                 text("""
                 INSERT INTO sessions (
-                    user_id, token_hash, expires_at, user_agent, ip_address
+                    user_id, token_hash, expires_at, user_agent, ip_address,
+                    device_fingerprint, device_name
                 )
-                VALUES (:user_id, :token_hash, :expires_at, :user_agent, :ip)
+                VALUES (:user_id, :token_hash, :expires_at, :user_agent, :ip,
+                        :device_fp, :device_name)
                 RETURNING id
             """),
                 {
@@ -168,6 +230,8 @@ def _abrir_sesion(usuario: dict[str, Any], ip=None, user_agent=None) -> dict[str
                     "expires_at": expira_refresh,
                     "user_agent": (user_agent or "")[:500] or None,
                     "ip": (ip or "")[:45] or None,
+                    "device_fp": device_fp,
+                    "device_name": device_name,
                 },
             )
             .mappings()
@@ -269,7 +333,12 @@ def _limitar_sesiones(user_id: str, conservar: str | None = None) -> None:
             transaccion.commit()
 
 
-def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
+def refresh(
+    refresh_token: str,
+    ip: str | None = None,
+    user_agent: str | None = None,
+    device_fingerprint_extra: str | None = None,
+) -> dict[str, Any]:
     """
     Canjea un refresh por un access nuevo.
 
@@ -280,6 +349,9 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
     Sin rotar, un refresh robado sirve para siempre: se puede revocar la sesión,
     pero el atacante tiene una copia del token y abre otra sesión con el mismo
     valor.
+
+    DEVICE BINDING: Verifica que el fingerprint del dispositivo coincida con el
+    de la sesión original. Si no coincide, revoca TODAS las sesiones (robo detectado).
     """
     config = get_settings()
 
@@ -298,6 +370,7 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
             conexion.execute(
                 text("""
                 SELECT s.id, s.revoked_at, s.expires_at, s.revoked_before,
+                       s.device_fingerprint, s.device_name,
                        u.is_active, u.deleted_at, u.email, u.full_name,
                        r.name AS role_name
                 FROM sessions s
@@ -329,13 +402,42 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
                 "las sesiones: inicia sesion de nuevo."
             )
 
-        if fila["expires_at"] <= datetime.now(timezone.utc):
+        if fila["expires_at"] <= datetime.now(UTC):
             transaccion.rollback()
             raise SesionInvalida("La sesion expiro. Volve a iniciar sesion.")
 
         if not fila["is_active"] or fila["deleted_at"] is not None:
             transaccion.rollback()
             raise SesionInvalida("La cuenta esta desactivada.")
+
+        # --- DEVICE BINDING VERIFICATION ---
+        device_fp_guardado = fila.get("device_fingerprint")
+        if device_fp_guardado and not verificar_device_fingerprint(
+            device_fp_guardado, user_agent, ip, extra=device_fingerprint_extra
+        ):
+            # Fingerprint no coincide = posible robo de token
+            transaccion.rollback()
+            from src.modules.users.service import (
+                registrar_auditoria,
+                revocar_todas_las_sesiones,
+            )
+
+            revocar_todas_las_sesiones(user_id, motivo="device fingerprint mismatch - posible robo de token")
+
+            registrar_auditoria(
+                accion="SECURITY_ALERT",
+                tabla="sessions",
+                record_id=str(fila["id"]),
+                user_id=user_id,
+                valor_nuevo=f"Device fingerprint mismatch: esperado={device_fp_guardado[:16]}... ip={ip} ua={user_agent[:50] if user_agent else 'none'}",
+                ip=ip,
+                user_agent=user_agent,
+            )
+
+            raise SesionInvalida(
+                "Cambio de dispositivo detectado. Por seguridad se cerraron todas "
+                "las sesiones: inicia sesion de nuevo."
+            )
 
         # Se revoca la fila vieja y `_abrir_sesión` crea una nueva. El `sid`
         # cambia, y eso es correcto: el access anterior sigue sirviendo hasta
@@ -359,7 +461,8 @@ def refresh(refresh_token: str, ip: str | None = None) -> dict[str, Any]:
         "role_name": fila["role_name"],
     }
 
-    tokens = _abrir_sesion(usuario, ip=ip)
+    # Pasar fingerprint extra para mantener binding en la nueva sesión
+    tokens = _abrir_sesion(usuario, ip=ip, user_agent=user_agent, device_fingerprint_extra=device_fingerprint_extra)
     tokens["access_expires_in"] = config.access_token_expire_minutes * 60
     tokens["refresh_expires_in"] = config.refresh_token_expire_days * 86400
 
@@ -452,7 +555,7 @@ def cambiar_password_por_api(
     cambió se hizo porque sospechas que alguien entró, dejar las sesiones
     viejas vivas es justamente lo que no hay que hacer.
     """
-    from src.modules.users.service import cambiar_password
+    from src.modules.users.service import cambiar_password, revocar_todas_las_sesiones
 
     cambiar_password(
         user_id=usuario_id,

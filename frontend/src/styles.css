@@ -1283,10 +1283,129 @@ textarea.campo__control {
 }
 .escaner-vacio p { margin: 0; font-size: 0.9rem; }
 
-/* Estado "encendiendo": el marco gira mientras `getUserMedia` espera el
-   permiso del navegador. Sin esto el visor queda idéntico al de cámara apagada
-   y parece que el botón no hace nada. */
-.escaner-vacio--cargando { color: #e2e8f0; }
+.escaner-vacio {
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #cbd5e1;
+  height: 100%;
+}
+.escaner-vacio p { margin: 0; font-size: 0.9rem; }
+
+/* Código leído mostrado en el marco (modo mira) */
+.codigo-leido-mira {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #22c55e;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  z-index: 10;
+  pointer-events: none;
+  animation: fadeInUp 200ms ease-out;
+}
+.codigo-leido-mira[hidden] {
+  display: none;
+}
+.codigo-leido-mira__etiqueta {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #22c55e;
+  font-weight: 600;
+}
+.codigo-leido-mira__codigo {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.02em;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codigo-leido-mira__formato {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Panel lateral para código leído (modo mira) */
+.panel-codigo-leido {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 12px;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #22c55e;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
+  z-index: 10;
+  pointer-events: none;
+  animation: slideInRight 200ms ease-out;
+}
+.panel-codigo-leido[hidden] {
+  display: none;
+}
+.panel-codigo-leido__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+}
+.panel-codigo-leido__etiqueta {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #22c55e;
+  font-weight: 600;
+}
+.panel-codigo-leido__formato {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(34, 197, 94, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.panel-codigo-leido__codigo {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Estado "encendiendo": el marco gira mientras `getUserMedia` espera el */
 .escaner-vacio__icono {
   display: grid;
   place-items: center;
@@ -1468,6 +1587,85 @@ textarea.campo__control {
 /* ---------------------------------------------------------------------------
    Controles escáner
    --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Controles escáner - Toolbar integrada
+   --------------------------------------------------------------------------- */
+.escaner-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  border-top: none;
+  border-radius: 0 0 var(--radio-lg) var(--radio-lg);
+  margin-top: auto;
+}
+
+.escaner-toolbar .boton {
+  flex: 1;
+  max-width: 160px;
+  min-width: 120px;
+}
+
+.escaner-toolbar .boton:first-child {
+  margin-right: auto;
+}
+
+/* Botón cámara - toggle principal */
+.boton--camara-toggle {
+  background: var(--primario);
+  color: var(--texto-boton);
+  border-color: transparent;
+}
+.boton--camara-toggle:hover:not(:disabled) {
+  background: var(--primario-fuerte);
+}
+.boton--camara-toggle[aria-pressed="true"] {
+  background: var(--error);
+  color: white;
+}
+.boton--camara-toggle[aria-pressed="true"]:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* Toggle modo video/mira */
+.boton--toggle-modo {
+  background: var(--superficie-3);
+  color: var(--texto);
+  border-color: var(--borde);
+}
+.boton--toggle-modo:hover:not(:disabled) {
+  background: var(--borde);
+}
+.boton--toggle-modo[aria-pressed="true"] {
+  background: var(--primario);
+  color: var(--texto-boton);
+  border-color: var(--primario);
+}
+
+.boton__texto-corto {
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive toolbar */
+@media (max-width: 480px) {
+  .escaner-toolbar .boton {
+    flex: 1 1 50%;
+    min-width: 0;
+    padding: 0 var(--space-2);
+  }
+  .boton__texto-corto {
+    display: none;
+  }
+  .boton--toggle-modo .boton__texto-corto {
+    display: inline;
+  }
+}
+
 .escaner-controles {
   margin-top: var(--space-3);
 }

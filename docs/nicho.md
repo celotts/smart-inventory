@@ -58,7 +58,7 @@ El activo se rompió y alguien tiene que resolverlo **en un plazo**.
 Esto no es una lista de pendientes: son decisiones.
 
 | No es | Por qué |
-|---|---|
+| --- | --- |
 | Un ERP | No factura, no emite comprobantes, no hace contabilidad, no tiene RRHH. |
 | Un WMS de depósito | No maneja lotes, ni caducidad por unidad, ni FEFO/LIFO. Un equipo de TI no caduca: se amortiza o se da de baja. |
 | Un e-commerce | No hay carrito, ni pasarela de pago, ni catálogo público. |
@@ -74,7 +74,7 @@ de *activos y de quien los responde*, es de esta app.
 ## 4. Cómo se compara con lo comercial
 
 | Si lo que se busca es… | La alternativa de mercado | Por qué |
-|---|---|---|
+| --- | --- | --- |
 | Facturación, contabilidad, e-commerce, integrations | Odoo, Zoho Inventory, InveTree | Son ERP: hacen de todo, y por eso hacen de todo regular. |
 | Activo fijo + tickets, y nada más | **Snipe-IT** (simple, activo) | Comparable de verdad. Snipe es más chico y más simple. |
 | Activo + tickets + inventario + contratos | **GLPI** (con FusionInventory) | Es la alternativa más completa de la categoría. |

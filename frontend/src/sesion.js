@@ -479,6 +479,10 @@ configurar({
     pintarLogin();
   },
   alRequerirLogin: () => {
+    // LIMPIAR HEADER ANTES DE MOSTRAR MODAL: no mostrar datos del usuario anterior
+    setUsuario(null);
+    actualizarCabeceraUsuario();
+    
     mostrarLoginModal(async (datos) => {
       setUsuario(datos.usuario ?? { role_name: datos.role_name });
       await cargarUsuario();

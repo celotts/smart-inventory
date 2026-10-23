@@ -3,8 +3,9 @@ Decoradores para auditoría automática en servicios.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Any
+from typing import Any
 
 from src.core.audit_enhanced import registrar_auditoria_completa
 from src.core.audit_middleware import obtener_contexto_auditoria

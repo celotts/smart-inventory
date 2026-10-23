@@ -4,14 +4,14 @@ Control de activos para empresas: inventario de dispositivos con escáner de
 códigos, incidencias con SLA y mantenimiento, con IA integrada para análisis y
 respuesta de preguntas en lenguaje natural.
 
-```
+```bash
 make up-dev          # levanta todo (con IA apuntando a tu Ollama local)
 make ai-pull         # descarga el modelo: paso único, tarda minutos
 make ai-test         # prueba los 4 endpoints
 ```
 
-- Front: http://localhost:5175  (app de escaneo, instalable)
-- API: http://localhost:5002 · Docs: http://localhost:5002/docs
+- Front: <http://localhost:5175>  (app de escaneo, instalable)
+- API: <http://localhost:5002> · Docs: <http://localhost:5002/docs>
 
 > **La cámara necesita contexto seguro.** El navegador solo da acceso a la
 > cámara en HTTPS o en `localhost`. Con la app en `http://localhost:5175`
@@ -27,7 +27,7 @@ navegador (`BarcodeDetector`), sin librerías externas. Funciona en Chrome, Edge
 y Safari 17+; donde no está, hay ingreso manual del código.
 
 | Endpoint | Qué hace |
-|---|---|
+| --- | --- |
 | `GET /api/devices/resolve?codigo=` | Resuelve un QR o serial a un componente. Nunca da 404: devuelve `encontrado` y un motivo accionable |
 | `POST /api/movements/escanear` | Registra un escaneo. **Idempotente** por `client_scan_id` |
 | `POST /api/movements/escanear-lote` | Conteo cíclico de depósito, elemento por elemento |
@@ -72,7 +72,7 @@ no en Python: escriben el estado cuatro caminos distintos —el escáner,
 ## Qué hay adentro
 
 | Parte | Qué es |
-|---|---|
+| --- | --- |
 | `database/init.sql` | Esquema completo: tablas, índices, CHECKs, triggers |
 | `database/migrations/` | Migraciones para bases que ya existen |
 | `backend/src/core/llm/` | Proveedores de IA (Ollama, OpenAI) tras una interfaz común |
@@ -88,7 +88,7 @@ no en Python: escriben el estado cuatro caminos distintos —el escáner,
 Cuatro endpoints, todos bajo `/api/ai`:
 
 | Endpoint | Qué hace |
-|---|---|
+| --- | --- |
 | `POST /api/ai/preguntar` | Pregunta en lenguaje natural → SQL → datos → explicación |
 | `GET /api/ai/analisis/dispositivo/{id}` | Clasificación y puntaje de riesgo de un equipo |
 | `POST /api/ai/reporte` | Reporte operativo en prosa, con cifras de Postgres |
@@ -184,7 +184,7 @@ para que un script diga "ok" es peor que el error.
 
 ## Comandos
 
-```
+```bash
 make                # lista de todos los targets
 make up             # build + up, espera a que todo esté healthy
 make up-dev         # con recarga de código y logs en DEBUG
@@ -234,7 +234,7 @@ make ai-test          # incluye la suite de seguridad
 ### Ramas
 
 | Rama | Qué es |
-|---|---|
+| --- | --- |
 | `main` | Lo que está en producción. |
 | `develop` | La integración: todo lo terminado se mergea acá. |
 | `feature/<nombre>` | Una cosa que se está haciendo. |
@@ -244,7 +244,7 @@ merge de `develop`. El detalle está en [`docs/flujo-trabajo.md`](docs/flujo-tra
 
 ### El código
 
-```
+```text
 backend/src/
 ├── main.py                  # app + /health (no consulta a la IA, a propósito)
 ├── core/
@@ -272,7 +272,7 @@ backend/src/
     └── users/                # auth, sesiones, roles, auditoría
 ```
 
-```
+```text
 frontend/
 ├── index.html               # esqueleto; ningún script inline (la CSP no cede)
 ├── nginx.conf               # CSP estricta, cámara habilitada, /api en proxy

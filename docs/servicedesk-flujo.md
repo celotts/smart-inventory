@@ -29,7 +29,7 @@ La consequence de esa decision es una regla que atraviesa todo el modulo:
 
 ## 2. El flujo, de punta a punta
 
-```
+```text
   REPORTA                  TOMA                  RESUELVE
   (cualquiera)      (tecnico, un clic)     (tecnico, con el destino)
        |                    |                        |
@@ -57,7 +57,7 @@ NULL` y estado vivo).
 No es lo mismo que "sin asignar":
 
 | Filtro | Que mira | Para que sirve |
-|---|---|---|
+| --- | --- | --- |
 | `sin_atender` | la primera respuesta | El trabajo sin dueno: se pierde. |
 | `solo_sin_asignar` | `assigned_to IS NULL` | Lo que nadie se adjudico. |
 
@@ -98,7 +98,7 @@ mismo caso.
 El `destino_equipo` es lo que hace que este modulo sea el control del stock:
 
 | Destino | Que pasa con el equipo | Que pasa con la base |
-|---|---|---|
+| --- | --- | --- |
 | `NINGUNO` | No cambia. | — |
 | `TALLER` | Pasa a `IN_REPAIR` y deja de contar como disponible. | Se abre una **orden de trabajo** (`repairs`) ligada al caso. |
 | `REPARADO` | Vuelve a `IN_WAREHOUSE` y vuelve a estar disponible. | La orden de trabajo se cierra como `REPAIRED`. |
@@ -129,7 +129,7 @@ Los avisos viven en `incident_notifications` (no en un cartel flotante): un
 aviso de SLA tiene que quedar, y tiene que saber a quien se le dio y cuando.
 
 | Tipo | Cuando | A quien |
-|---|---|---|
+| --- | --- | --- |
 | `CASE_CLAIMED` | Alguien toma el caso. | Al que lo reporto. |
 | `CASE_RESOLVED` | El caso se resuelve. | Al que lo reporto. |
 | `SLA_DUE_SOON` | Faltan 30 minutos para el plazo. | Al responsable (o a quien puede resolver). |
@@ -150,7 +150,7 @@ supervisor es el rol `ADMIN` por defecto, y se puede cambiar por usuario.
 En `GET /api/incidents/metrics`:
 
 | Campo | Que es |
-|---|---|
+| --- | --- |
 | `sin_atender` | Casos abiertos que nadie respondio. |
 | `sin_atender_antiguedad_h` | Horas que lleva esperando el caso sin atender MAS VIEJO. |
 | `en_espera` | Casos en `WAITING` (esperando repuesto o aprobacion). |
@@ -164,7 +164,7 @@ Desk y el KPI "Sin atender", que lleva a la bandeja con el filtro puesto.
 ## 5. Los permisos
 
 | Permiso | Que habilita |
-|---|---|
+| --- | --- |
 | `incidents:read` | Ver los casos y el tablero. |
 | `incidents:create` | Reportar un caso. |
 | `incidents:manage` | Tomar casos, cambiar el estado, resolver, comentar. |
