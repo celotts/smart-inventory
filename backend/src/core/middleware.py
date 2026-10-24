@@ -125,6 +125,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
 
+        # HSTS con preload + Expect-CT para producción HTTPS
+        if request.url.scheme == "https":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains; preload",
+            )
+            response.headers.setdefault(
+                "Expect-CT",
+                'max-age=86400, enforce, report-uri="/api/security/expect-ct-report"',
+            )
+
+        # Headers de seguridad adicionales para TODAS las respuestas (API + Frontend)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()",
+        )
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+
         # Rutas que son API (necesitan CSP estricta sin scripts)
         es_api = request.url.path.startswith(("/api/", "/health", "/api/"))
 
@@ -133,22 +156,40 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # blanco. El reason es el mismo por el que no se sirve `/docs` en
         # producción: es una superficie, no un endpoint de negocio.
         if not request.url.path.startswith(("/docs", "/redoc")):
-            if es_api:
+            if request.url.path.startswith(("/api/", "/health")):
                 # API: CSP estricta sin scripts
                 csp = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
             else:
                 # Frontend: CSP con nonce para permitir scripts con nonce
+                nonce = uuid.uuid4().hex
+                request.state.csp_nonce = nonce
                 csp = CSP_API.format(nonce=nonce)
             response.headers.setdefault("Content-Security-Policy", csp)
             # Pasar nonce a los templates si se renderizan
-            request.state.csp_nonce = nonce
+            request.state.csp_nonce = getattr(request.state, "csp_nonce", None)
 
-        # HSTS solo si viene por HTTPS (evita romper dev local)
+        # HSTS con preload + Expect-CT para producción HTTPS
         if request.url.scheme == "https":
             response.headers.setdefault(
                 "Strict-Transport-Security",
-                "max-age=31536000; includeSubDomains",
+                "max-age=31536000; includeSubDomains; preload",
             )
+            response.headers.setdefault(
+                "Expect-CT",
+                'max-age=86400, enforce, report-uri="/api/security/expect-ct-report"',
+            )
+
+        # Headers de seguridad adicionales para TODAS las respuestas (API + Frontend)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()",
+        )
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
 
         return response
 

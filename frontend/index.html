@@ -22,8 +22,20 @@
   <link rel="apple-touch-icon" href="/icons/icon-180.png" />
   <link rel="stylesheet" href="/src/styles.css" />
 
-  <!-- Import map externa para resolver módulos npm en el navegador sin bundler -->
-  <link rel="importmap" href="/importmap.json">
+  <!-- Import map inline para resolver módulos npm en el navegador sin bundler.
+       Usar script type="importmap" inline asegura que se procese ANTES de cualquier módulo. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "qrcode": "https://esm.sh/qrcode@1.5.3",
+      "bwip-js": "https://esm.sh/bwip-js@4.5.1"
+    },
+    "integrity": {
+      "qrcode": "sha384-c6212bfd0e18961b9923cf9ca701e2748da5c1a859e67a8d0187ad73e850df36",
+      "bwip-js": "sha384-1a15ddfecbd4d3d351f5642056f3c7687cac7570a31d7b04bf4cc5c5f8cd3231"
+    }
+  }
+  </script>
 
   <!--
     =====================================================================

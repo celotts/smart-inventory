@@ -356,6 +356,61 @@ def root() -> dict:
     }
 
 
+# --- Security.txt endpoint (RFC 9116) ---
+@app.get("/.well-known/security.txt", tags=["security"], include_in_schema=False)
+def security_txt() -> Response:
+    """Política de divulgación responsable de vulnerabilidades (RFC 9116)."""
+    contenido = """Contact: mailto:security@fcquality.com
+Expires: 2026-12-31T23:59:59.000Z
+Preferred-Languages: es, en
+Canonical: https://smart-inventory.fcquality.com/.well-known/security.txt
+Policy: https://smart-inventory.fcquality.com/security-policy
+Acknowledgments: https://smart-inventory.fcquality.com/hall-of-fame
+Hiring: https://smart-inventory.fcquality.com/careers
+Encryption: https://smart-inventory.fcquality.com/pgp-key
+"""
+    return Response(
+        content=contenido,
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "max-age=86400"},
+    )
+
+
+# Expect-CT report endpoint
+@app.post("/api/security/expect-ct-report", tags=["security"], include_in_schema=False)
+async def expect_ct_report(request: Request) -> Response:
+    """Endpoint para reportes de Expect-CT (Certificate Transparency)."""
+    try:
+        body = await request.json()
+        # Log para auditoría / SIEM
+        import logging
+        logging.getLogger("security.expect_ct").warning(
+            "Expect-CT report: %s", body
+        )
+    except Exception:
+        pass
+    return Response(status_code=204)
+
+
+# CSP Report endpoint
+@app.post("/api/security/csp-report", tags=["security"], include_in_schema=False)
+async def csp_report(request: Request) -> Response:
+    """Endpoint para reportes de violaciones CSP (Content-Security-Policy-Report-Only)."""
+    try:
+        body = await request.json()
+        import logging
+        logging.getLogger("security.csp").warning(
+            "CSP Violation: %s | directive: %s | blocked: %s | source: %s",
+            body.get("csp-report", {}).get("document-uri", ""),
+            body.get("csp-report", {}).get("violated-directive", ""),
+            body.get("csp-report", {}).get("blocked-uri", ""),
+            request.client.host if request.client else "unknown",
+        )
+    except Exception:
+        pass
+    return Response(status_code=204)
+
+
 if __name__ == "__main__":
     # 0.0.0.0 y no localhost: dentro del contenedor el bind por defecto es
     # solo loopback y el puerto publicado del host nunca llega.
